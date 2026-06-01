@@ -783,24 +783,17 @@ def page_weekly_report(user: Dict[str, Any]) -> None:
 
 
 def render_back_home_button(page: str) -> None:
+    """Show a compact back-to-home control only after the user opens an inner page."""
     if page == "home":
         return
 
-    st.markdown(
-        """
-        <div class="kp-back-home-shell">
-            <div class="kp-back-home-orb">☽</div>
-            <div>
-                <div class="kp-back-home-title">Bu sayfadan ayrılmadan önce</div>
-                <div class="kp-back-home-text">Ana ekrana dönerek tüm deneyimleri yeniden görebilirsin.</div>
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-    if st.button("← Ana sayfaya dön", key=f"back_home_{page}", use_container_width=True):
-        go_to_page("home")
-        st.rerun()
+    left_col, _ = st.columns([1.2, 4.8])
+    with left_col:
+        if st.button("← Ana sayfa", key=f"back_home_{page}", use_container_width=True):
+            go_to_page("home")
+            st.rerun()
+
+    st.markdown('<div class="kp-page-top-spacer"></div>', unsafe_allow_html=True)
 
 
 def render_page(page: str, user: Dict[str, Any]) -> None:
