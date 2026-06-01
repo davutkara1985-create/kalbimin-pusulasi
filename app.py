@@ -34,6 +34,7 @@ from services.ui import (
     render_plan_cards,
     render_safety_notice,
     render_section_header,
+    render_sidebar_brand,
 )
 
 
@@ -41,10 +42,62 @@ st.set_page_config(
     page_title=APP_NAME,
     page_icon="🔮",
     layout="centered",
-    initial_sidebar_state="collapsed",
+    initial_sidebar_state="expanded",
 )
 
 inject_css()
+
+
+MENU_GROUPS = [
+    (
+        "Ana Bölüm",
+        "☽",
+        [
+            ("home", "Ana Sayfa", "⌂"),
+            ("subscription", "Planlar & Abonelik", "✦"),
+        ],
+    ),
+    (
+        "Aşk & İlişki",
+        "♡",
+        [
+            ("relationship", "İlişki Yorumu", "♡"),
+            ("message_analysis", "Mesaj Analizi", "✉"),
+            ("weekly_report", "Haftalık Aşk Raporu", "✦"),
+            ("love_fortune", "Aşk Falı", "☽"),
+            ("daily_energy", "Günlük Aşk Enerjisi", "✺"),
+        ],
+    ),
+    (
+        "Duygusal & Kişisel Analiz",
+        "◌",
+        [
+            ("journal", "Duygusal Paylaşım / Günlük", "✧"),
+            ("emotion", "Duygu Analizi", "◌"),
+            ("zodiac", "Kişisel Burç & Uyum", "♓"),
+        ],
+    ),
+    (
+        "Fal & Kehanet",
+        "✧",
+        [
+            ("mini_tarot", "Mini Tarot Falı", "◇"),
+            ("tarot", "Tarot Falı", "✧"),
+            ("mini_katina", "Mini Katina Falı", "⚿"),
+            ("katina", "Katina Falı", "🗝"),
+            ("coffee_text", "Kahve Falı", "☕"),
+            ("coffee_image", "Kahve Falı (Resim Yüklemeli)", "☕"),
+        ],
+    ),
+    (
+        "Ruhsal & Zihinsel",
+        "☉",
+        [
+            ("meditation", "Kısa Meditasyonlar", "☽"),
+            ("rituals", "Ritüeller", "✺"),
+        ],
+    ),
+]
 
 
 def normalize_email(email: str) -> str:
@@ -60,8 +113,7 @@ def stop_with_setup_error(exc: Exception) -> None:
 
 
 def sidebar_user() -> Optional[Dict[str, Any]]:
-    st.sidebar.markdown("### 🔮 Kalbimin Pusulası")
-    st.sidebar.caption("Mistik, modern ve premium AI fal/ilişki deneyimi.")
+    render_sidebar_brand()
 
     email = normalize_email(
         st.sidebar.text_input("E-posta", placeholder="ornek@mail.com")
@@ -107,17 +159,44 @@ def sidebar_user() -> Optional[Dict[str, Any]]:
 
 
 def navigation() -> str:
-    options = ["home", "subscription"] + list(MODULES.keys())
+    if "current_page" not in st.session_state:
+        st.session_state["current_page"] = "home"
 
-    def label(key: str) -> str:
-        if key == "home":
-            return "🏠 Ana Sayfa"
-        if key == "subscription":
-            return "💎 Planlar & Abonelik"
-        module = MODULES[key]
-        return f"{module['icon']} {module['title']}"
+    if st.session_state.get("go_subscription", False):
+        st.session_state["current_page"] = "subscription"
+        st.session_state["go_subscription"] = False
 
-    return st.sidebar.radio("Menü", options, format_func=label)
+    st.sidebar.markdown("<div class='kp-sidebar-menu-title'>Menü</div>", unsafe_allow_html=True)
+
+    current_page = st.session_state.get("current_page", "home")
+    for group_title, group_icon, items in MENU_GROUPS:
+        st.sidebar.markdown(
+            f"""
+            <div class="kp-sidebar-section-title">
+                <span>{group_icon}</span>
+                <span>{group_title}</span>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        for page_key, label, icon in items:
+            if current_page == page_key:
+                st.sidebar.markdown(
+                    f"""
+                    <div class="kp-side-nav-item active">
+                        <span class="kp-side-nav-icon">{icon}</span>
+                        <span>{label}</span>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+            else:
+                if st.sidebar.button(f"{icon}  {label}", key=f"nav_btn_{page_key}", use_container_width=True):
+                    st.session_state["current_page"] = page_key
+                    st.rerun()
+
+    return st.session_state.get("current_page", "home")
 
 
 def ensure_module_access(module_key: str, plan: str) -> bool:
@@ -132,7 +211,8 @@ def ensure_module_access(module_key: str, plan: str) -> bool:
         f"Bu modül {PLAN_CONFIG[min_plan]['name']} ve üzeri kullanıcılar için açık. Planlar sayfasından yükseltme talebi oluşturabilirsin."
     )
     if st.button("Planları gör", key=f"plans_for_{module_key}"):
-        st.session_state["go_subscription"] = True
+        st.session_state["current_page"] = "subscription"
+        st.rerun()
     return False
 
 
@@ -195,8 +275,13 @@ def page_home(user: Dict[str, Any]) -> None:
         "Aşk & İlişki": [
             "relationship",
             "message_analysis",
+            "weekly_report",
             "love_fortune",
             "daily_energy",
+        ],
+        "Duygusal & Kişisel Analiz": [
+            "journal",
+            "emotion",
             "zodiac",
         ],
         "Fal & Kehanet": [
@@ -207,12 +292,9 @@ def page_home(user: Dict[str, Any]) -> None:
             "coffee_text",
             "coffee_image",
         ],
-        "Analiz": [
-            "journal",
-            "emotion",
+        "Ruhsal & Zihinsel": [
             "meditation",
             "rituals",
-            "weekly_report",
         ],
     }
 
