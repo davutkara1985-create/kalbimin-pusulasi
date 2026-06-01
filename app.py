@@ -28,17 +28,20 @@ from services.ui import (
     inject_css,
     render_footer,
     render_hero,
+    render_metric_card,
+    render_module_card,
     render_module_intro,
     render_plan_cards,
     render_safety_notice,
+    render_section_header,
 )
 
 
 st.set_page_config(
     page_title=APP_NAME,
-    page_icon="💗",
-    layout="wide",
-    initial_sidebar_state="expanded",
+    page_icon="🔮",
+    layout="centered",
+    initial_sidebar_state="collapsed",
 )
 
 inject_css()
@@ -57,8 +60,8 @@ def stop_with_setup_error(exc: Exception) -> None:
 
 
 def sidebar_user() -> Optional[Dict[str, Any]]:
-    st.sidebar.markdown("### 💗 Kalbimin Pusulası")
-    st.sidebar.caption("Sakin, modern ve kişisel AI fal/ilişki deneyimi.")
+    st.sidebar.markdown("### 🔮 Kalbimin Pusulası")
+    st.sidebar.caption("Mistik, modern ve premium AI fal/ilişki deneyimi.")
 
     email = normalize_email(
         st.sidebar.text_input("E-posta", placeholder="ornek@mail.com")
@@ -167,36 +170,67 @@ def run_ai(
 
 
 def page_home(user: Dict[str, Any]) -> None:
-    render_hero()
+    render_hero(user)
     render_safety_notice()
 
     plan = user.get("plan", "free")
-    col1, col2, col3 = st.columns(3)
     used = get_usage(user["email"])
     limit = PLAN_CONFIG[plan]["daily_limit"]
-    col1.metric("Aktif plan", PLAN_CONFIG[plan]["name"])
-    col2.metric("Bugünkü kullanım", f"{used}/{limit}")
-    col3.metric("Kalan hak", max(limit - used, 0))
+    remaining = max(limit - used, 0)
 
-    st.markdown("### Bugün neye ihtiyacın var?")
-    keys = list(MODULES.keys())
-    for start in range(0, len(keys), 3):
-        cols = st.columns(3)
-        for col, key in zip(cols, keys[start:start + 3]):
-            module = MODULES[key]
-            lock = "" if plan_allows(plan, module["min_plan"]) else " 🔒"
-            with col:
-                st.markdown(
-                    f"""
-                    <div class="kp-card">
-                        <h3>{module['icon']} {module['title']}{lock}</h3>
-                        <p>{module['description']}</p>
-                    </div>
-                    """,
-                    unsafe_allow_html=True,
-                )
+    render_section_header(
+        "Ay döngün",
+        "Kullanım hakkın, aktif planın ve bugünkü enerjin tek bakışta.",
+        kicker="Premium dashboard",
+    )
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        render_metric_card("Plan", PLAN_CONFIG[plan]["name"], "Aktif üyelik")
+    with col2:
+        render_metric_card("Kullanım", f"{used}/{limit}", "Bugünkü yorum")
+    with col3:
+        render_metric_card("Kalan", str(remaining), "Hak")
 
-    st.markdown("### Plan özeti")
+    sections = {
+        "Aşk & İlişki": [
+            "relationship",
+            "message_analysis",
+            "love_fortune",
+            "daily_energy",
+            "zodiac",
+        ],
+        "Fal & Kehanet": [
+            "mini_tarot",
+            "tarot",
+            "mini_katina",
+            "katina",
+            "coffee_text",
+            "coffee_image",
+        ],
+        "Analiz": [
+            "journal",
+            "emotion",
+            "meditation",
+            "rituals",
+            "weekly_report",
+        ],
+    }
+
+    for section_title, keys in sections.items():
+        render_section_header(
+            section_title,
+            "Kartlardan birini sol menüden seçerek deneyimi başlatabilirsin.",
+            kicker="Mystic modules",
+        )
+        for start in range(0, len(keys), 2):
+            cols = st.columns(2)
+            for col, key in zip(cols, keys[start:start + 2]):
+                module = MODULES[key]
+                locked = not plan_allows(plan, module["min_plan"])
+                with col:
+                    render_module_card(key, module, locked=locked)
+
+    render_section_header("Plan özeti", "Premium hissini abonelik kartlarında da koruyan koyu cam tasarım.", kicker="Subscription")
     render_plan_cards(plan)
 
 
