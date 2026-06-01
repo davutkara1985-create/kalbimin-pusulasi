@@ -104,21 +104,20 @@ VALID_PAGES = {page_key for _, _, items in MENU_GROUPS for page_key, _, _ in ite
 
 
 def go_to_page(page_key: str) -> None:
-    """Navigate inside the Streamlit single-page app and keep the URL in sync."""
+    """Navigate inside the Streamlit single-page app without refreshing the browser.
+
+    Query-string links are intentionally not used here. They can refresh the
+    app, clear the email field in some sessions, and reopen a stale page after
+    the user types the email again.
+    """
     if page_key not in VALID_PAGES:
         page_key = "home"
     st.session_state["current_page"] = page_key
-    st.query_params["page"] = page_key
 
 
-def read_page_from_url() -> Optional[str]:
-    """Read ?page=... safely from Streamlit query params."""
-    raw_page = st.query_params.get("page", None)
-    if isinstance(raw_page, list):
-        raw_page = raw_page[0] if raw_page else None
-    if raw_page in VALID_PAGES:
-        return str(raw_page)
-    return None
+def reset_navigation_to_home() -> None:
+    """Return the user to the home page while preserving widget/session state."""
+    st.session_state["current_page"] = "home"
 
 
 def normalize_email(email: str) -> str:
@@ -148,6 +147,11 @@ def sidebar_user() -> Optional[Dict[str, Any]]:
         user = get_or_create_user(email)
     except Exception as exc:
         stop_with_setup_error(exc)
+
+    previous_email = st.session_state.get("active_email")
+    if previous_email != email:
+        st.session_state["active_email"] = email
+        reset_navigation_to_home()
 
     plan = user.get("plan", "free")
     used = get_usage(email)
@@ -180,11 +184,8 @@ def sidebar_user() -> Optional[Dict[str, Any]]:
 
 
 def navigation() -> str:
-    url_page = read_page_from_url()
-    if url_page:
-        st.session_state["current_page"] = url_page
-    elif "current_page" not in st.session_state:
-        go_to_page("home")
+    if "current_page" not in st.session_state:
+        reset_navigation_to_home()
 
     if st.session_state.get("go_subscription", False):
         st.session_state["go_subscription"] = False
@@ -334,7 +335,10 @@ def page_home(user: Dict[str, Any]) -> None:
                 module = MODULES[key]
                 locked = not plan_allows(plan, module["min_plan"])
                 with col:
-                    render_module_card(key, module, locked=locked, href_page=key)
+                    render_module_card(key, module, locked=locked)
+                    if st.button("Bu bölüme git →", key=f"home_open_{key}", use_container_width=True):
+                        go_to_page(key)
+                        st.rerun()
 
     render_section_header("Plan özeti", "Premium hissini abonelik kartlarında da koruyan koyu cam tasarım.", kicker="Subscription")
     render_plan_cards(plan)
@@ -783,14 +787,14 @@ def page_weekly_report(user: Dict[str, Any]) -> None:
 
 
 def render_back_home_button(page: str) -> None:
-    """Show a compact back-to-home control only after the user opens an inner page."""
-    if page == "home":
+    """Show a compact back-to-home control only on inner pages."""
+    if not page or page == "home":
         return
 
-    left_col, _ = st.columns([1.2, 4.8])
+    left_col, _ = st.columns([1.15, 4.85])
     with left_col:
         if st.button("← Ana sayfa", key=f"back_home_{page}", use_container_width=True):
-            go_to_page("home")
+            reset_navigation_to_home()
             st.rerun()
 
     st.markdown('<div class="kp-page-top-spacer"></div>', unsafe_allow_html=True)
@@ -840,6 +844,7 @@ def render_page(page: str, user: Dict[str, Any]) -> None:
 def main() -> None:
     user = sidebar_user()
     if not user:
+        reset_navigation_to_home()
         render_hero()
         render_safety_notice()
         st.info("Sol menüden e-posta adresini yazarak başlayabilirsin.")
