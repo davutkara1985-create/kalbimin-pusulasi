@@ -100,6 +100,27 @@ MENU_GROUPS = [
 ]
 
 
+VALID_PAGES = {page_key for _, _, items in MENU_GROUPS for page_key, _, _ in items}
+
+
+def go_to_page(page_key: str) -> None:
+    """Navigate inside the Streamlit single-page app and keep the URL in sync."""
+    if page_key not in VALID_PAGES:
+        page_key = "home"
+    st.session_state["current_page"] = page_key
+    st.query_params["page"] = page_key
+
+
+def read_page_from_url() -> Optional[str]:
+    """Read ?page=... safely from Streamlit query params."""
+    raw_page = st.query_params.get("page", None)
+    if isinstance(raw_page, list):
+        raw_page = raw_page[0] if raw_page else None
+    if raw_page in VALID_PAGES:
+        return str(raw_page)
+    return None
+
+
 def normalize_email(email: str) -> str:
     return email.strip().lower()
 
@@ -159,12 +180,15 @@ def sidebar_user() -> Optional[Dict[str, Any]]:
 
 
 def navigation() -> str:
-    if "current_page" not in st.session_state:
-        st.session_state["current_page"] = "home"
+    url_page = read_page_from_url()
+    if url_page:
+        st.session_state["current_page"] = url_page
+    elif "current_page" not in st.session_state:
+        go_to_page("home")
 
     if st.session_state.get("go_subscription", False):
-        st.session_state["current_page"] = "subscription"
         st.session_state["go_subscription"] = False
+        go_to_page("subscription")
 
     st.sidebar.markdown("<div class='kp-sidebar-menu-title'>Menü</div>", unsafe_allow_html=True)
 
@@ -193,7 +217,7 @@ def navigation() -> str:
                 )
             else:
                 if st.sidebar.button(f"{icon}  {label}", key=f"nav_btn_{page_key}", use_container_width=True):
-                    st.session_state["current_page"] = page_key
+                    go_to_page(page_key)
                     st.rerun()
 
     return st.session_state.get("current_page", "home")
@@ -211,7 +235,7 @@ def ensure_module_access(module_key: str, plan: str) -> bool:
         f"Bu modül {PLAN_CONFIG[min_plan]['name']} ve üzeri kullanıcılar için açık. Planlar sayfasından yükseltme talebi oluşturabilirsin."
     )
     if st.button("Planları gör", key=f"plans_for_{module_key}"):
-        st.session_state["current_page"] = "subscription"
+        go_to_page("subscription")
         st.rerun()
     return False
 
@@ -301,7 +325,7 @@ def page_home(user: Dict[str, Any]) -> None:
     for section_title, keys in sections.items():
         render_section_header(
             section_title,
-            "Kartlardan birini sol menüden seçerek deneyimi başlatabilirsin.",
+            "Kartlardan birine dokunarak doğrudan ilgili deneyime geçebilirsin.",
             kicker="Mystic modules",
         )
         for start in range(0, len(keys), 2):
@@ -310,7 +334,7 @@ def page_home(user: Dict[str, Any]) -> None:
                 module = MODULES[key]
                 locked = not plan_allows(plan, module["min_plan"])
                 with col:
-                    render_module_card(key, module, locked=locked)
+                    render_module_card(key, module, locked=locked, href_page=key)
 
     render_section_header("Plan özeti", "Premium hissini abonelik kartlarında da koruyan koyu cam tasarım.", kicker="Subscription")
     render_plan_cards(plan)
@@ -758,7 +782,30 @@ def page_weekly_report(user: Dict[str, Any]) -> None:
         run_ai(email, "weekly_report", prompt, {"mood": mood, "focus": focus, "sign": sign})
 
 
+def render_back_home_button(page: str) -> None:
+    if page == "home":
+        return
+
+    st.markdown(
+        """
+        <div class="kp-back-home-shell">
+            <div class="kp-back-home-orb">☽</div>
+            <div>
+                <div class="kp-back-home-title">Bu sayfadan ayrılmadan önce</div>
+                <div class="kp-back-home-text">Ana ekrana dönerek tüm deneyimleri yeniden görebilirsin.</div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    if st.button("← Ana sayfaya dön", key=f"back_home_{page}", use_container_width=True):
+        go_to_page("home")
+        st.rerun()
+
+
 def render_page(page: str, user: Dict[str, Any]) -> None:
+    render_back_home_button(page)
+
     if page == "home":
         page_home(user)
     elif page == "subscription":
