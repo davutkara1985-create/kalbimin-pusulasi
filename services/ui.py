@@ -12,27 +12,27 @@ APP_NAME = "Kalbimin Pusulası"
 
 
 MODULE_VISUALS: Dict[str, Tuple[str, str, str]] = {
-    "journal": ("Aşk & İlişki", "✉", "water"),
     "relationship": ("Aşk & İlişki", "♡", "fire"),
     "message_analysis": ("Aşk & İlişki", "✉", "air"),
-    "love_fortune": ("Aşk & İlişki", "♡", "fire"),
-    "daily_energy": ("Aşk & İlişki", "✦", "air"),
-    "zodiac": ("Aşk & İlişki", "♓", "air"),
-    "mini_tarot": ("Fal & Kehanet", "✧", "fire"),
+    "weekly_report": ("Aşk & İlişki", "✦", "air"),
+    "love_fortune": ("Aşk & İlişki", "☽", "fire"),
+    "daily_energy": ("Aşk & İlişki", "✺", "air"),
+    "journal": ("Duygusal & Kişisel Analiz", "✧", "water"),
+    "emotion": ("Duygusal & Kişisel Analiz", "◌", "water"),
+    "zodiac": ("Duygusal & Kişisel Analiz", "♓", "air"),
+    "mini_tarot": ("Fal & Kehanet", "◇", "fire"),
     "tarot": ("Fal & Kehanet", "✧", "fire"),
     "mini_katina": ("Fal & Kehanet", "⚿", "earth"),
-    "katina": ("Fal & Kehanet", "⚿", "earth"),
+    "katina": ("Fal & Kehanet", "🗝", "earth"),
     "coffee_text": ("Fal & Kehanet", "☕", "earth"),
     "coffee_image": ("Fal & Kehanet", "☕", "earth"),
-    "emotion": ("Analiz", "◌", "water"),
-    "meditation": ("Analiz", "☽", "air"),
-    "rituals": ("Analiz", "✺", "fire"),
-    "weekly_report": ("Analiz", "✦", "air"),
+    "meditation": ("Ruhsal & Zihinsel", "☽", "air"),
+    "rituals": ("Ruhsal & Zihinsel", "✺", "fire"),
 }
 
 
 def module_visual(module_key: str) -> Tuple[str, str, str]:
-    return MODULE_VISUALS.get(module_key, ("Analiz", "✦", "water"))
+    return MODULE_VISUALS.get(module_key, ("Duygusal & Kişisel Analiz", "✦", "water"))
 
 
 def _display_name(user: Optional[Dict[str, Any]]) -> str:
@@ -155,6 +155,175 @@ def inject_css() -> None:
         [data-testid="stSidebar"] label,
         [data-testid="stSidebar"] span {
             color: rgba(255, 248, 232, 0.86) !important;
+        }
+
+
+        [data-testid="stSidebar"] > div:first-child {
+            height: 100vh;
+            overflow-y: auto;
+            position: sticky;
+            top: 0;
+            padding-top: 1.1rem;
+            padding-bottom: 2rem;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(217, 183, 110, 0.38) rgba(255,255,255,0.04);
+        }
+
+        [data-testid="stSidebar"] > div:first-child::-webkit-scrollbar {
+            width: 7px;
+        }
+
+        [data-testid="stSidebar"] > div:first-child::-webkit-scrollbar-track {
+            background: rgba(255,255,255,0.04);
+        }
+
+        [data-testid="stSidebar"] > div:first-child::-webkit-scrollbar-thumb {
+            background: rgba(217, 183, 110, 0.34);
+            border-radius: 999px;
+        }
+
+        .kp-sidebar-brand {
+            position: relative;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px;
+            margin: 0 0 14px 0;
+            border-radius: 24px;
+            background:
+                radial-gradient(circle at 18% 12%, rgba(255, 241, 184, 0.16), transparent 38%),
+                linear-gradient(145deg, rgba(255,255,255,0.12), rgba(255,255,255,0.035));
+            border: 1px solid rgba(217, 183, 110, 0.24);
+            box-shadow: 0 18px 44px rgba(0,0,0,0.26), inset 0 1px 0 rgba(255,255,255,0.12);
+            overflow: hidden;
+        }
+
+        .kp-sidebar-brand::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(115deg, transparent 0 38%, rgba(255,255,255,0.12) 50%, transparent 62%);
+            transform: translateX(-120%);
+            animation: kpHeroShimmer 7.5s ease-in-out infinite;
+            pointer-events: none;
+        }
+
+        .kp-sidebar-orb {
+            width: 48px;
+            height: 48px;
+            flex: 0 0 auto;
+            display: grid;
+            place-items: center;
+            border-radius: 50%;
+            color: var(--kp-gold-2);
+            font-family: var(--kp-font-serif);
+            font-size: 1.6rem;
+            background: conic-gradient(from 0deg, #fff1b8, #d9b76e, #7b4bd6, #fff1b8);
+            box-shadow: 0 0 26px rgba(217,183,110,0.34), 0 0 54px rgba(123,75,214,0.18);
+            animation: kpBorderShimmer 5.4s linear infinite;
+        }
+
+        .kp-sidebar-orb span {
+            width: 42px;
+            height: 42px;
+            display: grid;
+            place-items: center;
+            border-radius: 50%;
+            background: linear-gradient(145deg, #10194a, #3a166a 60%, #090f2f);
+        }
+
+        .kp-sidebar-brand-title {
+            position: relative;
+            z-index: 1;
+            font-family: var(--kp-font-serif);
+            color: var(--kp-text);
+            font-size: 1.36rem;
+            font-weight: 700;
+            line-height: 0.96;
+            letter-spacing: -0.02em;
+        }
+
+        .kp-sidebar-brand-subtitle {
+            position: relative;
+            z-index: 1;
+            margin-top: 5px;
+            color: var(--kp-muted) !important;
+            font-size: 0.72rem;
+            line-height: 1.3;
+        }
+
+        .kp-sidebar-menu-title {
+            margin: 18px 0 10px;
+            color: var(--kp-gold-2);
+            font-size: 0.72rem;
+            font-weight: 900;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+        }
+
+        .kp-sidebar-section-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 15px 0 7px;
+            padding: 0 3px;
+            color: rgba(255, 241, 184, 0.72) !important;
+            font-size: 0.72rem;
+            font-weight: 900;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+        }
+
+        .kp-sidebar-section-title span:first-child {
+            width: 22px;
+            height: 22px;
+            display: inline-grid;
+            place-items: center;
+            border-radius: 50%;
+            background: rgba(217, 183, 110, 0.10);
+            border: 1px solid rgba(217, 183, 110, 0.18);
+            color: var(--kp-gold-2) !important;
+            font-family: var(--kp-font-serif);
+            font-size: 0.92rem;
+            letter-spacing: 0;
+        }
+
+        .kp-side-nav-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-height: 42px;
+            padding: 10px 12px;
+            margin: 5px 0;
+            border-radius: 18px;
+            color: rgba(255, 248, 232, 0.86) !important;
+            background: rgba(255,255,255,0.055);
+            border: 1px solid rgba(255,241,184,0.12);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.07);
+            font-size: 0.9rem;
+            font-weight: 750;
+        }
+
+        .kp-side-nav-item.active {
+            color: var(--kp-gold-2) !important;
+            background:
+                radial-gradient(circle at 16% 50%, rgba(217,183,110,0.22), transparent 34%),
+                linear-gradient(135deg, rgba(217,183,110,0.19), rgba(123,75,214,0.14));
+            border-color: rgba(255,241,184,0.42);
+            box-shadow: 0 0 26px rgba(217,183,110,0.15), inset 0 1px 0 rgba(255,255,255,0.13);
+        }
+
+        .kp-side-nav-icon {
+            width: 24px;
+            height: 24px;
+            display: inline-grid;
+            place-items: center;
+            flex: 0 0 auto;
+            border-radius: 10px;
+            color: var(--kp-gold-2) !important;
+            background: rgba(217,183,110,0.10);
+            border: 1px solid rgba(217,183,110,0.16);
+            font-family: var(--kp-font-serif);
         }
 
         h1, h2, h3, h4, h5 {
@@ -678,6 +847,30 @@ def inject_css() -> None:
             box-shadow: inset 0 0 0 1px rgba(255,241,184,0.16), 0 0 24px rgba(217,183,110,0.16);
         }
 
+
+        [data-testid="stSidebar"] div.stButton > button {
+            justify-content: flex-start !important;
+            width: 100% !important;
+            min-height: 42px !important;
+            margin: 2px 0 !important;
+            padding: 0.62rem 0.78rem !important;
+            border-radius: 18px !important;
+            border: 1px solid rgba(255, 241, 184, 0.13) !important;
+            background: rgba(255,255,255,0.045) !important;
+            color: rgba(255, 248, 232, 0.84) !important;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.07) !important;
+            font-weight: 760 !important;
+            text-align: left !important;
+            transition: transform 180ms ease, border-color 180ms ease, background 180ms ease, box-shadow 180ms ease !important;
+        }
+
+        [data-testid="stSidebar"] div.stButton > button:hover {
+            transform: translateX(2px) scale(1.01) !important;
+            border-color: rgba(255, 241, 184, 0.35) !important;
+            background: rgba(217,183,110,0.10) !important;
+            box-shadow: 0 0 24px rgba(217,183,110,0.13), inset 0 1px 0 rgba(255,255,255,0.10) !important;
+        }
+
         div.stButton > button,
         button[kind="primary"],
         button[kind="secondary"] {
@@ -795,6 +988,21 @@ def inject_css() -> None:
             }
         }
         </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_sidebar_brand() -> None:
+    st.sidebar.markdown(
+        """
+        <div class="kp-sidebar-brand">
+            <div class="kp-sidebar-orb"><span>☽</span></div>
+            <div>
+                <div class="kp-sidebar-brand-title">Kalbimin<br>Pusulası</div>
+                <div class="kp-sidebar-brand-subtitle">Mistik, modern ve premium AI deneyimi</div>
+            </div>
+        </div>
         """,
         unsafe_allow_html=True,
     )
