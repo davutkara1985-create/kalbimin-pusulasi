@@ -1240,12 +1240,11 @@ def render_module_card(
     locked: bool = False,
     href_page: Optional[str] = None,
 ) -> None:
-    """Render a module card.
+    """Render a visual module card only.
 
-    When href_page is provided, the whole card is a safe HTML link.
-    Streamlit can display stray </a> text when block-level div elements are
-    nested directly inside an anchor, so the linked version uses span elements
-    styled as blocks.
+    The card intentionally contains no raw HTML anchor. Streamlit may render
+    stray closing tags and can refresh the whole app when anchor navigation is
+    used. Page changes are handled by normal st.button callbacks in app.py.
     """
     category, icon, element = module_visual(module_key)
     lock_html = '<span class="kp-lock">Premium</span>' if locked else '<span class="kp-lock">Açık</span>'
@@ -1253,25 +1252,6 @@ def render_module_card(
     description = escape(str(module.get("description", "")))
     category_text = escape(category)
     icon_text = escape(icon)
-
-    if href_page:
-        st.markdown(
-            f'''
-<a class="kp-card-link" href="?page={escape(href_page)}" target="_self" aria-label="{title} sayfasını aç">
-  <span class="kp-card {element}">
-    <span class="kp-card-top">
-      <span class="kp-icon">{icon_text}</span>
-      {lock_html}
-    </span>
-    <span class="kp-card-title">{title}</span>
-    <span class="kp-card-description">{description}</span>
-    <span class="kp-card-category">{category_text}</span>
-  </span>
-</a>
-''',
-            unsafe_allow_html=True,
-        )
-        return
 
     st.markdown(
         f'''
@@ -1287,7 +1267,6 @@ def render_module_card(
 ''',
         unsafe_allow_html=True,
     )
-
 
 def render_safety_notice() -> None:
     st.markdown(
