@@ -1100,6 +1100,58 @@ def inject_css() -> None:
                 font-size: 3.45rem;
             }
         }
+        /* Clickable home module cards: safe anchor layout without visible HTML fragments */
+        .kp-card-link {
+            display: block !important;
+            text-decoration: none !important;
+            color: inherit !important;
+            cursor: pointer;
+            margin-bottom: 18px;
+        }
+
+        .kp-card-link:hover,
+        .kp-card-link:focus,
+        .kp-card-link:visited {
+            text-decoration: none !important;
+            color: inherit !important;
+        }
+
+        .kp-card-link .kp-card {
+            display: block !important;
+            min-height: 260px;
+        }
+
+        .kp-card-link:hover .kp-card {
+            transform: translateY(-4px) scale(1.015);
+            border-color: rgba(245, 207, 122, 0.58);
+            box-shadow:
+                0 24px 52px rgba(2, 6, 28, 0.42),
+                0 0 34px rgba(245, 207, 122, 0.13);
+        }
+
+        .kp-card-title {
+            display: block;
+            margin: 26px 0 0 0;
+            color: #fff8e8;
+            font-family: Georgia, 'Times New Roman', serif;
+            font-size: 1.16rem;
+            line-height: 1.12;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+        }
+
+        .kp-card-description {
+            display: block;
+            margin-top: 18px;
+            color: rgba(250, 241, 221, 0.72);
+            line-height: 1.55;
+            font-size: 0.94rem;
+        }
+
+        .kp-page-top-spacer {
+            height: 10px;
+        }
+
         </style>
         """,
         unsafe_allow_html=True,
@@ -1188,33 +1240,53 @@ def render_module_card(
     locked: bool = False,
     href_page: Optional[str] = None,
 ) -> None:
+    """Render a module card.
+
+    When href_page is provided, the whole card is a safe HTML link.
+    Streamlit can display stray </a> text when block-level div elements are
+    nested directly inside an anchor, so the linked version uses span elements
+    styled as blocks.
+    """
     category, icon, element = module_visual(module_key)
     lock_html = '<span class="kp-lock">Premium</span>' if locked else '<span class="kp-lock">Açık</span>'
-    cta_html = '<div class="kp-card-cta">Dokun ve aç →</div>' if href_page else ""
-    card_html = f"""
-        <div class="kp-card {element}">
-            <div class="kp-card-top">
-                <div class="kp-icon">{escape(icon)}</div>
-                {lock_html}
-            </div>
-            <h3>{escape(str(module.get('title', '')))}</h3>
-            <p>{escape(str(module.get('description', '')))}</p>
-            {cta_html}
-            <div class="kp-card-category">{escape(category)}</div>
-        </div>
-    """
+    title = escape(str(module.get("title", "")))
+    description = escape(str(module.get("description", "")))
+    category_text = escape(category)
+    icon_text = escape(icon)
 
     if href_page:
         st.markdown(
-            f"""
-            <a class="kp-card-link" href="?page={escape(href_page)}" target="_self" aria-label="{escape(str(module.get('title', '')))} sayfasını aç">
-                {card_html}
-            </a>
-            """,
+            f'''
+<a class="kp-card-link" href="?page={escape(href_page)}" target="_self" aria-label="{title} sayfasını aç">
+  <span class="kp-card {element}">
+    <span class="kp-card-top">
+      <span class="kp-icon">{icon_text}</span>
+      {lock_html}
+    </span>
+    <span class="kp-card-title">{title}</span>
+    <span class="kp-card-description">{description}</span>
+    <span class="kp-card-category">{category_text}</span>
+  </span>
+</a>
+''',
             unsafe_allow_html=True,
         )
-    else:
-        st.markdown(card_html, unsafe_allow_html=True)
+        return
+
+    st.markdown(
+        f'''
+<div class="kp-card {element}">
+  <div class="kp-card-top">
+    <div class="kp-icon">{icon_text}</div>
+    {lock_html}
+  </div>
+  <h3>{title}</h3>
+  <p>{description}</p>
+  <div class="kp-card-category">{category_text}</div>
+</div>
+''',
+        unsafe_allow_html=True,
+    )
 
 
 def render_safety_notice() -> None:
