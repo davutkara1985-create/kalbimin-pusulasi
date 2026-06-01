@@ -136,11 +136,34 @@ def inject_css() -> None:
         }
 
         [data-testid="stSidebar"] {
+            width: 280px !important;
+            min-width: 280px !important;
+            max-width: 280px !important;
+            flex: 0 0 280px !important;
             background:
                 radial-gradient(circle at 16% 10%, rgba(217, 183, 110, 0.16), transparent 30%),
                 radial-gradient(circle at 80% 85%, rgba(123, 75, 214, 0.22), transparent 32%),
                 linear-gradient(180deg, rgba(7, 9, 28, 0.98), rgba(19, 13, 48, 0.98));
             border-right: 1px solid rgba(217, 183, 110, 0.18);
+        }
+
+        [data-testid="stSidebar"] > div {
+            width: 280px !important;
+            min-width: 280px !important;
+            max-width: 280px !important;
+        }
+
+        @media (min-width: 761px) {
+            [data-testid="stSidebarCollapseButton"],
+            [data-testid="collapsedControl"],
+            button[aria-label="Close sidebar"],
+            button[aria-label="Open sidebar"],
+            button[title="Close sidebar"],
+            button[title="Open sidebar"] {
+                display: none !important;
+                visibility: hidden !important;
+                pointer-events: none !important;
+            }
         }
 
         [data-testid="stSidebar"] * {
@@ -698,6 +721,42 @@ def inject_css() -> None:
             text-transform: uppercase;
         }
 
+
+        .kp-card-link {
+            display: block;
+            color: inherit !important;
+            text-decoration: none !important;
+            border-radius: var(--kp-radius-lg);
+        }
+
+        .kp-card-link .kp-card {
+            cursor: pointer;
+        }
+
+        .kp-card-link:hover,
+        .kp-card-link:focus,
+        .kp-card-link:visited {
+            color: inherit !important;
+            text-decoration: none !important;
+        }
+
+        .kp-card-link:focus-visible .kp-card {
+            outline: 2px solid rgba(255, 241, 184, 0.72);
+            outline-offset: 4px;
+        }
+
+        .kp-card-cta {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 12px;
+            color: var(--kp-gold-2);
+            font-size: 0.74rem;
+            font-weight: 900;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+        }
+
         .kp-metric {
             min-height: 96px;
             padding: 14px;
@@ -803,6 +862,53 @@ def inject_css() -> None:
             text-align: center;
             font-size: 0.78rem;
             padding: 24px 0 8px;
+        }
+
+
+        .kp-back-home-shell {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 14px;
+            margin: 0 0 10px;
+            border-radius: 22px;
+            background:
+                radial-gradient(circle at 12% 50%, rgba(217,183,110,0.16), transparent 32%),
+                linear-gradient(145deg, rgba(255,255,255,0.095), rgba(255,255,255,0.035));
+            border: 1px solid rgba(217, 183, 110, 0.18);
+            box-shadow: 0 18px 40px rgba(0,0,0,0.23), inset 0 1px 0 rgba(255,255,255,0.10);
+            backdrop-filter: blur(18px);
+            -webkit-backdrop-filter: blur(18px);
+        }
+
+        .kp-back-home-orb {
+            width: 38px;
+            height: 38px;
+            display: grid;
+            place-items: center;
+            flex: 0 0 auto;
+            border-radius: 50%;
+            color: var(--kp-gold-2);
+            font-family: var(--kp-font-serif);
+            font-size: 1.18rem;
+            background: rgba(217, 183, 110, 0.10);
+            border: 1px solid rgba(255, 241, 184, 0.20);
+            box-shadow: 0 0 24px rgba(217,183,110,0.14);
+        }
+
+        .kp-back-home-title {
+            color: var(--kp-gold-2);
+            font-size: 0.78rem;
+            font-weight: 900;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+        }
+
+        .kp-back-home-text {
+            margin-top: 3px;
+            color: var(--kp-muted);
+            font-size: 0.78rem;
+            line-height: 1.35;
         }
 
         .kp-bottom-nav {
@@ -971,6 +1077,13 @@ def inject_css() -> None:
         }
 
         @media (max-width: 760px) {
+            [data-testid="stSidebar"],
+            [data-testid="stSidebar"] > div {
+                width: 265px !important;
+                min-width: 265px !important;
+                max-width: 265px !important;
+            }
+
             [data-testid="stAppViewContainer"] .block-container {
                 max-width: 100%;
                 padding-left: 1rem;
@@ -1069,11 +1182,16 @@ def render_metric_card(label: str, value: str, detail: str = "") -> None:
     )
 
 
-def render_module_card(module_key: str, module: Dict[str, Any], locked: bool = False) -> None:
+def render_module_card(
+    module_key: str,
+    module: Dict[str, Any],
+    locked: bool = False,
+    href_page: Optional[str] = None,
+) -> None:
     category, icon, element = module_visual(module_key)
     lock_html = '<span class="kp-lock">Premium</span>' if locked else '<span class="kp-lock">Açık</span>'
-    st.markdown(
-        f"""
+    cta_html = '<div class="kp-card-cta">Dokun ve aç →</div>' if href_page else ""
+    card_html = f"""
         <div class="kp-card {element}">
             <div class="kp-card-top">
                 <div class="kp-icon">{escape(icon)}</div>
@@ -1081,11 +1199,22 @@ def render_module_card(module_key: str, module: Dict[str, Any], locked: bool = F
             </div>
             <h3>{escape(str(module.get('title', '')))}</h3>
             <p>{escape(str(module.get('description', '')))}</p>
+            {cta_html}
             <div class="kp-card-category">{escape(category)}</div>
         </div>
-        """,
-        unsafe_allow_html=True,
-    )
+    """
+
+    if href_page:
+        st.markdown(
+            f"""
+            <a class="kp-card-link" href="?page={escape(href_page)}" target="_self" aria-label="{escape(str(module.get('title', '')))} sayfasını aç">
+                {card_html}
+            </a>
+            """,
+            unsafe_allow_html=True,
+        )
+    else:
+        st.markdown(card_html, unsafe_allow_html=True)
 
 
 def render_safety_notice() -> None:
