@@ -79,10 +79,16 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
 
         html, body, [class*="css"] {{ font-family: var(--kp-font-sans); font-size: calc(16px * var(--kp-font-scale)); }}
 
-        #MainMenu, footer, [data-testid="stToolbar"], [data-testid="stDecoration"] {{
+        #MainMenu, footer, [data-testid="stToolbar"], [data-testid="stDecoration"],
+        [data-testid="stHeader"], [data-testid="stStatusWidget"], [data-testid="stHeaderActionElements"] {{
             visibility: hidden !important;
             height: 0 !important;
+            min-height: 0 !important;
             display: none !important;
+        }}
+
+        html, body, .stApp, [data-testid="stAppViewContainer"] {{
+            background: #060817 !important;
         }}
 
         .stApp {{
@@ -110,8 +116,8 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
             z-index: 0;
         }}
 
-        [data-testid="stAppViewContainer"] > .main {{ position: relative; z-index: 1; }}
-        [data-testid="stAppViewContainer"] .block-container {{ max-width: 620px; padding-top: 1.2rem; padding-bottom: 6rem; }}
+        [data-testid="stAppViewContainer"] > .main {{ position: relative; z-index: 1; background: transparent !important; }}
+        [data-testid="stAppViewContainer"] .block-container {{ max-width: 620px; padding-top: 0.65rem; padding-bottom: 6rem; }}
 
         [data-testid="stSidebar"] {{
             width: var(--kp-sidebar-width) !important;
@@ -406,6 +412,8 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
         .kp-safe {{ background: rgba(36,109,181,0.10); border-color: rgba(140,182,255,0.18); }}
         .kp-footer {{ color: var(--kp-muted-2); text-align: center; font-size: 0.76rem; padding: 24px 0 8px; }}
         .kp-page-top-spacer {{ height: 10px; }}
+        .kp-bottom-back-home {{ margin: 24px 0 8px; }}
+        .kp-bottom-back-home div.stButton > button {{ max-width: 220px !important; }}
         .kp-tag {{ display: inline-flex; padding: 4px 8px; border-radius: 999px; background: rgba(217,183,110,0.10); border: 1px solid rgba(255,241,184,0.16); color: var(--kp-gold-2); font-size: 0.68rem; font-weight: 800; margin: 2px 4px 2px 0; }}
         .kp-card-choice {{ text-align: center; min-height: 96px; display: grid; place-items: center; font-family: var(--kp-font-serif); font-size: 1.05rem; color: var(--kp-gold-2); }}
 
@@ -416,10 +424,59 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
             box-shadow: 0 14px 32px rgba(217,183,110,0.20), inset 0 1px 0 rgba(255,255,255,0.30) !important;
         }}
         div.stButton > button:hover {{ filter: brightness(1.05); transform: translateY(-1px); }}
-        .stTextInput input, .stTextArea textarea, .stNumberInput input, div[data-baseweb="select"] > div, div[data-baseweb="base-input"] > input {{
-            color: var(--kp-text) !important; background: rgba(9,15,47,0.66) !important; border: 1px solid rgba(217,183,110,0.22) !important; border-radius: 16px !important;
+        /* Professional form fields */
+        .stTextInput label, .stTextArea label, .stNumberInput label, .stDateInput label, .stTimeInput label,
+        .stSelectbox label, .stFileUploader label, .stSlider label, .stCheckbox label, .stRadio label {{
+            color: var(--kp-gold-2) !important;
+            font-weight: 850 !important;
+            letter-spacing: 0.035em !important;
+            font-size: 0.86rem !important;
         }}
-        .stTextInput input::placeholder, .stTextArea textarea::placeholder {{ color: rgba(242,226,202,0.42) !important; }}
+
+        .stTextInput input, .stTextArea textarea, .stNumberInput input, .stDateInput input, .stTimeInput input,
+        div[data-baseweb="select"] > div, div[data-baseweb="base-input"] > input {{
+            color: #fff8e8 !important;
+            background:
+                linear-gradient(145deg, rgba(255,255,255,0.105), rgba(255,255,255,0.035)),
+                rgba(7, 10, 34, 0.82) !important;
+            border: 1px solid rgba(255,241,184,0.34) !important;
+            border-radius: 18px !important;
+            min-height: 44px !important;
+            box-shadow:
+                0 14px 34px rgba(0,0,0,0.24),
+                inset 0 1px 0 rgba(255,255,255,0.12) !important;
+            caret-color: var(--kp-gold-2) !important;
+        }}
+
+        .stTextArea textarea {{
+            min-height: 110px !important;
+            padding-top: 0.85rem !important;
+        }}
+
+        .stTextInput input:focus, .stTextArea textarea:focus, .stNumberInput input:focus,
+        .stDateInput input:focus, .stTimeInput input:focus, div[data-baseweb="select"] > div:focus-within {{
+            border-color: rgba(255,241,184,0.72) !important;
+            box-shadow:
+                0 0 0 3px rgba(217,183,110,0.14),
+                0 18px 42px rgba(0,0,0,0.28),
+                inset 0 1px 0 rgba(255,255,255,0.16) !important;
+        }}
+
+        .stTextInput input::placeholder, .stTextArea textarea::placeholder {{
+            color: rgba(255,241,184,0.40) !important;
+        }}
+
+        div[data-baseweb="select"] span, div[data-baseweb="select"] svg {{
+            color: #fff8e8 !important;
+            fill: var(--kp-gold-2) !important;
+        }}
+
+        [data-testid="stFileUploader"] section {{
+            background: rgba(7,10,34,0.68) !important;
+            border: 1px dashed rgba(255,241,184,0.38) !important;
+            border-radius: 20px !important;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.08) !important;
+        }}
         .stProgress > div > div > div > div {{ background: linear-gradient(90deg, #7755d7, #d9b76e) !important; }}
         hr {{ border-color: rgba(217,183,110,0.16) !important; }}
 
