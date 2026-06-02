@@ -383,12 +383,14 @@ def run_ai_free(user: Dict[str, Any], module_key: str, payload: Dict[str, Any], 
 def render_back_home_button(page: str) -> None:
     if not page or page == "home":
         return
-    left_col, _ = st.columns([1.15, 4.85])
+
+    st.markdown('<div class="kp-bottom-back-home">', unsafe_allow_html=True)
+    left_col, _ = st.columns([1.35, 4.65])
     with left_col:
         if st.button("← Ana sayfa", key=f"back_home_{page}", use_container_width=True):
             reset_navigation_to_home()
             st.rerun()
-    st.markdown('<div class="kp-page-top-spacer"></div>', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
 
 def page_home(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]]) -> None:
@@ -947,8 +949,6 @@ def page_admin(user: Dict[str, Any], prompts: Dict[str, str], module_settings: D
 
 
 def render_page(page: str, user: Dict[str, Any], prompts: Dict[str, str], module_settings: Dict[str, Dict[str, Any]]) -> None:
-    render_back_home_button(page)
-
     if page == "home":
         page_home(user, module_settings)
     elif page == "subscription":
@@ -994,6 +994,8 @@ def render_page(page: str, user: Dict[str, Any], prompts: Dict[str, str], module
     else:
         reset_navigation_to_home()
         st.rerun()
+
+    render_back_home_button(page)
 
 
 def main() -> None:
