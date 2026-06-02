@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import base64
+import datetime as dt
 import io
 import json
+import unicodedata
 from typing import Any, Dict, List, Optional
 
 import streamlit as st
@@ -118,6 +120,34 @@ BASE_MENU_GROUPS = [
     ),
     ("Ruhsal & Zihinsel", "☉", [("meditation", "Kısa Meditasyonlar", "☽"), ("rituals", "Ritüeller", "✺")]),
 ]
+
+
+TURKISH_CITIES = [
+    "Adana", "Adıyaman", "Afyonkarahisar", "Ağrı", "Amasya", "Ankara", "Antalya", "Artvin", "Aydın", "Balıkesir",
+    "Bilecik", "Bingöl", "Bitlis", "Bolu", "Burdur", "Bursa", "Çanakkale", "Çankırı", "Çorum", "Denizli",
+    "Diyarbakır", "Edirne", "Elazığ", "Erzincan", "Erzurum", "Eskişehir", "Gaziantep", "Giresun", "Gümüşhane", "Hakkari",
+    "Hatay", "Isparta", "Mersin", "İstanbul", "İzmir", "Kars", "Kastamonu", "Kayseri", "Kırklareli", "Kırşehir",
+    "Kocaeli", "Konya", "Kütahya", "Malatya", "Manisa", "Kahramanmaraş", "Mardin", "Muğla", "Muş", "Nevşehir",
+    "Niğde", "Ordu", "Rize", "Sakarya", "Samsun", "Siirt", "Sinop", "Sivas", "Tekirdağ", "Tokat",
+    "Trabzon", "Tunceli", "Şanlıurfa", "Uşak", "Van", "Yozgat", "Zonguldak", "Aksaray", "Bayburt", "Karaman",
+    "Kırıkkale", "Batman", "Şırnak", "Bartın", "Ardahan", "Iğdır", "Yalova", "Karabük", "Kilis", "Osmaniye", "Düzce",
+]
+
+
+def normalize_city_text(value: str) -> str:
+    value = value.strip().casefold()
+    value = value.replace("ı", "i").replace("İ", "i")
+    value = unicodedata.normalize("NFKD", value)
+    return "".join(ch for ch in value if not unicodedata.combining(ch))
+
+
+def city_matches(query: str) -> List[str]:
+    if len(query.strip()) < 3:
+        return []
+    normalized_query = normalize_city_text(query)
+    starts = [city for city in TURKISH_CITIES if normalize_city_text(city).startswith(normalized_query)]
+    contains = [city for city in TURKISH_CITIES if normalized_query in normalize_city_text(city) and city not in starts]
+    return starts + contains
 
 
 def stop_with_setup_error(exc: Exception) -> None:
@@ -484,9 +514,10 @@ def page_love_fortune(user: Dict[str, Any], prompts: Dict[str, str], module_sett
         first_name = st.text_input("Ad")
     with col2:
         last_name = st.text_input("Soyad")
+    sign = st.selectbox("Burç", ZODIAC_SIGNS, key="love_fortune_sign")
     intention = st.text_area("Aşk hayatınla ilgili niyetin veya sorun nedir?", height=130)
     if st.button("Aşk falımı yorumla"):
-        run_ai_free(user, "love_fortune", {"ad": first_name, "soyad": last_name, "niyet": intention}, prompts)
+        run_ai_free(user, "love_fortune", {"ad": first_name, "soyad": last_name, "burç": sign, "niyet": intention}, prompts)
 
 
 def page_daily_energy(user: Dict[str, Any], prompts: Dict[str, str], module_settings: Dict[str, Dict[str, Any]]) -> None:
@@ -567,16 +598,40 @@ def personal_info_form(prefix: str) -> Dict[str, Any]:
     col1, col2 = st.columns(2)
     with col1:
         first_name = st.text_input("Ad", key=f"{prefix}_first")
-        birth_date = st.date_input("Doğum tarihi", key=f"{prefix}_birth_date")
     with col2:
         last_name = st.text_input("Soyad", key=f"{prefix}_last")
-        birth_time = st.time_input("Doğum saati", key=f"{prefix}_birth_time")
-    birth_place = st.text_input("Doğum yeri", key=f"{prefix}_birth_place")
+
+    date_col, time_col = st.columns([1.8, 1.0])
+    with date_col:
+        birth_date = st.date_input(
+            "Doğum tarihi",
+            value=dt.date(1995, 1, 1),
+            min_value=dt.date(1950, 1, 1),
+            max_value=dt.date.today(),
+            format="DD/MM/YYYY",
+            key=f"{prefix}_birth_date",
+        )
+    with time_col:
+        birth_time = st.time_input("Doğum saati", value=dt.time(12, 0), key=f"{prefix}_birth_time")
+
+    birth_place_query = st.text_input(
+        "Doğum yeri",
+        key=f"{prefix}_birth_place_query",
+        placeholder="Şehrin en az 3 harfini yaz...",
+    )
+    matches = city_matches(birth_place_query)
+    if len(birth_place_query.strip()) >= 3 and matches:
+        birth_place = st.selectbox("Şehir seç", matches, key=f"{prefix}_birth_place_select")
+    else:
+        birth_place = birth_place_query
+        if len(birth_place_query.strip()) >= 3:
+            st.caption("Listede yoksa şehir adını yazdığın şekilde kullanabilirsin.")
+
     return {
         "ad": first_name,
         "soyad": last_name,
         "doğum_tarihi": str(birth_date),
-        "doğum_saati": str(birth_time),
+        "doğum_saati": birth_time.strftime("%H:%M"),
         "doğum_yeri": birth_place,
     }
 
