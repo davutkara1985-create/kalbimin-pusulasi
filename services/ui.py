@@ -477,6 +477,141 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
             border-radius: 20px !important;
             box-shadow: inset 0 1px 0 rgba(255,255,255,0.08) !important;
         }}
+
+        /* Polished form system: embedded light glass fields + readable gold labels */
+        [data-testid="stWidgetLabel"],
+        [data-testid="stWidgetLabel"] p,
+        [data-testid="stWidgetLabel"] label,
+        [data-testid="stWidgetLabel"] span,
+        .stTextInput label, .stTextArea label, .stNumberInput label, .stDateInput label, .stTimeInput label,
+        .stSelectbox label, .stFileUploader label, .stSlider label, .stCheckbox label, .stRadio label {{
+            color: var(--kp-gold-2) !important;
+            font-weight: 850 !important;
+            letter-spacing: 0.035em !important;
+            font-size: 0.86rem !important;
+            text-shadow: 0 0 16px rgba(217,183,110,0.20) !important;
+        }}
+
+        .stTextInput > div,
+        .stTextArea > div,
+        .stDateInput > div,
+        .stTimeInput > div,
+        .stNumberInput > div,
+        .stSelectbox > div {{
+            margin-top: 0.24rem !important;
+        }}
+
+        .stTextInput div[data-baseweb="input"],
+        .stDateInput div[data-baseweb="input"],
+        .stTimeInput div[data-baseweb="input"],
+        .stNumberInput div[data-baseweb="input"],
+        div[data-baseweb="base-input"],
+        div[data-baseweb="select"] > div,
+        .stTextArea textarea {{
+            color: #171326 !important;
+            background:
+                radial-gradient(circle at 18% 0%, rgba(255,255,255,0.92), transparent 34%),
+                linear-gradient(145deg, rgba(255,250,235,0.96), rgba(214,207,184,0.90)) !important;
+            border: 1px solid rgba(255,241,184,0.70) !important;
+            border-radius: 18px !important;
+            min-height: 48px !important;
+            box-shadow:
+                0 14px 34px rgba(0,0,0,0.28),
+                0 0 0 1px rgba(217,183,110,0.08),
+                inset 0 2px 8px rgba(255,255,255,0.72),
+                inset 0 -8px 18px rgba(19,16,44,0.10) !important;
+            backdrop-filter: blur(18px) !important;
+            -webkit-backdrop-filter: blur(18px) !important;
+            transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease !important;
+        }}
+
+        .stTextInput div[data-baseweb="input"]:focus-within,
+        .stDateInput div[data-baseweb="input"]:focus-within,
+        .stTimeInput div[data-baseweb="input"]:focus-within,
+        .stNumberInput div[data-baseweb="input"]:focus-within,
+        div[data-baseweb="select"] > div:focus-within,
+        .stTextArea textarea:focus {{
+            border-color: rgba(255,241,184,0.95) !important;
+            box-shadow:
+                0 0 0 3px rgba(217,183,110,0.18),
+                0 18px 44px rgba(0,0,0,0.34),
+                0 0 30px rgba(217,183,110,0.12),
+                inset 0 2px 8px rgba(255,255,255,0.78),
+                inset 0 -8px 18px rgba(19,16,44,0.10) !important;
+            transform: translateY(-1px) !important;
+        }}
+
+        .stTextInput input,
+        .stDateInput input,
+        .stTimeInput input,
+        .stNumberInput input,
+        div[data-baseweb="base-input"] input,
+        div[data-baseweb="select"] input,
+        .stTextArea textarea {{
+            color: #171326 !important;
+            -webkit-text-fill-color: #171326 !important;
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            caret-color: #8b6425 !important;
+            font-weight: 750 !important;
+            font-size: 0.94rem !important;
+        }}
+
+        .stTextArea textarea {{
+            min-height: 118px !important;
+            padding: 0.9rem 1rem !important;
+            line-height: 1.55 !important;
+        }}
+
+        .stTextInput input::placeholder,
+        .stTextArea textarea::placeholder {{
+            color: rgba(23,19,38,0.48) !important;
+            -webkit-text-fill-color: rgba(23,19,38,0.48) !important;
+        }}
+
+        div[data-baseweb="select"] span,
+        div[data-baseweb="select"] div,
+        div[data-baseweb="select"] svg {{
+            color: #171326 !important;
+            fill: #8b6425 !important;
+        }}
+
+        div[data-baseweb="popover"] ul,
+        div[data-baseweb="menu"] {{
+            background: #fff8e8 !important;
+            border: 1px solid rgba(217,183,110,0.45) !important;
+            border-radius: 16px !important;
+            box-shadow: 0 22px 48px rgba(0,0,0,0.32) !important;
+        }}
+
+        div[data-baseweb="popover"] li,
+        div[data-baseweb="menu"] li {{
+            color: #171326 !important;
+            font-weight: 700 !important;
+        }}
+
+        div[data-baseweb="popover"] li:hover,
+        div[data-baseweb="menu"] li:hover {{
+            background: rgba(217,183,110,0.22) !important;
+        }}
+
+        div[data-baseweb="input"] button,
+        div[data-baseweb="base-input"] button {{
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            color: #8b6425 !important;
+            padding: 0 0.7rem !important;
+            min-width: auto !important;
+        }}
+
+        div[data-baseweb="input"] button svg,
+        div[data-baseweb="base-input"] button svg {{
+            fill: #8b6425 !important;
+            color: #8b6425 !important;
+        }}
+
         .stProgress > div > div > div > div {{ background: linear-gradient(90deg, #7755d7, #d9b76e) !important; }}
         hr {{ border-color: rgba(217,183,110,0.16) !important; }}
 
