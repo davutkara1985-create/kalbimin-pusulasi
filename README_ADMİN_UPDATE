@@ -1,0 +1,30 @@
+# Kalbimin Pusulası - Admin Panel ve Üyelik Güncellemesi
+
+Bu sürümde admin paneli, kullanıcı/şifre ile üyelik, misafir kullanım, admin yönetimli promptlar, admin yönetimli meditasyon/ritüel içerikleri, gelen kutusu ve manuel fal talepleri eklenmiştir.
+
+## Yeni Streamlit Secrets alanları
+
+```toml
+OPENAI_API_KEY = "sk-proj-..."
+MODEL_NAME = "gpt-4.1-mini"
+VISION_MODEL_NAME = "gpt-4.1-mini"
+
+ADMIN_EMAILS = "admin@ornek.com"
+ADMIN_PASSWORD = "guclu-bir-admin-sifresi"
+```
+
+Firebase secret alanları eski sürümle aynıdır.
+
+## Değişen koleksiyonlar
+
+- `users`: üyelik, rol, plan ve şifre hash bilgileri
+- `app_config/public_settings`: yazı tipi ve sidebar tasarım ayarları
+- `app_config/prompts`: admin tarafından düzenlenen AI promptları
+- `app_config/modules`: sayfa aktif/pasif, başlık ve açıklama ayarları
+- `content_items`: meditasyon ve ritüel içerikleri
+- `manual_requests`: tarot, katina, kahve görsel, rüya ve ruh eşi talepleri
+- `users/{userId}/inbox`: admin cevaplarının kullanıcıya iletildiği gelen kutusu
+
+## Not
+
+Bu üyelik sistemi Streamlit + Firestore içinde basit şifre hashleme kullanır. Üretim ortamında Firebase Authentication kullanılması daha güvenlidir.
