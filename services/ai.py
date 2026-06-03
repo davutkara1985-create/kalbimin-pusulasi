@@ -26,7 +26,8 @@ Güvenlik:
 Üslup:
 - Türkçe yaz.
 - Romantik, sezgisel ve modern bir dil kullan.
-- Fazla uzun olmayan, okunması kolay başlıklar kullan.
+- Sonuç ekranında okunacak metin detaylı, bölümlü ve doyurucu olsun; kısa tek paragrafla geçiştirme.
+- Free planda bile en az 4 açıklayıcı bölüm kullan; Premium ve Premium+ planlarda daha derin, daha kişisel ve daha uygulanabilir yaz.
 - Cevap yapısı genellikle şu şekilde olsun:
   1. Kalbinin Şu Anki Sesi
   2. Pusulanın İşaret Ettiği Yön
@@ -59,10 +60,10 @@ def _temperature_for_plan(plan: str) -> float:
 
 def _max_tokens_for_plan(plan: str) -> int:
     if plan == "premium_plus":
-        return 1400
+        return 1800
     if plan == "premium":
-        return 1050
-    return 760
+        return 1350
+    return 950
 
 
 def generate_text(prompt: str, plan: str = "free") -> str:
