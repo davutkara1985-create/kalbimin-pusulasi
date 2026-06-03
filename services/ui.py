@@ -742,7 +742,7 @@ def render_hero(user: Optional[Dict[str, Any]] = None) -> None:
             </div>
             <div class="kp-title">Kalbimin <span>Pusulası</span></div>
             <div class="kp-subtitle">
-                İlişki, mesaj analizi ve romantik fal deneyimlerini tek bir sade akışta birleştiren AI destekli aşk pusulan.
+                İçindeki ses, evrenden bir yankı taşır.
             </div>
             <div class="kp-chip-row">
                 <span class="kp-chip">♡ İlişki yorumu</span>
