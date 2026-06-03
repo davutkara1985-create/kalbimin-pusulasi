@@ -364,14 +364,6 @@ def sidebar_status(user: Dict[str, Any]) -> None:
             else:
                 st.error(msg)
 
-    save_history = st.sidebar.checkbox(
-        "AI yorum geçmişimi kaydet",
-        value=False,
-        help="Açıksa AI yorumlarının kısa önizlemesi Firestore'a kaydedilir.",
-    )
-    st.session_state["save_history"] = save_history
-
-
 def require_account(user: Dict[str, Any]) -> bool:
     if user.get("is_guest"):
         st.warning("Bu sayfa için hesapla giriş yapmalısın. Sol menüden hesap oluşturabilir veya giriş yapabilirsin.")
