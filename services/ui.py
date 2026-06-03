@@ -618,7 +618,7 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
 
 
 
-        .kp-result-card {
+        .kp-result-card {{
             padding: 20px;
             border-radius: 26px;
             background:
@@ -627,49 +627,49 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
             border: 1px solid rgba(255,241,184,0.30);
             box-shadow: 0 24px 58px rgba(0,0,0,0.34), inset 0 1px 0 rgba(255,255,255,0.12);
             margin: 16px 0 14px;
-        }
-        .kp-result-title {
+        }}
+        .kp-result-title {{
             font-family: var(--kp-font-serif);
             color: var(--kp-gold-2);
             font-size: 1.72rem;
             line-height: 1.04;
             margin-bottom: 8px;
-        }
-        .kp-result-meta {
+        }}
+        .kp-result-meta {{
             color: var(--kp-muted);
             font-size: 0.82rem;
             line-height: 1.5;
             margin-bottom: 15px;
-        }
-        .kp-result-body {
+        }}
+        .kp-result-body {{
             color: var(--kp-text);
             font-size: 0.96rem;
             line-height: 1.75;
             white-space: normal;
-        }
-        .kp-result-body h3, .kp-result-body h4 {
+        }}
+        .kp-result-body h3, .kp-result-body h4 {{
             color: var(--kp-gold-2);
             margin: 14px 0 7px;
-        }
-        .kp-result-body h3 { font-family: var(--kp-font-serif); font-size: 1.38rem; }
-        .kp-result-body h4 { font-size: 1.02rem; font-weight: 900; }
-        .kp-result-body p { margin: 0 0 10px; }
-        .kp-result-body ul { margin: 6px 0 12px 18px; padding: 0; }
-        .kp-share-card, .kp-lead-card, .kp-upgrade-card {
+        }}
+        .kp-result-body h3 {{ font-family: var(--kp-font-serif); font-size: 1.38rem; }}
+        .kp-result-body h4 {{ font-size: 1.02rem; font-weight: 900; }}
+        .kp-result-body p {{ margin: 0 0 10px; }}
+        .kp-result-body ul {{ margin: 6px 0 12px 18px; padding: 0; }}
+        .kp-share-card, .kp-lead-card, .kp-upgrade-card {{
             padding: 16px;
             border-radius: 22px;
             background: rgba(255,241,184,0.075);
             border: 1px solid rgba(255,241,184,0.18);
             box-shadow: 0 18px 40px rgba(0,0,0,0.22);
             margin: 14px 0;
-        }
-        .kp-share-links {
+        }}
+        .kp-share-links {{
             display: flex;
             gap: 8px;
             flex-wrap: wrap;
             margin-top: 8px;
-        }
-        .kp-share-links a {
+        }}
+        .kp-share-links a {{
             display: inline-flex;
             align-items: center;
             justify-content: center;
@@ -681,13 +681,13 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
             text-decoration: none !important;
             font-weight: 850;
             font-size: 0.78rem;
-        }
-        .kp-login-note {
+        }}
+        .kp-login-note {{
             color: var(--kp-muted);
             font-size: 0.82rem;
             line-height: 1.5;
             margin-bottom: 10px;
-        }
+        }}
 
         @keyframes kpParticleDrift {{ 0% {{ background-position: 0 0, 28px 46px; }} 100% {{ background-position: 120px 160px, -40px 190px; }} }}
         @keyframes kpFadeUp {{ from {{ opacity: 0; transform: translateY(12px); }} to {{ opacity: 1; transform: translateY(0); }} }}
