@@ -828,8 +828,8 @@ def render_safety_notice() -> None:
     st.markdown(
         """
         <div class="kp-safe">
-            Bu uygulama eğlence, kişisel farkındalık ve duygusal paylaşım amacı taşır.
-            Terapi, psikolojik danışmanlık, tıbbi teşhis veya kesin gelecek tahmini sunmaz.
+            Ne Hissettiğini Anladığında Herşey Değişir
+            Kalbin Yolunu Kaybetmez
         </div>
         """,
         unsafe_allow_html=True,
