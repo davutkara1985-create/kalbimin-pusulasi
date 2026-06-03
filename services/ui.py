@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from html import escape
+from urllib.parse import quote
 from typing import Any, Dict, Optional, Tuple
 
 import streamlit as st
@@ -299,8 +300,8 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
 
         .kp-hero, .kp-card, .kp-plan, .kp-metric, .kp-safe, .kp-notice, .kp-admin-card, .kp-inbox-card {{ animation: kpFadeUp 0.55s ease both; }}
         .kp-hero {{
-            min-height: 390px;
-            padding: 24px 22px 22px;
+            min-height: 318px;
+            padding: 22px 20px 20px;
             border-radius: 34px;
             background:
                 linear-gradient(145deg, rgba(255,255,255,0.10), rgba(255,255,255,0.035)),
@@ -615,14 +616,96 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
         .stProgress > div > div > div > div {{ background: linear-gradient(90deg, #7755d7, #d9b76e) !important; }}
         hr {{ border-color: rgba(217,183,110,0.16) !important; }}
 
+
+
+        .kp-result-card {
+            padding: 20px;
+            border-radius: 26px;
+            background:
+                linear-gradient(145deg, rgba(255,255,255,0.13), rgba(255,255,255,0.045)),
+                rgba(12,15,44,0.76);
+            border: 1px solid rgba(255,241,184,0.30);
+            box-shadow: 0 24px 58px rgba(0,0,0,0.34), inset 0 1px 0 rgba(255,255,255,0.12);
+            margin: 16px 0 14px;
+        }
+        .kp-result-title {
+            font-family: var(--kp-font-serif);
+            color: var(--kp-gold-2);
+            font-size: 1.72rem;
+            line-height: 1.04;
+            margin-bottom: 8px;
+        }
+        .kp-result-meta {
+            color: var(--kp-muted);
+            font-size: 0.82rem;
+            line-height: 1.5;
+            margin-bottom: 15px;
+        }
+        .kp-result-body {
+            color: var(--kp-text);
+            font-size: 0.96rem;
+            line-height: 1.75;
+            white-space: normal;
+        }
+        .kp-result-body h3, .kp-result-body h4 {
+            color: var(--kp-gold-2);
+            margin: 14px 0 7px;
+        }
+        .kp-result-body h3 { font-family: var(--kp-font-serif); font-size: 1.38rem; }
+        .kp-result-body h4 { font-size: 1.02rem; font-weight: 900; }
+        .kp-result-body p { margin: 0 0 10px; }
+        .kp-result-body ul { margin: 6px 0 12px 18px; padding: 0; }
+        .kp-share-card, .kp-lead-card, .kp-upgrade-card {
+            padding: 16px;
+            border-radius: 22px;
+            background: rgba(255,241,184,0.075);
+            border: 1px solid rgba(255,241,184,0.18);
+            box-shadow: 0 18px 40px rgba(0,0,0,0.22);
+            margin: 14px 0;
+        }
+        .kp-share-links {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 8px;
+        }
+        .kp-share-links a {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 9px 12px;
+            border-radius: 999px;
+            background: rgba(217,183,110,0.14);
+            border: 1px solid rgba(255,241,184,0.22);
+            color: var(--kp-gold-2) !important;
+            text-decoration: none !important;
+            font-weight: 850;
+            font-size: 0.78rem;
+        }
+        .kp-login-note {
+            color: var(--kp-muted);
+            font-size: 0.82rem;
+            line-height: 1.5;
+            margin-bottom: 10px;
+        }
+
         @keyframes kpParticleDrift {{ 0% {{ background-position: 0 0, 28px 46px; }} 100% {{ background-position: 120px 160px, -40px 190px; }} }}
         @keyframes kpFadeUp {{ from {{ opacity: 0; transform: translateY(12px); }} to {{ opacity: 1; transform: translateY(0); }} }}
 
         @media (max-width: 760px) {{
             [data-testid="stSidebar"], [data-testid="stSidebar"] > div {{ width: 260px !important; min-width: 260px !important; max-width: 260px !important; }}
-            [data-testid="stAppViewContainer"] .block-container {{ max-width: 100%; padding-left: 1rem; padding-right: 1rem; }}
-            .kp-hero {{ min-height: 385px; border-radius: 30px; padding: 22px 18px 20px; }}
-            .kp-title {{ font-size: 3.25rem; }}
+            [data-testid="stAppViewContainer"] .block-container {{ max-width: 100%; padding-left: 0.85rem; padding-right: 0.85rem; padding-top: 0.45rem; }}
+            .kp-hero {{ min-height: 285px; border-radius: 26px; padding: 18px 15px 17px; }}
+            .kp-hero-top {{ gap: 10px; margin-bottom: 10px; }}
+            .kp-avatar-wrap {{ width: 54px; height: 54px; }}
+            .kp-avatar {{ font-size: 1.65rem; }}
+            .kp-title {{ font-size: 2.72rem; margin: 12px 0 12px; }}
+            .kp-subtitle {{ font-size: 0.90rem; line-height: 1.52; margin-bottom: 12px; }}
+            .kp-chip, .kp-element-chip {{ padding: 7px 9px; font-size: 0.72rem; }}
+            .kp-section-title {{ font-size: 1.62rem; }}
+            .kp-card, .kp-plan, .kp-result-card, .kp-share-card, .kp-lead-card, .kp-upgrade-card {{ border-radius: 20px; }}
+            div.stButton > button, button[kind="primary"], button[kind="secondary"] {{ width: 100% !important; min-height: 46px !important; }}
+            [data-testid="column"] {{ width: 100% !important; flex: 1 1 100% !important; }}
         }}
         </style>
         """,
@@ -653,23 +736,23 @@ def render_hero(user: Optional[Dict[str, Any]] = None) -> None:
             <div class="kp-hero-top">
                 <div class="kp-avatar-wrap"><div class="kp-avatar">☽</div></div>
                 <div>
-                    <div class="kp-eyebrow">✦ Spiritual luxury app</div>
+                    <div class="kp-eyebrow">✦ Aşk & ilişki pusulası</div>
                     <div class="kp-username">Hoş geldin, {display_name}</div>
                 </div>
             </div>
             <div class="kp-title">Kalbimin <span>Pusulası</span></div>
             <div class="kp-subtitle">
-                Aşk, sezgi ve farkındalık alanlarını sakin bir kozmik atmosferde birleştiren premium AI deneyimi.
+                İlişki, mesaj analizi ve romantik fal deneyimlerini tek bir sade akışta birleştiren AI destekli aşk pusulan.
             </div>
             <div class="kp-chip-row">
-                <span class="kp-chip">♡ Aşk & İlişki</span>
-                <span class="kp-chip">✧ Fal & Kehanet</span>
-                <span class="kp-chip">◌ Analiz</span>
+                <span class="kp-chip">♡ İlişki yorumu</span>
+                <span class="kp-chip">✉ Mesaj analizi</span>
+                <span class="kp-chip">✧ Romantik fal</span>
             </div>
             <div class="kp-element-row">
-                <span class="kp-element-chip">Water · Derin mavi</span>
-                <span class="kp-element-chip">Air · Mor aura</span>
-                <span class="kp-element-chip">Fire · Altın ışık</span>
+                <span class="kp-element-chip">5 ücretsiz yorum</span>
+                <span class="kp-element-chip">Paylaşılabilir sonuç</span>
+                <span class="kp-element-chip">Premium detay</span>
             </div>
         </div>
         """,
@@ -781,6 +864,105 @@ def render_plan_cards(current_plan: str) -> None:
                 """,
                 unsafe_allow_html=True,
             )
+
+
+
+def _result_markdown_to_html(result: str) -> str:
+    parts = []
+    in_list = False
+    for raw_line in result.strip().splitlines():
+        line = raw_line.strip()
+        if not line:
+            if in_list:
+                parts.append("</ul>")
+                in_list = False
+            continue
+        if line.startswith("#### "):
+            if in_list:
+                parts.append("</ul>")
+                in_list = False
+            parts.append(f"<h4>{escape(line[5:].strip())}</h4>")
+        elif line.startswith("### "):
+            if in_list:
+                parts.append("</ul>")
+                in_list = False
+            parts.append(f"<h3>{escape(line[4:].strip())}</h3>")
+        elif line.startswith("## "):
+            if in_list:
+                parts.append("</ul>")
+                in_list = False
+            parts.append(f"<h3>{escape(line[3:].strip())}</h3>")
+        elif line.startswith("- "):
+            if not in_list:
+                parts.append("<ul>")
+                in_list = True
+            parts.append(f"<li>{escape(line[2:].strip())}</li>")
+        else:
+            if in_list:
+                parts.append("</ul>")
+                in_list = False
+            parts.append(f"<p>{escape(line)}</p>")
+    if in_list:
+        parts.append("</ul>")
+    return "".join(parts)
+
+
+def render_result_panel(module_key: str, result: str, plan: str = "free") -> None:
+    module = MODULES.get(module_key, {"title": "Yorum"})
+    title = escape(str(module.get("title", "Yorum")))
+    plan_name = escape(str(PLAN_CONFIG.get(plan, PLAN_CONFIG["free"])["name"]))
+    body = _result_markdown_to_html(result)
+    st.markdown(
+        f"""
+        <div class="kp-result-card">
+            <div class="kp-result-title">Yorumun hazır: {title}</div>
+            <div class="kp-result-meta">Plan: {plan_name} · Detaylı sonuç ekranı · Eğlence ve farkındalık amaçlıdır.</div>
+            <div class="kp-result-body">{body}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    render_viral_share_box(module_key, result)
+
+
+def render_viral_share_box(module_key: str, result: str) -> None:
+    module = MODULES.get(module_key, {"title": "Kalbimin Pusulası"})
+    title = str(module.get("title", "Kalbimin Pusulası"))
+    short_result = " ".join(result.strip().split())[:230]
+    share_text = (
+        f"Kalbimin Pusulası'nda {title} yorumumu aldım. "
+        f"Bana çıkan kısa mesaj: {short_result}... Sen de kendi aşk pusulanı dene."
+    )
+    encoded = quote(share_text)
+    st.markdown(
+        f"""
+        <div class="kp-share-card">
+            <div class="kp-section-kicker">Paylaş ve arkadaşını davet et</div>
+            <div class="kp-login-note">Aşağıdaki metni kopyalayarak sosyal medyada, WhatsApp'ta veya hikayende paylaşabilirsin.</div>
+            <div class="kp-share-links">
+                <a href="https://wa.me/?text={encoded}" target="_blank">WhatsApp'ta paylaş</a>
+                <a href="https://twitter.com/intent/tweet?text={encoded}" target="_blank">X'te paylaş</a>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.text_area("Kopyalanabilir paylaşım metni", value=share_text, height=110, key=f"share_text_{module_key}")
+
+
+def render_upgrade_prompt(required_plan: str, current_plan: str = "free") -> None:
+    required = PLAN_CONFIG.get(required_plan, PLAN_CONFIG["premium"])
+    current = PLAN_CONFIG.get(current_plan, PLAN_CONFIG["free"])
+    st.markdown(
+        f"""
+        <div class="kp-upgrade-card">
+            <div class="kp-section-kicker">Freemium kilidi</div>
+            <div class="kp-section-title">Bu bölüm {escape(required['name'])} planında açılır.</div>
+            <div class="kp-login-note">Mevcut planın: {escape(current['name'])}. Daha detaylı yorumlar ve özel talepler için planını yükseltebilirsin.</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 def render_footer() -> None:
