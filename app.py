@@ -25,12 +25,14 @@ from services.catalog import (
     ZODIAC_SIGNS,
     calculate_zodiac_compatibility,
     format_card_spread,
+    plan_allows,
     select_katina_cards,
     select_tarot_cards,
 )
 from services.db import (
     activate_access_code,
     authenticate_user,
+    can_generate,
     create_content_item,
     create_user_account,
     delete_content_item,
@@ -50,6 +52,7 @@ from services.db import (
     save_reading,
     save_style_settings,
     send_manual_response,
+    submit_email_lead,
     submit_manual_request,
     submit_upgrade_request,
     update_content_item,
@@ -64,8 +67,10 @@ from services.ui import (
     render_module_card,
     render_module_intro,
     render_plan_cards,
+    render_result_panel,
     render_safety_notice,
     render_section_header,
+    render_upgrade_prompt,
     render_sidebar_brand,
 )
 
@@ -74,7 +79,7 @@ st.set_page_config(
     page_title=APP_NAME,
     page_icon="🔮",
     layout="centered",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="auto",
     menu_items={"Get help": None, "Report a bug": None, "About": None},
 )
 
@@ -100,12 +105,12 @@ BASE_MENU_GROUPS = [
         ],
     ),
     (
-        "Duygusal & Kişisel Analiz",
+        "Kalp & Bağ Analizi",
         "◌",
         [("emotion", "Duygu Analizi", "◌"), ("zodiac", "Kişisel Burç & Uyum", "♓")],
     ),
     (
-        "Fal & Kehanet",
+        "Romantik Fal",
         "✧",
         [
             ("mini_tarot", "Mini Tarot Falı", "◇"),
@@ -118,7 +123,7 @@ BASE_MENU_GROUPS = [
             ("soulmate", "Ruh Eşi Çizimi", "♁"),
         ],
     ),
-    ("Ruhsal & Zihinsel", "☉", [("meditation", "Kısa Meditasyonlar", "☽"), ("rituals", "Ritüeller", "✺")]),
+    ("Kalp Destek", "☉", [("meditation", "Kalp Meditasyonları", "☽"), ("rituals", "Aşk Ritüelleri", "✺")]),
 ]
 
 
@@ -201,25 +206,24 @@ def auth_sidebar() -> Optional[Dict[str, Any]]:
         return user
 
     st.sidebar.markdown("### Giriş")
-    tab_login, tab_register, tab_guest = st.sidebar.tabs(["Giriş", "Kayıt", "Misafir"])
+    st.sidebar.caption("Aşk ve ilişki yorumlarını denemek için giriş yap, hesap oluştur veya misafir devam et.")
 
-    with tab_login:
-        login_email = normalize_email(st.text_input("E-posta", key="login_email"))
-        login_password = st.text_input("Şifre", type="password", key="login_password")
-        if st.button("Giriş yap", key="login_btn", use_container_width=True):
-            try:
-                ok, msg, auth_user = authenticate_user(login_email, login_password)
-                if ok and auth_user:
-                    st.session_state["auth_user"] = auth_user
-                    st.session_state["current_page"] = "home"
-                    st.success(msg)
-                    st.rerun()
-                else:
-                    st.error(msg)
-            except Exception as exc:
-                stop_with_setup_error(exc)
+    login_email = normalize_email(st.sidebar.text_input("E-posta", key="login_email"))
+    login_password = st.sidebar.text_input("Şifre", type="password", key="login_password")
+    if st.sidebar.button("Giriş yap", key="login_btn", use_container_width=True):
+        try:
+            ok, msg, auth_user = authenticate_user(login_email, login_password)
+            if ok and auth_user:
+                st.session_state["auth_user"] = auth_user
+                st.session_state["current_page"] = "home"
+                st.success(msg)
+                st.rerun()
+            else:
+                st.error(msg)
+        except Exception as exc:
+            stop_with_setup_error(exc)
 
-    with tab_register:
+    with st.sidebar.expander("Yeni hesap oluştur"):
         display_name = st.text_input("Ad Soyad", key="register_name")
         reg_email = normalize_email(st.text_input("E-posta", key="register_email"))
         reg_password = st.text_input("Şifre", type="password", key="register_password")
@@ -236,12 +240,10 @@ def auth_sidebar() -> Optional[Dict[str, Any]]:
             except Exception as exc:
                 stop_with_setup_error(exc)
 
-    with tab_guest:
-        st.caption("Ücretsiz AI sayfalarını hesap oluşturmadan deneyebilirsin. Admin yorumlu özel talepler ve gelen kutusu için hesap gerekir.")
-        if st.button("Misafir devam et", key="guest_btn", use_container_width=True):
-            st.session_state["auth_user"] = guest_user()
-            st.session_state["current_page"] = "home"
-            st.rerun()
+    if st.sidebar.button("Misafir olarak dene", key="guest_btn", use_container_width=True):
+        st.session_state["auth_user"] = guest_user()
+        st.session_state["current_page"] = "home"
+        st.rerun()
 
     return None
 
@@ -377,6 +379,49 @@ def require_account(user: Dict[str, Any]) -> bool:
     return True
 
 
+
+def render_email_lead_form(source: str = "landing") -> None:
+    st.markdown(
+        """
+        <div class="kp-lead-card">
+            <div class="kp-section-kicker">Email listesi</div>
+            <div class="kp-section-title">Aşk pusulanı kaybetme</div>
+            <div class="kp-login-note">Yeni yorum özellikleri, kampanyalar ve viral paylaşım fikirleri için e-posta bırak.</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    email = normalize_email(st.text_input("E-posta adresin", key=f"lead_email_{source}", placeholder="ornek@mail.com"))
+    if st.button("Listeye katıl", key=f"lead_submit_{source}", use_container_width=True):
+        try:
+            ok, msg = submit_email_lead(email, source=source)
+            if ok:
+                st.success(msg)
+            else:
+                st.warning(msg)
+        except Exception as exc:
+            st.error(f"E-posta kaydedilemedi: {exc}")
+
+
+def module_plan_allowed(user: Dict[str, Any], module_key: str, module_settings: Dict[str, Dict[str, Any]]) -> bool:
+    if module_key not in MODULES:
+        return True
+    meta = module_meta(module_key, module_settings)
+    required_plan = str(meta.get("min_plan", "free"))
+    return plan_allows(user.get("plan", "free"), required_plan)
+
+
+def show_plan_gate(user: Dict[str, Any], module_key: str, module_settings: Dict[str, Dict[str, Any]]) -> None:
+    meta = module_meta(module_key, module_settings)
+    required_plan = str(meta.get("min_plan", "premium"))
+    render_upgrade_prompt(required_plan, user.get("plan", "free"))
+    if user.get("is_guest"):
+        st.info("Bu bölümü açmak için hesap oluşturup uygun plana geçmelisin.")
+    if st.button("Planları incele", key=f"gate_plans_{module_key}", use_container_width=True):
+        go_to_page("subscription", user, module_settings)
+        st.rerun()
+
+
 def build_ai_prompt(module_key: str, payload: Dict[str, Any], prompts: Dict[str, str]) -> str:
     admin_prompt = prompts.get(module_key, "")
     payload_text = json.dumps(payload, ensure_ascii=False, indent=2, default=str)
@@ -391,21 +436,47 @@ Yanıt dili ve sınırlar:
 - Türkçe yaz.
 - Kesin gelecek, terapi, teşhis, hukuki veya finansal tavsiye iddiası kurma.
 - Yargılayıcı veya manipülatif öneriler verme.
-- Okunabilir başlıklar ve kısa paragraflar kullan.
+- Sonuç ekranı için detaylı, doyurucu ve paylaşılabilir bir metin üret.
+- En az şu başlıkları kullan: Kalbinin Şu Anki Sesi, Pusulanın İşaret Ettiği Yön, İlişki Dinamiği, Bugün İçin Küçük Bir Adım, Paylaşılabilir Kısa Mesaj.
+- Kısa tek paragraf yazma; her başlığın altında açıklayıcı 2-4 cümle ver.
 """
 
 
 def run_ai_free(user: Dict[str, Any], module_key: str, payload: Dict[str, Any], prompts: Dict[str, str]) -> None:
-    prompt = build_ai_prompt(module_key, payload, prompts)
-    with st.spinner("Pusulan yorumunu hazırlıyor..."):
+    plan = user.get("plan", "free")
+
+    if user.get("is_guest"):
+        guest_key = f"guest_usage_{dt.date.today().isoformat()}"
+        used = int(st.session_state.get(guest_key, 0))
+        limit = int(PLAN_CONFIG["free"]["daily_limit"])
+        if used >= limit:
+            st.warning(f"Misafir modunda bugünkü {limit} ücretsiz yorum hakkın doldu. Devam etmek için hesap oluşturabilir veya planları inceleyebilirsin.")
+            return
+    else:
         try:
-            result = generate_text(prompt, plan="free")
-            if not user.get("is_guest"):
+            ok, msg, meta = can_generate(user["email"])
+        except Exception as exc:
+            st.error(f"Kullanım hakkı kontrol edilemedi: {exc}")
+            return
+        if not ok:
+            st.warning(msg)
+            render_upgrade_prompt("premium", plan)
+            return
+        st.caption(msg)
+
+    prompt = build_ai_prompt(module_key, payload, prompts)
+    with st.spinner("Pusulan detaylı yorumunu hazırlıyor..."):
+        try:
+            result = generate_text(prompt, plan=plan)
+            if user.get("is_guest"):
+                guest_key = f"guest_usage_{dt.date.today().isoformat()}"
+                st.session_state[guest_key] = int(st.session_state.get(guest_key, 0)) + 1
+            else:
                 record_usage(user["email"], module_key)
                 if st.session_state.get("save_history", False):
                     save_reading(user["email"], module_key, payload, result)
             st.success("Yorum hazır.")
-            st.markdown(result)
+            render_result_panel(module_key, result, plan)
         except Exception as exc:
             st.error(f"Yorum oluşturulamadı: {exc}")
 
@@ -427,36 +498,25 @@ def page_home(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]]) 
     render_hero(user)
     render_safety_notice()
 
-    render_section_header("Ay döngün", "Aktif durumun ve bugünkü deneyimlerin tek bakışta.", kicker="Dashboard")
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        render_metric_card("Durum", "Misafir" if user.get("is_guest") else "Üye", "Giriş tipi")
-    with col2:
-        render_metric_card("Plan", user.get("plan", "free"), "Aktif plan")
-    with col3:
-        render_metric_card("Rol", user.get("role", "user"), "Kullanıcı yetkisi")
+    if user.get("is_guest"):
+        render_email_lead_form("home_guest")
 
-    sections: Dict[str, List[str]] = {}
-    for key in MODULES:
-        if not module_active(key, module_settings):
-            continue
-        category = MODULES[key].get("category", "Diğer")
-        sections.setdefault(category, []).append(key)
+    render_section_header("Aşk odağın", "Kalbimin Pusulası artık ilişki, mesaj analizi ve romantik fal deneyimine odaklanır.", kicker="Niş odak")
+    priority_keys = ["relationship", "message_analysis", "love_fortune", "daily_energy", "mini_tarot", "coffee_text"]
+    visible_keys = [key for key in priority_keys if key in MODULES and module_active(key, module_settings)]
+    for start in range(0, len(visible_keys), 2):
+        cols = st.columns(2)
+        for col, key in zip(cols, visible_keys[start : start + 2]):
+            meta = module_meta(key, module_settings)
+            required_plan = str(meta.get("min_plan", "free"))
+            locked = (not bool(meta.get("guest_allowed", True)) and user.get("is_guest")) or not plan_allows(user.get("plan", "free"), required_plan)
+            with col:
+                render_module_card(key, meta, locked=locked)
+                if st.button("Bu bölüme git →", key=f"home_open_{key}", use_container_width=True):
+                    go_to_page(key, user, module_settings)
+                    st.rerun()
 
-    for section_title, keys in sections.items():
-        render_section_header(section_title, "Kartın altındaki butona basarak ilgili sayfaya geçebilirsin.", kicker="Modüller")
-        for start in range(0, len(keys), 2):
-            cols = st.columns(2)
-            for col, key in zip(cols, keys[start : start + 2]):
-                meta = module_meta(key, module_settings)
-                needs_login = not bool(meta.get("guest_allowed", True)) and user.get("is_guest")
-                with col:
-                    render_module_card(key, meta, locked=needs_login)
-                    if st.button("Bu bölüme git →", key=f"home_open_{key}", use_container_width=True):
-                        go_to_page(key, user, module_settings)
-                        st.rerun()
-
-    render_section_header("Plan özeti", "Planlar daha sonra ödeme entegrasyonuna bağlanabilir.", kicker="Subscription")
+    render_section_header("Freemium plan", "Ücretsiz dene; detaylı ve özel yorumlar için Premium'a geç.", kicker="Plan")
     render_plan_cards(user.get("plan", "free"))
 
 
@@ -465,7 +525,7 @@ def page_subscription(user: Dict[str, Any]) -> None:
         st.info("Yükseltme talebi için hesapla giriş yapmalısın. Planları yine de inceleyebilirsin.")
     current_plan = user.get("plan", "free")
     st.markdown("## 💎 Planlar & Abonelik")
-    st.write("Ücretsiz AI modülleri açık. Admin yorumlu özel talepler ve ileride eklenecek ödeme akışı için plan yapısı korunur.")
+    st.write("Freemium sistem aktif: Ücretsiz plan günlük sınırlı deneme sunar; Premium ve Premium+ daha yüksek limit, detaylı sonuç ve özel admin yorumlu talepler açar.")
     render_plan_cards(current_plan)
 
     if user.get("is_guest"):
@@ -549,11 +609,20 @@ def page_zodiac(module_settings: Dict[str, Dict[str, Any]]) -> None:
     relation_type = st.selectbox("Bağ türü", ["Flört", "İlişki", "Eski partner", "Platonik", "Karmaşık bağ"])
     if st.button("Burç uyumunu hesapla"):
         result = calculate_zodiac_compatibility(user_sign, partner_sign, relation_type)
-        st.success(f"Uyum puanı: {result['score']}/100")
-        st.markdown(f"### {result['headline']}")
-        st.write(f"**Senin elementin:** {result['user_element']}  |  **Karşı tarafın elementi:** {result['partner_element']}")
-        st.write(result["detail"])
-        st.info(result["advice"])
+        result_text = f"""### Uyum puanı: {result['score']}/100
+
+#### {result['headline']}
+Senin elementin: {result['user_element']} | Karşı tarafın elementi: {result['partner_element']}
+
+#### İlişki Dinamiği
+{result['detail']}
+
+#### Bugün İçin Küçük Bir Adım
+{result['advice']}
+
+#### Paylaşılabilir Kısa Mesaj
+Kalbimin Pusulası burç uyumum için {result['score']}/100 verdi."""
+        render_result_panel("zodiac", result_text, "free")
 
 
 def page_weekly_report(user: Dict[str, Any], prompts: Dict[str, str], module_settings: Dict[str, Dict[str, Any]]) -> None:
@@ -1004,6 +1073,11 @@ def page_admin(user: Dict[str, Any], prompts: Dict[str, str], module_settings: D
 
 
 def render_page(page: str, user: Dict[str, Any], prompts: Dict[str, str], module_settings: Dict[str, Dict[str, Any]]) -> None:
+    if page in MODULES and not module_plan_allowed(user, page, module_settings):
+        show_plan_gate(user, page, module_settings)
+        render_back_home_button(page)
+        return
+
     if page == "home":
         page_home(user, module_settings)
     elif page == "subscription":
@@ -1058,7 +1132,12 @@ def main() -> None:
     if not user:
         render_hero()
         render_safety_notice()
-        st.info("Sol menüden giriş yapabilir, hesap oluşturabilir veya misafir olarak ücretsiz AI modüllerini deneyebilirsin.")
+        st.info("Sol menüden giriş yapabilir, yeni hesap oluşturabilir veya misafir olarak 5 ücretsiz yorumu deneyebilirsin.")
+        render_email_lead_form("landing")
+        if st.button("Misafir olarak hemen dene", key="main_guest_btn", use_container_width=True):
+            st.session_state["auth_user"] = guest_user()
+            st.session_state["current_page"] = "home"
+            st.rerun()
         render_footer()
         return
 
