@@ -720,7 +720,7 @@ def render_sidebar_brand() -> None:
             <div class="kp-sidebar-orb"><span>☽</span></div>
             <div>
                 <div class="kp-sidebar-brand-title">Kalbimin<br>Pusulası</div>
-                <div class="kp-sidebar-brand-subtitle">Mistik AI deneyimi</div>
+                <div class="kp-sidebar-brand-subtitle">Sezgi yol gösterir</div>
             </div>
         </div>
         """,
