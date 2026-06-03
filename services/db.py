@@ -303,6 +303,27 @@ def submit_upgrade_request(email: str, target_plan: str, note: str = "") -> None
     )
 
 
+
+def submit_email_lead(email: str, source: str = "landing", note: str = "") -> Tuple[bool, str]:
+    normalized = normalize_email(email)
+    if not normalized or "@" not in normalized:
+        return False, "Geçerli bir e-posta adresi yazmalısın."
+
+    db = get_firestore_client()
+    lead_id = user_id_from_email(normalized)
+    db.collection("email_leads").document(lead_id).set(
+        {
+            "email": normalized,
+            "source": source.strip()[:80] or "landing",
+            "note": note.strip()[:500],
+            "updated_at": firestore.SERVER_TIMESTAMP,
+            "created_at": firestore.SERVER_TIMESTAMP,
+        },
+        merge=True,
+    )
+    return True, "E-posta kaydedildi. Sana özel içerik ve kampanya duyuruları için listeye eklendin."
+
+
 def activate_access_code(email: str, code: str) -> Tuple[bool, str]:
     normalized_code = code.strip()
     if not normalized_code:
