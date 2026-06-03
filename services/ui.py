@@ -720,7 +720,7 @@ def render_sidebar_brand() -> None:
             <div class="kp-sidebar-orb"><span>☽</span></div>
             <div>
                 <div class="kp-sidebar-brand-title">Kalbimin<br>Pusulası</div>
-                <div class="kp-sidebar-brand-subtitle">Sezgi yol gösterir</div>
+                <div class="kp-sidebar-brand-subtitle">Mistik AI deneyimi</div>
             </div>
         </div>
         """,
@@ -740,7 +740,22 @@ def render_hero(user: Optional[Dict[str, Any]] = None) -> None:
                     <div class="kp-username">Hoş geldin, {display_name}</div>
                 </div>
             </div>
-            """,
+            <div class="kp-title">Kalbimin <span>Pusulası</span></div>
+            <div class="kp-subtitle">
+                İlişki, mesaj analizi ve romantik fal deneyimlerini tek bir sade akışta birleştiren AI destekli aşk pusulan.
+            </div>
+            <div class="kp-chip-row">
+                <span class="kp-chip">♡ İlişki yorumu</span>
+                <span class="kp-chip">✉ Mesaj analizi</span>
+                <span class="kp-chip">✧ Romantik fal</span>
+            </div>
+            <div class="kp-element-row">
+                <span class="kp-element-chip">5 ücretsiz yorum</span>
+                <span class="kp-element-chip">Paylaşılabilir sonuç</span>
+                <span class="kp-element-chip">Premium detay</span>
+            </div>
+        </div>
+        """,
         unsafe_allow_html=True,
     )
 
@@ -813,7 +828,8 @@ def render_safety_notice() -> None:
     st.markdown(
         """
         <div class="kp-safe">
-            "♡" Kalbin Yolunu Kaybetmez. Yeter ki Ne Hissetiğini Anla! "♡"
+            Bu uygulama eğlence, kişisel farkındalık ve duygusal paylaşım amacı taşır.
+            Terapi, psikolojik danışmanlık, tıbbi teşhis veya kesin gelecek tahmini sunmaz.
         </div>
         """,
         unsafe_allow_html=True,
