@@ -206,7 +206,7 @@ def auth_sidebar() -> Optional[Dict[str, Any]]:
         return user
 
     st.sidebar.markdown("### Giriş")
-    st.sidebar.caption("Aşk ve ilişki yorumlarını denemek için giriş yap, hesap oluştur veya misafir devam et.")
+    st.sidebar.caption("Kalbinizdeki işaretleri görmek için üye girişi yapınız")
 
     login_email = normalize_email(st.sidebar.text_input("E-posta", key="login_email"))
     login_password = st.sidebar.text_input("Şifre", type="password", key="login_password")
