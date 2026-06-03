@@ -828,8 +828,7 @@ def render_safety_notice() -> None:
     st.markdown(
         """
         <div class="kp-safe">
-            Ne Hissettiğini Anladığında Herşey Değişir
-            Kalbin Yolunu Kaybetmez
+            "♡" Kalbin Yolunu Kaybetmez. Yeter ki Ne Hissetiğini Anla! "♡"
         </div>
         """,
         unsafe_allow_html=True,
