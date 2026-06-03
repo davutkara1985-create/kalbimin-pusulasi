@@ -740,22 +740,7 @@ def render_hero(user: Optional[Dict[str, Any]] = None) -> None:
                     <div class="kp-username">Hoş geldin, {display_name}</div>
                 </div>
             </div>
-            <div class="kp-title">Kalbimin <span>Pusulası</span></div>
-            <div class="kp-subtitle">
-                İçindeki ses, evrenden bir yankı taşır.
-            </div>
-            <div class="kp-chip-row">
-                <span class="kp-chip">♡ İlişki yorumu</span>
-                <span class="kp-chip">✉ Mesaj analizi</span>
-                <span class="kp-chip">✧ Romantik fal</span>
-            </div>
-            <div class="kp-element-row">
-                <span class="kp-element-chip">5 ücretsiz yorum</span>
-                <span class="kp-element-chip">Paylaşılabilir sonuç</span>
-                <span class="kp-element-chip">Premium detay</span>
-            </div>
-        </div>
-        """,
+            """,
         unsafe_allow_html=True,
     )
 
