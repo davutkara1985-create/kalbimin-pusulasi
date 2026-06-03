@@ -744,17 +744,7 @@ def render_hero(user: Optional[Dict[str, Any]] = None) -> None:
             <div class="kp-subtitle">
                 İlişki, mesaj analizi ve romantik fal deneyimlerini tek bir sade akışta birleştiren AI destekli aşk pusulan.
             </div>
-            <div class="kp-chip-row">
-                <span class="kp-chip">♡ İlişki yorumu</span>
-                <span class="kp-chip">✉ Mesaj analizi</span>
-                <span class="kp-chip">✧ Romantik fal</span>
             </div>
-            <div class="kp-element-row">
-                <span class="kp-element-chip">5 ücretsiz yorum</span>
-                <span class="kp-element-chip">Paylaşılabilir sonuç</span>
-                <span class="kp-element-chip">Premium detay</span>
-            </div>
-        </div>
         """,
         unsafe_allow_html=True,
     )
