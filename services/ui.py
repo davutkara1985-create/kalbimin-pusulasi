@@ -63,7 +63,7 @@ def apply_page_background(page_key: str) -> None:
         <style>
         .stApp {{
             background-image:
-                linear-gradient(160deg, rgba(5, 6, 18, 0.76), rgba(9, 15, 47, 0.82) 46%, rgba(34, 15, 66, 0.84)),
+                linear-gradient(160deg, rgba(5, 6, 18, 0.42), rgba(9, 15, 47, 0.50) 46%, rgba(34, 15, 66, 0.55)),
                 url("{uri}") !important;
             background-size: cover !important;
             background-position: center center !important;
@@ -152,7 +152,7 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
                 radial-gradient(circle, rgba(217,183,110,0.42) 0 1px, transparent 1.7px);
             background-size: 76px 76px, 132px 132px;
             background-position: 0 0, 28px 46px;
-            opacity: 0.28;
+            opacity: 0.16;
             animation: kpParticleDrift 24s linear infinite;
             z-index: 0;
         }}
