@@ -60,18 +60,17 @@ PLAN_CONFIG: Dict[str, dict] = {
             "Rüya yorumu talebi",
             "Gelen kutusu cevapları",
         ],
-        "locked_features": ["Premium+ haftalık aşk raporu", "Ruh eşi çizimi"],
+        "locked_features": ["Ruh eşi çizimi"],
     },
     "premium_plus": {
         "name": "Premium+",
         "price": "Aylık üst plan",
         "daily_limit": 200,
         "badge": "Derin yorum",
-        "description": "Haftalık aşk raporu, ruh eşi çizimi ve daha yoğun kullanım için üst plan.",
+        "description": "Ruh eşi çizimi ve daha yoğun kullanım için üst plan.",
         "features": [
             "Günde 200 yorum",
             "Tüm Premium özellikler",
-            "Özel haftalık aşk raporu",
             "Ruh eşi çizimi talepleri",
             "Öncelikli admin yanıt akışı",
         ],
@@ -95,15 +94,6 @@ MODULES: Dict[str, dict] = {
         "description": "Mesajların alt metnini ve olası cevapları analiz et",
         "category": "Aşk & İlişki",
         "min_plan": "free",
-        "mode": "ai",
-        "guest_allowed": True,
-    },
-    "weekly_report": {
-        "title": "Haftalık Aşk Raporu",
-        "icon": "✦",
-        "description": "Haftanın aşk enerjisini bir de bizden dinle",
-        "category": "Aşk & İlişki",
-        "min_plan": "premium_plus",
         "mode": "ai",
         "guest_allowed": True,
     },
@@ -246,7 +236,6 @@ AI_PROMPT_MODULES = [
     "mini_tarot",
     "mini_katina",
     "coffee_text",
-    "weekly_report",
 ]
 
 MANUAL_REQUEST_TYPES = {
@@ -266,7 +255,6 @@ DEFAULT_PROMPTS: Dict[str, str] = {
     "mini_tarot": "Çekilen tek tarot kartını aşk, farkındalık ve içsel pusula temasıyla yorumla. Kesin gelecek kehaneti verme; kartı bir davet gibi açıkla.",
     "mini_katina": "Çekilen tek Katina sembolünü romantik enerji, iletişim ve kalp farkındalığı bağlamında yorumla. Kesinlik iddiasından kaçın.",
     "coffee_text": "Kullanıcının yazdığı kahve sembollerini aşk, haber, yol, bekleyiş ve içsel farkındalık temalarıyla yorumla. Eğlence ve farkındalık dili kullan.",
-    "weekly_report": "Haftalık aşk raporunu Premium+ derinliğiyle beş başlıkla hazırla: haftanın enerjisi, güçlü taraf, dikkat edilmesi gereken konu, iletişim önerisi ve kalp mantrası. Kesin gelecek iddiası kurma.",
 }
 
 DEFAULT_MEDITATIONS = [
