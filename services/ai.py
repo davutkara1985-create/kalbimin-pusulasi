@@ -101,3 +101,4 @@ def generate_with_image(prompt: str, uploaded_file, plan: str = "premium") -> st
         max_output_tokens=_max_tokens_for_plan(plan),
     )
     return response.output_text.strip()
+  
