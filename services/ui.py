@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import io
 import unicodedata
 from html import escape
 from pathlib import Path
@@ -8,6 +9,11 @@ from urllib.parse import quote
 from typing import Any, Dict, Optional, Tuple
 
 import streamlit as st
+
+try:
+    from PIL import Image
+except Exception:  # pragma: no cover
+    Image = None
 
 from services.catalog import MODULES, PLAN_CONFIG, plan_allows
 
@@ -83,12 +89,24 @@ def _find_background_file(name: str) -> Optional[Path]:
 
 
 @st.cache_data(show_spinner=False)
-def asset_data_uri(name: str) -> str:
+def asset_data_uri(name: str, max_side: Optional[int] = None, quality: int = 70) -> str:
     path = _find_background_file(name)
     if not path:
         return ""
-    encoded = base64.b64encode(path.read_bytes()).decode("utf-8")
-    return f"data:{_asset_mime(path)};base64,{encoded}"
+    mime = _asset_mime(path)
+    raw = path.read_bytes()
+    if max_side and Image is not None:
+        try:
+            img = Image.open(io.BytesIO(raw)).convert("RGB")
+            img.thumbnail((int(max_side), int(max_side)))
+            buffer = io.BytesIO()
+            img.save(buffer, format="JPEG", quality=int(quality), optimize=True)
+            raw = buffer.getvalue()
+            mime = "image/jpeg"
+        except Exception:
+            pass
+    encoded = base64.b64encode(raw).decode("utf-8")
+    return f"data:{mime};base64,{encoded}"
 
 
 def apply_page_background(page_key: str) -> None:
@@ -896,7 +914,7 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
         .kp-deck-grid {{
             display: grid;
             grid-template-columns: repeat(12, minmax(0, 1fr));
-            gap: 7px 5px;
+            gap: 5px 3px;
             align-items: center;
             margin: 12px 0 14px;
         }}
@@ -925,16 +943,29 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
             pointer-events: none;
         }}
         .kp-deck-card-static.disabled {{ opacity: 0.34; }}
+        .kp-deck-card-face {{
+            display: block;
+            width: 36px;
+            height: 54px;
+            margin: 0 auto;
+            border: none !important;
+            border-radius: 5px;
+            box-shadow: none !important;
+            background-color: transparent !important;
+            background-repeat: no-repeat !important;
+            background-position: center center !important;
+            background-size: contain !important;
+        }}
         .kp-deck-card-img {{
             display: block;
-            width: 100%;
-            max-width: 46px;
+            width: 36px;
+            max-width: 36px;
             height: auto;
             aspect-ratio: 2 / 3;
             object-fit: contain;
             margin: 0 auto;
             border: none !important;
-            border-radius: 6px;
+            border-radius: 5px;
             box-shadow: none !important;
             background: transparent !important;
         }}
@@ -962,7 +993,7 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
         .kp-open-card-img {{
             display: block;
             width: 100%;
-            max-width: 78px;
+            max-width: 58px;
             height: auto;
             margin: 0 auto;
             border: none !important;
