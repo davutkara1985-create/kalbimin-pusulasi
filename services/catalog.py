@@ -17,20 +17,47 @@ ZODIAC_ELEMENTS: Dict[str, str] = {
 }
 
 TAROT_CARDS = [
-    "Aşıklar", "Ay", "Güneş", "Yıldız", "Kupa Ası", "Kupa İkilisi",
-    "Kılıç İkilisi", "Tılsım Dokuzlusu", "Değnek Üçlüsü", "İmparatoriçe",
-    "Azize", "Kader Çarkı", "Denge", "Kule", "Ermiş", "Dünya",
-    "Güç", "Mahkeme", "Değnek Kraliçesi", "Kupa Şövalyesi", "Büyücü",
-    "Adalet", "Asılan Adam", "Ölüm", "Şeytan", "Yargı", "Kupa Kraliçesi",
-    "Kılıç Kraliçesi", "Tılsım Ası", "Değnek Ası", "Kupa Onlusu",
+    'Deli', 'Büyücü', 'Azize', 'İmparatoriçe',
+    'İmparator', 'Başrahip', 'Aşıklar', 'Savaş Arabası',
+    'Güç', 'Ermiş', 'Kader Çarkı', 'Adalet',
+    'Asılan Adam', 'Ölüm', 'Denge', 'Şeytan',
+    'Kule', 'Yıldız', 'Ay', 'Güneş',
+    'Mahkeme', 'Dünya', 'Kupa Ası', 'Kupa İkilisi',
+    'Kupa Üçlüsü', 'Kupa Dörtlüsü', 'Kupa Beşlisi', 'Kupa Altılısı',
+    'Kupa Yedilisi', 'Kupa Sekizlisi', 'Kupa Dokuzlusu', 'Kupa Onlusu',
+    'Kupa Prensi', 'Kupa Şövalyesi', 'Kupa Kraliçesi', 'Kupa Kralı',
+    'Kılıç Ası', 'Kılıç İkilisi', 'Kılıç Üçlüsü', 'Kılıç Dörtlüsü',
+    'Kılıç Beşlisi', 'Kılıç Altılısı', 'Kılıç Yedilisi', 'Kılıç Sekizlisi',
+    'Kılıç Dokuzlusu', 'Kılıç Onlusu', 'Kılıç Prensi', 'Kılıç Şövalyesi',
+    'Kılıç Kraliçesi', 'Kılıç Kralı', 'Değnek Ası', 'Değnek İkilisi',
+    'Değnek Üçlüsü', 'Değnek Dörtlüsü', 'Değnek Beşlisi', 'Değnek Altılısı',
+    'Değnek Yedilisi', 'Değnek Sekizlisi', 'Değnek Dokuzlusu', 'Değnek Onlusu',
+    'Değnek Prensi', 'Değnek Şövalyesi', 'Değnek Kraliçesi', 'Değnek Kralı',
+    'Tılsım Ası', 'Tılsım İkilisi', 'Tılsım Üçlüsü', 'Tılsım Dörtlüsü',
+    'Tılsım Beşlisi', 'Tılsım Altılısı', 'Tılsım Yedilisi', 'Tılsım Sekizlisi',
+    'Tılsım Dokuzlusu', 'Tılsım Onlusu', 'Tılsım Prensi', 'Tılsım Şövalyesi',
+    'Tılsım Kraliçesi', 'Tılsım Kralı',
 ]
 
 KATINA_CARDS = [
-    "Anahtar", "Kalp", "Yol", "Mektup", "Ayna", "Yüzük", "Gül",
-    "Bulut", "Kapı", "Kuşlar", "Taç", "Kadeh", "Zaman", "Deniz",
-    "Göz", "Mum", "Köprü", "Ay", "Güneş", "Kilit", "Pusula", "Sır",
+    'Anahtar', 'Kalp', 'Yol', 'Mektup',
+    'Ayna', 'Yüzük', 'Gül', 'Bulut',
+    'Kapı', 'Kuşlar', 'Taç', 'Kadeh',
+    'Zaman', 'Deniz', 'Göz', 'Mum',
+    'Köprü', 'Ay', 'Güneş', 'Kilit',
+    'Pusula', 'Sır', 'Kitap', 'Ev',
+    'Ağaç', 'Yıldız', 'Çapa', 'Dağ',
+    'Tilki', 'Yılan', 'Balık', 'Çiçek',
+    'Bahçe', 'Kule', 'Çocuk', 'Kadın',
+    'Erkek', 'Haç', 'Gemiler', 'Fareler',
+    'Yonca', 'Köpek', 'Leylek', 'Ayakkabı',
+    'Melek', 'Kılıç', 'Kelebek', 'Saat',
+    'İnci', 'Pencere', 'Kuyu', 'Nar',
+    'Kuş Kafesi', 'Rüzgar', 'Şimşek', 'Sis',
+    'Gölge', 'Işık', 'Merdiven', 'Kemer',
+    'Lale', 'Kum Saati', 'Kalkan', 'Taş',
+    'Kuş Tüyü', 'Zeytin Dalı', 'Kumru', 'Düğüm',
 ]
-
 PLAN_CONFIG: Dict[str, dict] = {
     "free": {
         "name": "Ücretsiz",
