@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import base64
 from html import escape
+from pathlib import Path
 from urllib.parse import quote
 from typing import Any, Dict, Optional, Tuple
 
@@ -35,6 +37,45 @@ MODULE_VISUALS: Dict[str, Tuple[str, str, str]] = {
 
 def module_visual(module_key: str) -> Tuple[str, str, str]:
     return MODULE_VISUALS.get(module_key, ("Kalbimin Pusulası", "✦", "water"))
+
+
+@st.cache_data(show_spinner=False)
+def _background_data_uri(filename: str) -> str:
+    path = Path(__file__).resolve().parent.parent / "assets" / "backgrounds" / filename
+    if not path.exists():
+        return ""
+    encoded = base64.b64encode(path.read_bytes()).decode("utf-8")
+    return f"data:image/png;base64,{encoded}"
+
+
+def apply_page_background(page_key: str) -> None:
+    filename = "Genel.png"
+    if page_key == "dream":
+        filename = "Ruya_Yorumu.png"
+    elif page_key == "soulmate":
+        filename = "Ruh_Esi.png"
+
+    uri = _background_data_uri(filename)
+    if not uri:
+        return
+    st.markdown(
+        f'''
+        <style>
+        .stApp {{
+            background-image:
+                linear-gradient(160deg, rgba(5, 6, 18, 0.76), rgba(9, 15, 47, 0.82) 46%, rgba(34, 15, 66, 0.84)),
+                url("{uri}") !important;
+            background-size: cover !important;
+            background-position: center center !important;
+            background-attachment: fixed !important;
+        }}
+        [data-testid="stAppViewContainer"] {{
+            background: transparent !important;
+        }}
+        </style>
+        ''',
+        unsafe_allow_html=True,
+    )
 
 
 def _display_name(user: Optional[Dict[str, Any]]) -> str:
@@ -754,6 +795,50 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
             color: var(--kp-muted);
             font-size: 0.92rem;
             line-height: 1.6;
+        }}
+
+        .kp-upload-slot {{
+            min-height: 96px;
+            display: grid;
+            place-items: center;
+            text-align: center;
+            border-radius: 20px;
+            border: 1px dashed rgba(255,241,184,0.36);
+            background: rgba(255,241,184,0.075);
+            color: var(--kp-gold-2);
+            font-family: var(--kp-font-serif);
+            font-size: 1.05rem;
+            margin-bottom: 8px;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 14px 30px rgba(0,0,0,0.18);
+        }}
+
+        .kp-written-template {{
+            padding: 22px;
+            border-radius: 26px;
+            border: 1px solid rgba(255,241,184,0.24);
+            background: linear-gradient(145deg, rgba(255,255,255,0.12), rgba(255,255,255,0.04)), rgba(12,15,44,0.74);
+            box-shadow: 0 22px 52px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.11);
+            margin: 14px 0;
+            color: var(--kp-text);
+            line-height: 1.72;
+        }}
+        .kp-written-title {{
+            font-family: var(--kp-font-serif);
+            color: var(--kp-gold-2);
+            line-height: 1.05;
+            margin: 10px 0 14px;
+        }}
+        .kp-written-body {{
+            color: rgba(255,248,232,0.90);
+        }}
+        .kp-template-parchment {{
+            background: linear-gradient(145deg, rgba(255,248,232,0.18), rgba(217,183,110,0.08)), rgba(18, 14, 38, 0.82);
+        }}
+        .kp-template-calm {{
+            background: linear-gradient(145deg, rgba(36,109,181,0.16), rgba(255,255,255,0.04)), rgba(8, 12, 36, 0.78);
+        }}
+        .kp-template-ritual {{
+            background: radial-gradient(circle at 18% 12%, rgba(217,183,110,0.18), transparent 32%), linear-gradient(145deg, rgba(123,75,214,0.18), rgba(255,255,255,0.04)), rgba(12,15,44,0.78);
         }}
 
         @keyframes kpParticleDrift {{ 0% {{ background-position: 0 0, 28px 46px; }} 100% {{ background-position: 120px 160px, -40px 190px; }} }}
