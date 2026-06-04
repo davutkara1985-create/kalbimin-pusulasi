@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import unicodedata
 from html import escape
 from pathlib import Path
 from urllib.parse import quote
@@ -39,23 +40,73 @@ def module_visual(module_key: str) -> Tuple[str, str, str]:
     return MODULE_VISUALS.get(module_key, ("Kalbimin Pusulası", "✦", "water"))
 
 
+BACKGROUND_EXTENSIONS = (".png", ".jpg", ".jpeg", ".webp")
+
+
+def _asset_name_key(value: str) -> str:
+    value = value.strip().casefold().replace("ı", "i").replace("İ", "i")
+    value = unicodedata.normalize("NFKD", value)
+    return "".join(ch for ch in value if not unicodedata.combining(ch))
+
+
+def _asset_mime(path: Path) -> str:
+    suffix = path.suffix.lower()
+    if suffix in {".jpg", ".jpeg"}:
+        return "image/jpeg"
+    if suffix == ".webp":
+        return "image/webp"
+    return "image/png"
+
+
+def _find_background_file(name: str) -> Optional[Path]:
+    base_dir = Path(__file__).resolve().parent.parent / "assets" / "backgrounds"
+    if not base_dir.exists():
+        return None
+
+    requested = Path(name)
+    direct_candidates = []
+    if requested.suffix:
+        direct_candidates.append(base_dir / requested.name)
+    else:
+        direct_candidates.extend(base_dir / f"{requested.name}{ext}" for ext in BACKGROUND_EXTENSIONS)
+
+    for candidate in direct_candidates:
+        if candidate.exists():
+            return candidate
+
+    target_key = _asset_name_key(requested.stem or requested.name)
+    for candidate in base_dir.iterdir():
+        if candidate.is_file() and candidate.suffix.lower() in BACKGROUND_EXTENSIONS:
+            if _asset_name_key(candidate.stem) == target_key:
+                return candidate
+    return None
+
+
 @st.cache_data(show_spinner=False)
-def _background_data_uri(filename: str) -> str:
-    path = Path(__file__).resolve().parent.parent / "assets" / "backgrounds" / filename
-    if not path.exists():
+def asset_data_uri(name: str) -> str:
+    path = _find_background_file(name)
+    if not path:
         return ""
     encoded = base64.b64encode(path.read_bytes()).decode("utf-8")
-    return f"data:image/png;base64,{encoded}"
+    return f"data:{_asset_mime(path)};base64,{encoded}"
 
 
 def apply_page_background(page_key: str) -> None:
-    filename = "Genel.png"
-    if page_key == "dream":
-        filename = "Ruya_Yorumu.png"
-    elif page_key == "soulmate":
-        filename = "Ruh_Esi.png"
+    page_backgrounds = {
+        "relationship": "İliski_Resmi",
+        "message_analysis": "İliski_Resmi",
+        "love_fortune": "İliski_Resmi",
+        "daily_energy": "İliski_Resmi",
+        "emotion": "İliski_Resmi",
+        "coffee_text": "Kahve_Fali",
+        "coffee_image": "Kahve_Fali",
+        "dream": "Ruya_Yorumu",
+        "soulmate": "Ruh_Esi",
+        "meditation": "Meditasyon",
+    }
+    filename = page_backgrounds.get(page_key, "Genel")
 
-    uri = _background_data_uri(filename)
+    uri = asset_data_uri(filename) or asset_data_uri("Genel")
     if not uri:
         return
     st.markdown(
@@ -839,6 +890,48 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
         }}
         .kp-template-ritual {{
             background: radial-gradient(circle at 18% 12%, rgba(217,183,110,0.18), transparent 32%), linear-gradient(145deg, rgba(123,75,214,0.18), rgba(255,255,255,0.04)), rgba(12,15,44,0.78);
+        }}
+
+        .kp-deck-card-link, .kp-deck-card-static {{
+            position: relative;
+            display: block;
+            min-height: 118px;
+            border-radius: 18px;
+            overflow: hidden;
+            border: 1px solid rgba(255,241,184,0.32);
+            background: rgba(7,10,34,0.58);
+            box-shadow: 0 14px 34px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.12);
+            text-decoration: none !important;
+            margin: 5px 0 12px;
+            transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease, opacity 180ms ease;
+        }}
+        .kp-deck-card-link:hover {{
+            transform: translateY(-2px) scale(1.025);
+            border-color: rgba(255,241,184,0.72);
+            box-shadow: 0 18px 42px rgba(0,0,0,0.34), 0 0 26px rgba(217,183,110,0.18);
+        }}
+        .kp-deck-card-static.disabled {{ opacity: 0.45; }}
+        .kp-deck-card-img {{
+            width: 100%;
+            height: 118px;
+            object-fit: cover;
+            display: block;
+        }}
+        .kp-deck-card-overlay {{
+            position: absolute;
+            inset: 0;
+            display: grid;
+            place-items: center;
+            background: linear-gradient(160deg, rgba(5,6,18,0.10), rgba(34,15,66,0.22));
+            color: var(--kp-gold-2);
+            font-weight: 950;
+            font-size: 0.86rem;
+            text-align: center;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.65);
+        }}
+        .kp-deck-card-static.selected .kp-deck-card-overlay {{
+            background: linear-gradient(160deg, rgba(5,6,18,0.18), rgba(217,183,110,0.32));
+            font-size: 1rem;
         }}
 
         @keyframes kpParticleDrift {{ 0% {{ background-position: 0 0, 28px 46px; }} 100% {{ background-position: 120px 160px, -40px 190px; }} }}
