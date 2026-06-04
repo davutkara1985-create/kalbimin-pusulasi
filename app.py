@@ -72,6 +72,7 @@ from services.ui import (
     render_section_header,
     render_upgrade_prompt,
     render_sidebar_brand,
+    render_content_visual,
 )
 
 
@@ -99,7 +100,6 @@ BASE_MENU_GROUPS = [
         [
             ("relationship", "İlişki Yorumu", "♡"),
             ("message_analysis", "Mesaj Analizi", "✉"),
-            ("weekly_report", "Haftalık Aşk Raporu", "✦"),
             ("love_fortune", "Aşk Falı", "☽"),
             ("daily_energy", "Günlük Aşk Enerjisi", "✺"),
         ],
@@ -396,6 +396,8 @@ def render_email_lead_form(source: str = "landing") -> None:
 
 
 def module_plan_allowed(user: Dict[str, Any], module_key: str, module_settings: Dict[str, Dict[str, Any]]) -> bool:
+    if is_admin(user):
+        return True
     if module_key not in MODULES:
         return True
     meta = module_meta(module_key, module_settings)
@@ -435,7 +437,7 @@ Yanıt dili ve sınırlar:
 
 
 def run_ai_free(user: Dict[str, Any], module_key: str, payload: Dict[str, Any], prompts: Dict[str, str]) -> None:
-    plan = user.get("plan", "free")
+    plan = "premium_plus" if is_admin(user) else user.get("plan", "free")
 
     if user.get("is_guest"):
         guest_key = f"guest_usage_{dt.date.today().isoformat()}"
@@ -444,6 +446,8 @@ def run_ai_free(user: Dict[str, Any], module_key: str, payload: Dict[str, Any], 
         if used >= limit:
             st.warning(f"Misafir modunda bugünkü {limit} ücretsiz yorum hakkın doldu. Devam etmek için hesap oluşturabilir veya planları inceleyebilirsin.")
             return
+    elif is_admin(user):
+        st.caption("Admin yetkisi aktif: premium sayfalar ve kullanım limitleri sana kapalı değildir.")
     else:
         try:
             ok, msg, meta = can_generate(user["email"])
@@ -463,7 +467,7 @@ def run_ai_free(user: Dict[str, Any], module_key: str, payload: Dict[str, Any], 
             if user.get("is_guest"):
                 guest_key = f"guest_usage_{dt.date.today().isoformat()}"
                 st.session_state[guest_key] = int(st.session_state.get(guest_key, 0)) + 1
-            else:
+            elif not is_admin(user):
                 record_usage(user["email"], module_key)
                 if st.session_state.get("save_history", False):
                     save_reading(user["email"], module_key, payload, result)
@@ -501,7 +505,7 @@ def page_home(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]]) 
         for col, key in zip(cols, visible_keys[start : start + 2]):
             meta = module_meta(key, module_settings)
             required_plan = str(meta.get("min_plan", "free"))
-            locked = (not bool(meta.get("guest_allowed", True)) and user.get("is_guest")) or not plan_allows(user.get("plan", "free"), required_plan)
+            locked = (not is_admin(user)) and ((not bool(meta.get("guest_allowed", True)) and user.get("is_guest")) or not plan_allows(user.get("plan", "free"), required_plan))
             with col:
                 render_module_card(key, meta, locked=locked)
                 if st.button("Bu bölüme git →", key=f"home_open_{key}", use_container_width=True):
@@ -535,16 +539,85 @@ def page_subscription(user: Dict[str, Any]) -> None:
             st.error(f"Talep kaydedilemedi: {exc}")
 
 
+
+def birth_time_input(prefix: str, label: str = "Doğum saati") -> str:
+    unknown = st.checkbox("Doğum saatimi bilmiyorum", key=f"{prefix}_birth_time_unknown")
+    if unknown:
+        st.caption("Doğum saati bilinmiyor olarak kaydedilecek.")
+        return "Bilinmiyor"
+    birth_time = st.time_input(label, value=dt.time(12, 0), key=f"{prefix}_birth_time")
+    return birth_time.strftime("%H:%M")
+
+
+def birth_place_input(prefix: str) -> str:
+    birth_place_query = st.text_input(
+        "Doğum yeri",
+        key=f"{prefix}_birth_place_query",
+        placeholder="Şehrin en az 3 harfini yaz...",
+    )
+    matches = city_matches(birth_place_query)
+    if len(birth_place_query.strip()) >= 3 and matches:
+        return st.selectbox("Şehir seç", matches, key=f"{prefix}_birth_place_select")
+    if len(birth_place_query.strip()) >= 3:
+        st.caption("Listede yoksa şehir adını yazdığın şekilde kullanabilirsin.")
+    return birth_place_query
+
+
+def birth_details_form(prefix: str, include_birth_date: bool = False, include_zodiac: bool = True) -> Dict[str, Any]:
+    details: Dict[str, Any] = {}
+    if include_birth_date:
+        details["doğum_tarihi"] = str(
+            st.date_input(
+                "Doğum tarihi",
+                value=dt.date(1995, 1, 1),
+                min_value=dt.date(1950, 1, 1),
+                max_value=dt.date.today(),
+                format="DD/MM/YYYY",
+                key=f"{prefix}_birth_date",
+            )
+        )
+    if include_zodiac:
+        details["burç"] = st.selectbox("Burç", ZODIAC_SIGNS, key=f"{prefix}_sign")
+    details["doğum_saati"] = birth_time_input(prefix)
+    details["doğum_yeri"] = birth_place_input(prefix)
+    return details
+
 def page_relationship(user: Dict[str, Any], prompts: Dict[str, str], module_settings: Dict[str, Dict[str, Any]]) -> None:
     render_module_intro("relationship", "free", module_meta("relationship", module_settings))
     situation = st.text_area("İlişkindeki güncel durumu bizimle paylaş", height=210, placeholder="Aramızda son zamanlarda şöyle bir şey oluyor...")
     question = st.text_input("En çok neyi merak ediyorsun?", placeholder="Beni seviyor mu, mesafe neden arttı, ne yapmalıyım?")
     relationship_stage = st.selectbox("İlişki Türü", ["Flört", "İlişki", "Eski partner", "Platonik", "Karmaşık bağ"])
+    relationship_duration = st.selectbox(
+        "İlişki süresi",
+        ["Yeni tanıştık", "0-3 ay", "3-6 ay", "6-12 ay", "1-3 yıl", "3 yıldan uzun", "Ayrı/mesafeliyiz"],
+    )
+    relationship_definition = st.selectbox(
+        "İlişkinizi nasıl tanımlarsınız?",
+        [
+            "Sakin ve güvenli",
+            "Tutkulu ama inişli çıkışlı",
+            "Belirsiz ve karmaşık",
+            "Uzak/mesafeli",
+            "Kopuk ama bağ hâlâ var",
+            "Yeni umut veren bir bağ",
+        ],
+    )
     if st.button("İlişkimi yorumla"):
         if not situation.strip():
             st.warning("Durumu birkaç cümleyle anlatmalısın.")
             return
-        run_ai_free(user, "relationship", {"bağ_türü": relationship_stage, "durum": situation, "soru": question}, prompts)
+        run_ai_free(
+            user,
+            "relationship",
+            {
+                "bağ_türü": relationship_stage,
+                "ilişki_süresi": relationship_duration,
+                "ilişki_tanımı": relationship_definition,
+                "durum": situation,
+                "soru": question,
+            },
+            prompts,
+        )
 
 
 def page_message_analysis(user: Dict[str, Any], prompts: Dict[str, str], module_settings: Dict[str, Dict[str, Any]]) -> None:
@@ -567,9 +640,11 @@ def page_love_fortune(user: Dict[str, Any], prompts: Dict[str, str], module_sett
     with col2:
         last_name = st.text_input("Soyad")
     sign = st.selectbox("Burç", ZODIAC_SIGNS, key="love_fortune_sign")
+    birth_details = birth_details_form("love_fortune", include_birth_date=False, include_zodiac=False)
     intention = st.text_area("Aşk hayatınla ilgili niyetin veya sorun nedir?", height=130)
     if st.button("Aşk falımı yorumla"):
-        run_ai_free(user, "love_fortune", {"ad": first_name, "soyad": last_name, "burç": sign, "niyet": intention}, prompts)
+        payload = {"ad": first_name, "soyad": last_name, "burç": sign, **birth_details, "niyet": intention}
+        run_ai_free(user, "love_fortune", payload, prompts)
 
 
 def page_daily_energy(user: Dict[str, Any], prompts: Dict[str, str], module_settings: Dict[str, Dict[str, Any]]) -> None:
@@ -617,22 +692,16 @@ Kalbimin Pusulası burç uyumum için {result['score']}/100 verdi."""
         render_result_panel("zodiac", result_text, "free")
 
 
-def page_weekly_report(user: Dict[str, Any], prompts: Dict[str, str], module_settings: Dict[str, Dict[str, Any]]) -> None:
-    render_module_intro("weekly_report", "free", module_meta("weekly_report", module_settings))
-    mood = st.selectbox("Haftaya hangi duyguyla giriyorsun?", ["Umut", "Kararsızlık", "Yorgunluk", "Özlem", "Yeni başlangıç isteği"])
-    focus = st.text_input("Bu hafta kalbin en çok neyi merak ediyor?")
-    sign = st.selectbox("Burcun", ZODIAC_SIGNS)
-    if st.button("Haftalık aşk raporumu oluştur"):
-        run_ai_free(user, "weekly_report", {"ruh_hali": mood, "odak": focus, "burç": sign}, prompts)
 
 
 def page_mini_tarot(user: Dict[str, Any], prompts: Dict[str, str], module_settings: Dict[str, Dict[str, Any]]) -> None:
     render_module_intro("mini_tarot", "free", module_meta("mini_tarot", module_settings))
+    birth_details = birth_details_form("mini_tarot", include_birth_date=False, include_zodiac=True)
     question = st.text_area("Tarota sormak istediğin niyet veya soru", height=130)
     if st.button("Benim adıma kart çek ve yorumla"):
         cards = select_tarot_cards(mini=True)
         render_drawn_cards(cards, "fire")
-        run_ai_free(user, "mini_tarot", {"soru": question, "çekilen_kart": cards[0]}, prompts)
+        run_ai_free(user, "mini_tarot", {"soru": question, "çekilen_kart": cards[0], **birth_details}, prompts)
 
 
 def page_mini_katina(user: Dict[str, Any], prompts: Dict[str, str], module_settings: Dict[str, Dict[str, Any]]) -> None:
@@ -646,55 +715,41 @@ def page_mini_katina(user: Dict[str, Any], prompts: Dict[str, str], module_setti
 
 def page_coffee_text(user: Dict[str, Any], prompts: Dict[str, str], module_settings: Dict[str, Dict[str, Any]]) -> None:
     render_module_intro("coffee_text", "free", module_meta("coffee_text", module_settings))
+    birth_details = birth_details_form("coffee_text", include_birth_date=True, include_zodiac=True)
     symbols = st.text_area("Fincanda gördüğün şekilleri yaz.", height=170, placeholder="Kalbe benzeyen bir şekil, uzun bir yol, kuş gibi bir iz...")
     intention = st.text_input("Niyetin", placeholder="Aşk hayatım, barışma, yeni başlangıç...")
     if st.button("Kahve falımı yorumla"):
         if not symbols.strip():
             st.warning("En az birkaç sembol yazmalısın.")
             return
-        run_ai_free(user, "coffee_text", {"semboller": symbols, "niyet": intention}, prompts)
+        run_ai_free(user, "coffee_text", {"semboller": symbols, "niyet": intention, **birth_details}, prompts)
 
 
-def personal_info_form(prefix: str) -> Dict[str, Any]:
+def personal_info_form(prefix: str, include_zodiac: bool = False) -> Dict[str, Any]:
     col1, col2 = st.columns(2)
     with col1:
         first_name = st.text_input("Ad", key=f"{prefix}_first")
     with col2:
         last_name = st.text_input("Soyad", key=f"{prefix}_last")
 
-    date_col, time_col = st.columns([1.8, 1.0])
-    with date_col:
-        birth_date = st.date_input(
-            "Doğum tarihi",
-            value=dt.date(1995, 1, 1),
-            min_value=dt.date(1950, 1, 1),
-            max_value=dt.date.today(),
-            format="DD/MM/YYYY",
-            key=f"{prefix}_birth_date",
-        )
-    with time_col:
-        birth_time = st.time_input("Doğum saati", value=dt.time(12, 0), key=f"{prefix}_birth_time")
-
-    birth_place_query = st.text_input(
-        "Doğum yeri",
-        key=f"{prefix}_birth_place_query",
-        placeholder="Şehrin en az 3 harfini yaz...",
+    birth_date = st.date_input(
+        "Doğum tarihi",
+        value=dt.date(1995, 1, 1),
+        min_value=dt.date(1950, 1, 1),
+        max_value=dt.date.today(),
+        format="DD/MM/YYYY",
+        key=f"{prefix}_birth_date",
     )
-    matches = city_matches(birth_place_query)
-    if len(birth_place_query.strip()) >= 3 and matches:
-        birth_place = st.selectbox("Şehir seç", matches, key=f"{prefix}_birth_place_select")
-    else:
-        birth_place = birth_place_query
-        if len(birth_place_query.strip()) >= 3:
-            st.caption("Listede yoksa şehir adını yazdığın şekilde kullanabilirsin.")
-
-    return {
+    info = {
         "ad": first_name,
         "soyad": last_name,
         "doğum_tarihi": str(birth_date),
-        "doğum_saati": birth_time.strftime("%H:%M"),
-        "doğum_yeri": birth_place,
+        "doğum_saati": birth_time_input(prefix),
+        "doğum_yeri": birth_place_input(prefix),
     }
+    if include_zodiac:
+        info["burç"] = st.selectbox("Burç", ZODIAC_SIGNS, key=f"{prefix}_sign")
+    return info
 
 
 def validate_personal_info(info: Dict[str, Any]) -> bool:
@@ -739,7 +794,7 @@ def page_manual_tarot(user: Dict[str, Any], module_settings: Dict[str, Dict[str,
     render_module_intro("tarot", "free", module_meta("tarot", module_settings))
     if not require_account(user):
         return
-    info = personal_info_form("tarot")
+    info = personal_info_form("tarot", include_zodiac=True)
     question = st.text_area("Tarot için niyetin veya sorun", height=120, key="tarot_question")
     if st.button("7 tarot kartı çek", key="draw_tarot"):
         st.session_state["tarot_cards"] = select_tarot_cards(count=7)
@@ -783,7 +838,7 @@ def page_coffee_image(user: Dict[str, Any], module_settings: Dict[str, Dict[str,
     render_module_intro("coffee_image", "free", module_meta("coffee_image", module_settings))
     if not require_account(user):
         return
-    info = personal_info_form("coffee_image")
+    info = personal_info_form("coffee_image", include_zodiac=True)
     note = st.text_area("Varsa niyetini yaz", height=100, placeholder="Aşk hayatımla ilgili bir işaret görmek istiyorum...")
     uploaded_files = st.file_uploader("Fincan görsellerini yükle (en fazla 5)", type=["png", "jpg", "jpeg", "webp"], accept_multiple_files=True)
     if uploaded_files:
@@ -839,12 +894,20 @@ def page_soulmate(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any
 
 def page_content(content_type: str, module_key: str, module_settings: Dict[str, Dict[str, Any]]) -> None:
     render_module_intro(module_key, "free", module_meta(module_key, module_settings))
+    render_content_visual(content_type)
     items = get_content_items(content_type)
     if not items:
         st.info("Henüz içerik eklenmemiş.")
         return
+
+    label = "Meditasyon seç" if content_type == "meditation" else "Ritüel seç"
+    placeholder = "Bir içerik seç..."
     options = {f"{item.get('title', 'İçerik')} · {item.get('category', '')}": item for item in items}
-    selected_label = st.selectbox("İçerik seç", list(options.keys()))
+    selected_label = st.selectbox(label, [placeholder] + list(options.keys()))
+    if selected_label == placeholder:
+        st.info("Bir başlık seçtiğinde metin burada açılacak.")
+        return
+
     item = options[selected_label]
     st.markdown(f"### {item.get('title', '')}")
     if item.get("category"):
@@ -1086,8 +1149,6 @@ def render_page(page: str, user: Dict[str, Any], prompts: Dict[str, str], module
         page_love_fortune(user, prompts, module_settings)
     elif page == "daily_energy":
         page_daily_energy(user, prompts, module_settings)
-    elif page == "weekly_report":
-        page_weekly_report(user, prompts, module_settings)
     elif page == "emotion":
         page_emotion(user, prompts, module_settings)
     elif page == "zodiac":
