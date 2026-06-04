@@ -493,7 +493,7 @@ def page_home(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]]) 
     if user.get("is_guest"):
         render_email_lead_form("home_guest")
 
-    render_section_header("AŞK ODAĞIN", "Kalbimin Pusulası fısıldar, ruhun hatırlar”", kicker="")
+    render_section_header("AŞK ODAĞIN", "Kalbimin Pusulası fısıldar, ruhun hatırlar", kicker="")
     priority_keys = ["relationship", "message_analysis", "love_fortune", "daily_energy", "mini_tarot", "coffee_text"]
     visible_keys = [key for key in priority_keys if key in MODULES and module_active(key, module_settings)]
     for start in range(0, len(visible_keys), 2):
