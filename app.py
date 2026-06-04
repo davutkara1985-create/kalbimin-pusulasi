@@ -1036,20 +1036,6 @@ def _card_front_svg_uri(card_name: str, order: int, element: str = "fire") -> st
     return _svg_data_uri(svg)
 
 
-def _deck_pick_href(deck_key: str, idx: int) -> str:
-    params: Dict[str, str] = {}
-    try:
-        for key, value in st.query_params.items():
-            if isinstance(value, list):
-                params[key] = str(value[0]) if value else ""
-            else:
-                params[key] = str(value)
-    except Exception:
-        params = {}
-    params[PAGE_QUERY_KEY] = deck_key
-    params[f"{deck_key}_pick"] = str(idx)
-    return "?" + urlencode(params) + "#kp-deck-anchor"
-
 
 def _render_selected_cards(chosen_cards: List[str], element: str) -> None:
     if not chosen_cards:
@@ -1059,79 +1045,89 @@ def _render_selected_cards(chosen_cards: List[str], element: str) -> None:
         uri = _card_front_svg_uri(card_name, order, element)
         cards_html.append(f'<img class="kp-open-card-img" src="{uri}" alt="{html_escape(card_name)}">')
     st.markdown(
-        f'''
+        f"""
         <div class="kp-selected-card-panel">
             <div class="kp-selected-card-title">Seçtiğin kartlar</div>
             <div class="kp-open-card-grid">{''.join(cards_html)}</div>
         </div>
-        ''',
+        """,
         unsafe_allow_html=True,
     )
+
+
+def _clear_old_deck_query_params(deck_key: str) -> None:
+    """Remove old link-based card pick params so card clicks cannot route away."""
+    _query_delete(f"{deck_key}_pick")
 
 
 def closed_card_deck_selector(deck_key: str, card_pool: List[str], required_count: int, element: str = "fire") -> List[str]:
     deck_state_key = f"{deck_key}_closed_deck"
     selected_state_key = f"{deck_key}_selected_indices"
-    pick_query_key = f"{deck_key}_pick"
+
+    # Safety: keep the current Streamlit page stable while users click cards.
+    st.session_state["current_page"] = deck_key
+    _clear_old_deck_query_params(deck_key)
+
     if deck_state_key not in st.session_state or len(st.session_state.get(deck_state_key, [])) != len(card_pool):
         st.session_state[deck_state_key] = random.sample(card_pool, len(card_pool))
         st.session_state[selected_state_key] = []
 
     deck = st.session_state[deck_state_key]
     selected_indices = list(st.session_state.get(selected_state_key, []))
+    chosen_cards = [deck[i] for i in selected_indices][:required_count]
 
-    picked_raw = _query_get(pick_query_key)
-    if picked_raw:
-        try:
-            picked_idx = int(picked_raw)
-            if 0 <= picked_idx < len(deck) and picked_idx not in selected_indices and len(selected_indices) < required_count:
-                selected_indices.append(picked_idx)
-                st.session_state[selected_state_key] = selected_indices
-        except Exception:
-            pass
-        _query_delete(pick_query_key)
-
-    chosen_cards = [deck[i] for i in selected_indices]
-    st.markdown('<div id="kp-deck-anchor"></div>', unsafe_allow_html=True)
-    st.caption(f"Kapalı desteden {required_count} kart seç. Seçim tamamlandığında kapalı deste kapanır ve seçtiğin kartlar açılır.")
+    st.caption(
+        f"Kapalı desteden {required_count} kart seç. Seçim tamamlandığında kapalı deste kapanır ve seçtiğin kartlar açılır."
+    )
 
     if len(chosen_cards) >= required_count:
-        _render_selected_cards(chosen_cards[:required_count], element)
+        _render_selected_cards(chosen_cards, element)
     else:
-        # IMPORTANT: The closed card image is injected ONCE as a CSS background.
-        # Do not repeat a base64 image in every card; otherwise Streamlit can exceed
-        # server.maxMessageSize when 78/68 cards are rendered.
-        card_uri = asset_data_uri("Tarot_Kartları", max_side=90, quality=62) or asset_data_uri("Tarot_Kartlari", max_side=90, quality=62) or _default_card_back_svg_uri(deck_key)
+        # The card back image is loaded once as CSS. Buttons only carry state,
+        # so no link/query navigation and no repeated base64 payload is used.
+        card_uri = (
+            asset_data_uri("Tarot_Kartları", max_side=72, quality=55)
+            or asset_data_uri("Tarot_Kartlari", max_side=72, quality=55)
+            or _default_card_back_svg_uri(deck_key)
+        )
         st.markdown(
-            f"""<style>
-            .kp-deck-card-face {{ background-image: url("{card_uri}"); }}
-            </style>""",
+            f"""
+            <style>
+            .kp-deck-button-scope div.stButton > button {{
+                background-image: url("{card_uri}") !important;
+            }}
+            </style>
+            """,
             unsafe_allow_html=True,
         )
-        links = []
-        for idx, _card in enumerate(deck):
-            if idx in selected_indices:
-                css = " selected"
-                href = "#kp-deck-anchor"
-                aria = "Seçilmiş kart"
-            else:
-                css = ""
-                href = _deck_pick_href(deck_key, idx)
-                aria = "Kapalı kart"
-            links.append(
-                f'<a class="kp-deck-card-link{css}" href="{html_escape(href)}" aria-label="{aria}">'
-                f'<span class="kp-deck-card-face" role="img" aria-hidden="true"></span>'
-                f'</a>'
-            )
-        st.markdown(f'<div class="kp-deck-grid">{"".join(links)}</div>', unsafe_allow_html=True)
-        st.caption(f"Seçilen kart sayısı: {min(len(chosen_cards), required_count)}/{required_count}")
+
+        remaining_slots = max(required_count - len(selected_indices), 0)
+        st.caption(f"Seçilen kart sayısı: {len(selected_indices)}/{required_count}")
+        st.markdown('<div class="kp-deck-button-scope">', unsafe_allow_html=True)
+        for row_start in range(0, len(deck), 12):
+            cols = st.columns(12, gap="small")
+            for col_offset, idx in enumerate(range(row_start, min(row_start + 12, len(deck)))):
+                with cols[col_offset]:
+                    already_selected = idx in selected_indices
+                    disabled = already_selected or remaining_slots <= 0
+                    if st.button(" ", key=f"{deck_key}_card_btn_{idx}", disabled=disabled, use_container_width=True):
+                        current_selected = list(st.session_state.get(selected_state_key, []))
+                        if idx not in current_selected and len(current_selected) < required_count:
+                            current_selected.append(idx)
+                            st.session_state[selected_state_key] = current_selected
+                            if len(current_selected) >= required_count:
+                                st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
 
     if st.button("Desteyi sıfırla", key=f"{deck_key}_reset", use_container_width=True):
         st.session_state.pop(deck_state_key, None)
         st.session_state.pop(selected_state_key, None)
-        _query_delete(pick_query_key)
+        _clear_old_deck_query_params(deck_key)
+        st.session_state["current_page"] = deck_key
         st.rerun()
-    return chosen_cards[:required_count]
+
+    final_selected = list(st.session_state.get(selected_state_key, []))[:required_count]
+    return [deck[i] for i in final_selected]
 
 def page_manual_tarot(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]]) -> None:
     render_module_intro("tarot", "free", module_meta("tarot", module_settings))
