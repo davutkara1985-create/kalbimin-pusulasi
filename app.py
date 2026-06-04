@@ -964,6 +964,78 @@ def render_styled_content_item(item: Dict[str, Any]) -> None:
     )
 
 
+def _svg_data_uri(svg: str) -> str:
+    encoded = base64.b64encode(svg.encode("utf-8")).decode("utf-8")
+    return f"data:image/svg+xml;base64,{encoded}"
+
+
+def _default_card_back_svg_uri(deck_key: str = "tarot") -> str:
+    title = "TAROT" if deck_key == "tarot" else "KATINA"
+    svg = f'''
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 240">
+      <defs>
+        <radialGradient id="g" cx="50%" cy="38%" r="70%">
+          <stop offset="0" stop-color="#46306f"/>
+          <stop offset="0.55" stop-color="#151437"/>
+          <stop offset="1" stop-color="#070914"/>
+        </radialGradient>
+        <linearGradient id="gold" x1="0" x2="1" y1="0" y2="1">
+          <stop offset="0" stop-color="#fff1b8"/>
+          <stop offset="1" stop-color="#b8873a"/>
+        </linearGradient>
+      </defs>
+      <rect width="160" height="240" rx="14" fill="url(#g)"/>
+      <rect x="10" y="10" width="140" height="220" rx="11" fill="none" stroke="url(#gold)" stroke-width="2" opacity=".88"/>
+      <rect x="22" y="22" width="116" height="196" rx="9" fill="none" stroke="#d9b76e" stroke-width="1" opacity=".45"/>
+      <circle cx="80" cy="118" r="42" fill="none" stroke="#d9b76e" stroke-width="1.6" opacity=".78"/>
+      <path d="M80 45 L91 93 L126 120 L91 147 L80 195 L69 147 L34 120 L69 93 Z" fill="none" stroke="#fff1b8" stroke-width="1.6" opacity=".85"/>
+      <circle cx="80" cy="120" r="13" fill="#d9b76e" opacity=".25"/>
+      <text x="80" y="124" text-anchor="middle" font-family="Georgia,serif" font-size="16" fill="#fff1b8" font-weight="700">☽</text>
+      <text x="80" y="207" text-anchor="middle" font-family="Georgia,serif" font-size="13" fill="#fff1b8" font-weight="700">{title}</text>
+    </svg>
+    '''
+    return _svg_data_uri(svg)
+
+
+def _card_front_svg_uri(card_name: str, order: int, element: str = "fire") -> str:
+    safe_name = html_escape(str(card_name))
+    palette = {
+        "fire": ("#2b123e", "#7b4bd6", "#d9b76e"),
+        "earth": ("#1a2032", "#365b46", "#d9b76e"),
+        "water": ("#091b37", "#236cb2", "#fff1b8"),
+        "air": ("#11153d", "#6f4bd5", "#fff1b8"),
+    }.get(element, ("#151437", "#46306f", "#d9b76e"))
+    bg1, bg2, gold = palette
+    symbol = "✧" if element == "fire" else ("☽" if element == "earth" else "✦")
+    svg = f'''
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 270">
+      <defs>
+        <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+          <stop offset="0" stop-color="{bg1}"/>
+          <stop offset="1" stop-color="{bg2}"/>
+        </linearGradient>
+        <radialGradient id="glow" cx="50%" cy="35%" r="70%">
+          <stop offset="0" stop-color="{gold}" stop-opacity=".28"/>
+          <stop offset="1" stop-color="{gold}" stop-opacity="0"/>
+        </radialGradient>
+      </defs>
+      <rect width="180" height="270" rx="16" fill="url(#bg)"/>
+      <rect width="180" height="270" rx="16" fill="url(#glow)"/>
+      <rect x="10" y="10" width="160" height="250" rx="12" fill="none" stroke="{gold}" stroke-width="2" opacity=".88"/>
+      <rect x="21" y="21" width="138" height="228" rx="10" fill="none" stroke="#fff1b8" stroke-width="1" opacity=".32"/>
+      <text x="90" y="39" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-size="13" fill="#fff1b8" font-weight="800">{order}. KART</text>
+      <circle cx="90" cy="112" r="42" fill="none" stroke="{gold}" stroke-width="2" opacity=".70"/>
+      <text x="90" y="126" text-anchor="middle" font-family="Georgia,serif" font-size="48" fill="#fff1b8" font-weight="700">{symbol}</text>
+      <foreignObject x="20" y="172" width="140" height="64">
+        <div xmlns="http://www.w3.org/1999/xhtml" style="height:64px;display:flex;align-items:center;justify-content:center;text-align:center;color:#fff1b8;font-family:Georgia,serif;font-size:18px;font-weight:700;line-height:1.08;">
+          {safe_name}
+        </div>
+      </foreignObject>
+    </svg>
+    '''
+    return _svg_data_uri(svg)
+
+
 def _deck_pick_href(deck_key: str, idx: int) -> str:
     params: Dict[str, str] = {}
     try:
@@ -974,24 +1046,25 @@ def _deck_pick_href(deck_key: str, idx: int) -> str:
                 params[key] = str(value)
     except Exception:
         params = {}
+    params[PAGE_QUERY_KEY] = deck_key
     params[f"{deck_key}_pick"] = str(idx)
     return "?" + urlencode(params)
 
 
-def _render_deck_card_image(card_uri: str, label: str, css_class: str = "") -> None:
-    if not card_uri:
-        st.markdown(
-            f"<div class='kp-deck-card-static {css_class}'><div class='kp-deck-card-overlay'>{html_escape(label)}</div></div>",
-            unsafe_allow_html=True,
-        )
+def _render_selected_cards(chosen_cards: List[str], element: str) -> None:
+    if not chosen_cards:
         return
+    cards_html = []
+    for order, card_name in enumerate(chosen_cards, start=1):
+        uri = _card_front_svg_uri(card_name, order, element)
+        cards_html.append(f'<img class="kp-open-card-img" src="{uri}" alt="{html_escape(card_name)}">')
     st.markdown(
-        f"""
-        <div class="kp-deck-card-static {html_escape(css_class)}">
-            <img class="kp-deck-card-img" src="{card_uri}" alt="Kapalı tarot kartı">
-            <div class="kp-deck-card-overlay">{html_escape(label)}</div>
+        f'''
+        <div class="kp-selected-card-panel">
+            <div class="kp-selected-card-title">Seçtiğin kartlar</div>
+            <div class="kp-open-card-grid">{''.join(cards_html)}</div>
         </div>
-        """,
+        ''',
         unsafe_allow_html=True,
     )
 
@@ -1000,7 +1073,7 @@ def closed_card_deck_selector(deck_key: str, card_pool: List[str], required_coun
     deck_state_key = f"{deck_key}_closed_deck"
     selected_state_key = f"{deck_key}_selected_indices"
     pick_query_key = f"{deck_key}_pick"
-    if deck_state_key not in st.session_state:
+    if deck_state_key not in st.session_state or len(st.session_state.get(deck_state_key, [])) != len(card_pool):
         st.session_state[deck_state_key] = random.sample(card_pool, len(card_pool))
         st.session_state[selected_state_key] = []
 
@@ -1016,48 +1089,38 @@ def closed_card_deck_selector(deck_key: str, card_pool: List[str], required_coun
                 st.session_state[selected_state_key] = selected_indices
         except Exception:
             pass
-        _query_delete(pick_query_key)
-        st.rerun()
-
-    st.caption(f"Kapalı desteden {required_count} kart seç. Her kart görseline tıkladığında kart seçilmiş olur.")
-    card_uri = asset_data_uri("Tarot_Kartları")
-
-    cols = st.columns(4)
-    for idx, _card in enumerate(deck):
-        with cols[idx % 4]:
-            if idx in selected_indices:
-                order = selected_indices.index(idx) + 1
-                _render_deck_card_image(card_uri, f"✓ {order}. kart", "selected")
-            elif len(selected_indices) >= required_count:
-                _render_deck_card_image(card_uri, "Seçim tamam", "disabled")
-            else:
-                href = _deck_pick_href(deck_key, idx)
-                if card_uri:
-                    st.markdown(
-                        f"""
-                        <a class="kp-deck-card-link" href="{html_escape(href)}" title="Kart seç">
-                            <img class="kp-deck-card-img" src="{card_uri}" alt="Kapalı tarot kartı">
-                            <div class="kp-deck-card-overlay">Kart seç</div>
-                        </a>
-                        """,
-                        unsafe_allow_html=True,
-                    )
-                else:
-                    if st.button("Kart seç", key=f"{deck_key}_card_{idx}", use_container_width=True):
-                        selected_indices.append(idx)
-                        st.session_state[selected_state_key] = selected_indices
-                        st.rerun()
 
     chosen_cards = [deck[i] for i in selected_indices]
-    if chosen_cards:
-        st.markdown("#### Seçtiğin kartlar")
-        render_drawn_cards(chosen_cards, element)
+    st.caption(f"Kapalı desteden {required_count} kart seç. Seçim tamamlandığında kapalı deste kapanır ve seçtiğin kartlar açılır.")
+
+    if len(chosen_cards) >= required_count:
+        _render_selected_cards(chosen_cards[:required_count], element)
+    else:
+        card_uri = asset_data_uri("Tarot_Kartları") or asset_data_uri("Tarot_Kartlari") or _default_card_back_svg_uri(deck_key)
+        links = []
+        for idx, _card in enumerate(deck):
+            if idx in selected_indices:
+                css = " selected"
+                href = "javascript:void(0)"
+                aria = "Seçilmiş kart"
+            else:
+                css = ""
+                href = _deck_pick_href(deck_key, idx)
+                aria = "Kapalı kart"
+            links.append(
+                f'<a class="kp-deck-card-link{css}" href="{html_escape(href)}" aria-label="{aria}">'
+                f'<img class="kp-deck-card-img" src="{card_uri}" alt="Kapalı kart">'
+                f'</a>'
+            )
+        st.markdown(f'<div class="kp-deck-grid">{"".join(links)}</div>', unsafe_allow_html=True)
+        st.caption(f"Seçilen kart sayısı: {min(len(chosen_cards), required_count)}/{required_count}")
+
     if st.button("Desteyi sıfırla", key=f"{deck_key}_reset", use_container_width=True):
         st.session_state.pop(deck_state_key, None)
         st.session_state.pop(selected_state_key, None)
         _query_delete(pick_query_key)
         st.rerun()
-    return chosen_cards
+    return chosen_cards[:required_count]
 
 def page_manual_tarot(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]]) -> None:
     render_module_intro("tarot", "free", module_meta("tarot", module_settings))
@@ -1558,4 +1621,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
