@@ -2,12 +2,17 @@ from __future__ import annotations
 
 import base64
 import datetime as dt
+import hashlib
+import hmac
 import io
 import json
+import random
+import time
 import unicodedata
 from typing import Any, Dict, List, Optional
 
 import streamlit as st
+import streamlit.components.v1 as components
 
 try:
     from PIL import Image
@@ -59,6 +64,7 @@ from services.db import (
 )
 from services.ui import (
     APP_NAME,
+    apply_page_background,
     inject_css,
     render_drawn_cards,
     render_footer,
@@ -83,6 +89,37 @@ st.set_page_config(
     initial_sidebar_state="auto",
     menu_items={"Get help": None, "Report a bug": None, "About": None},
 )
+
+
+def prevent_browser_translate() -> None:
+    components.html(
+        """
+        <script>
+        try {
+            const doc = window.parent.document;
+            doc.documentElement.lang = 'tr';
+            doc.documentElement.setAttribute('translate', 'no');
+            doc.documentElement.classList.add('notranslate');
+            if (doc.body) {
+                doc.body.setAttribute('translate', 'no');
+                doc.body.classList.add('notranslate');
+            }
+            let meta = doc.querySelector('meta[name="google"]');
+            if (!meta) {
+                meta = doc.createElement('meta');
+                meta.setAttribute('name', 'google');
+                doc.head.appendChild(meta);
+            }
+            meta.setAttribute('content', 'notranslate');
+        } catch (e) {}
+        </script>
+        """,
+        height=0,
+        width=0,
+    )
+
+
+prevent_browser_translate()
 
 try:
     PUBLIC_SETTINGS = get_public_settings()
@@ -184,15 +221,107 @@ def normalize_email(email: str) -> str:
     return email.strip().lower()
 
 
+AUTH_QUERY_KEY = "kp_auth"
+PAGE_QUERY_KEY = "kp_page"
+
+
+def _query_get(key: str, default: str = "") -> str:
+    try:
+        value = st.query_params.get(key, default)
+        if isinstance(value, list):
+            return str(value[0]) if value else default
+        return str(value or default)
+    except Exception:
+        return default
+
+
+def _query_set(key: str, value: str) -> None:
+    try:
+        st.query_params[key] = value
+    except Exception:
+        pass
+
+
+def _query_delete(key: str) -> None:
+    try:
+        if key in st.query_params:
+            del st.query_params[key]
+    except Exception:
+        pass
+
+
+def _auth_secret() -> str:
+    return str(
+        st.secrets.get("AUTH_TOKEN_SECRET")
+        or st.secrets.get("ADMIN_PASSWORD")
+        or st.secrets.get("OPENAI_API_KEY")
+        or "kalbimin-pusulasi-session-secret"
+    )
+
+
+def create_auth_token(email: str, days: int = 30) -> str:
+    normalized = normalize_email(email)
+    exp = int(time.time()) + days * 24 * 60 * 60
+    raw = f"{normalized}|{exp}"
+    sig = hmac.new(_auth_secret().encode("utf-8"), raw.encode("utf-8"), hashlib.sha256).hexdigest()
+    payload = {"email": normalized, "exp": exp, "sig": sig}
+    encoded = base64.urlsafe_b64encode(json.dumps(payload, separators=(",", ":")).encode("utf-8")).decode("utf-8")
+    return encoded.rstrip("=")
+
+
+def read_auth_token(token: str) -> Optional[str]:
+    if not token:
+        return None
+    try:
+        padded = token + "=" * (-len(token) % 4)
+        payload = json.loads(base64.urlsafe_b64decode(padded.encode("utf-8")).decode("utf-8"))
+        email = normalize_email(str(payload.get("email", "")))
+        exp = int(payload.get("exp", 0))
+        sig = str(payload.get("sig", ""))
+        if not email or exp < int(time.time()):
+            return None
+        raw = f"{email}|{exp}"
+        expected = hmac.new(_auth_secret().encode("utf-8"), raw.encode("utf-8"), hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(sig, expected):
+            return None
+        return email
+    except Exception:
+        return None
+
+
+def persist_auth_query(user: Dict[str, Any], page: str = "home") -> None:
+    if user and not user.get("is_guest") and user.get("email"):
+        token = _query_get(AUTH_QUERY_KEY)
+        if not read_auth_token(token):
+            token = create_auth_token(user["email"])
+        _query_set(AUTH_QUERY_KEY, token)
+    if page:
+        _query_set(PAGE_QUERY_KEY, page)
+
+
+def restore_auth_from_query() -> Optional[Dict[str, Any]]:
+    email = read_auth_token(_query_get(AUTH_QUERY_KEY))
+    if not email:
+        return None
+    try:
+        user = get_or_create_user(email)
+        st.session_state["auth_user"] = user
+        return user
+    except Exception:
+        return None
+
+
 def logout() -> None:
     for key in ["auth_user", "current_page", "active_email"]:
         st.session_state.pop(key, None)
+    _query_delete(AUTH_QUERY_KEY)
+    _query_delete(PAGE_QUERY_KEY)
 
 
 def auth_sidebar() -> Optional[Dict[str, Any]]:
     render_sidebar_brand()
 
-    user = st.session_state.get("auth_user")
+    user = st.session_state.get("auth_user") or restore_auth_from_query()
     if user:
         st.sidebar.markdown(f"**{user.get('display_name', 'Kullanıcı')}**")
         role_label = "Admin" if is_admin(user) else ("Misafir" if user.get("is_guest") else "Üye")
@@ -216,6 +345,7 @@ def auth_sidebar() -> Optional[Dict[str, Any]]:
             if ok and auth_user:
                 st.session_state["auth_user"] = auth_user
                 st.session_state["current_page"] = "home"
+                persist_auth_query(auth_user, "home")
                 st.success(msg)
                 st.rerun()
             else:
@@ -233,6 +363,7 @@ def auth_sidebar() -> Optional[Dict[str, Any]]:
                 if ok and auth_user:
                     st.session_state["auth_user"] = auth_user
                     st.session_state["current_page"] = "home"
+                    persist_auth_query(auth_user, "home")
                     st.success(msg)
                     st.rerun()
                 else:
@@ -243,6 +374,7 @@ def auth_sidebar() -> Optional[Dict[str, Any]]:
     if st.sidebar.button("Misafir olarak dene", key="guest_btn", use_container_width=True):
         st.session_state["auth_user"] = guest_user()
         st.session_state["current_page"] = "home"
+        persist_auth_query(st.session_state["auth_user"], "home")
         st.rerun()
 
     return None
@@ -294,17 +426,23 @@ def go_to_page(page_key: str, user: Optional[Dict[str, Any]] = None, module_sett
         if page_key not in valid:
             page_key = "home"
     st.session_state["current_page"] = page_key
+    if user:
+        persist_auth_query(user, page_key)
+    else:
+        _query_set(PAGE_QUERY_KEY, page_key)
 
 
 def reset_navigation_to_home() -> None:
     st.session_state["current_page"] = "home"
+    _query_set(PAGE_QUERY_KEY, "home")
 
 
 def navigation(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]]) -> str:
-    if "current_page" not in st.session_state:
-        reset_navigation_to_home()
-
     valid_pages = valid_pages_for(user, module_settings)
+    if "current_page" not in st.session_state:
+        requested_page = _query_get(PAGE_QUERY_KEY, "home")
+        st.session_state["current_page"] = requested_page if requested_page in valid_pages else "home"
+
     if st.session_state.get("current_page") not in valid_pages:
         reset_navigation_to_home()
 
@@ -790,22 +928,86 @@ def show_data_image(image_item: Optional[Dict[str, Any]]) -> None:
         st.caption("Görsel önizlenemedi.")
 
 
+def _content_image_data_url(value: Any) -> str:
+    if isinstance(value, dict):
+        return str(value.get("data_url", ""))
+    return str(value or "")
+
+
+def render_styled_content_item(item: Dict[str, Any]) -> None:
+    from html import escape as html_escape
+
+    image_url = _content_image_data_url(item.get("image"))
+    if image_url:
+        st.image(image_url, caption=item.get("title", ""), use_container_width=True)
+
+    template = str(item.get("template", "mistik_kart"))
+    font_family = str(item.get("font_family", "Inter, system-ui, sans-serif"))
+    font_size = int(item.get("font_size", 16) or 16)
+    title_size = int(item.get("title_size", 28) or 28)
+    title = html_escape(str(item.get("title", "")))
+    category = html_escape(str(item.get("category", "")))
+    body_html = html_escape(str(item.get("body", ""))).replace("\n", "<br>")
+    category_html = f"<span class='kp-tag'>{category}</span>" if category else ""
+    st.markdown(
+        f'''
+        <div class="kp-written-template kp-template-{template}" style="font-family:{font_family}; font-size:{font_size}px;">
+            {category_html}
+            <div class="kp-written-title" style="font-size:{title_size}px;">{title}</div>
+            <div class="kp-written-body">{body_html}</div>
+        </div>
+        ''',
+        unsafe_allow_html=True,
+    )
+
+
+def closed_card_deck_selector(deck_key: str, card_pool: List[str], required_count: int, element: str = "fire") -> List[str]:
+    deck_state_key = f"{deck_key}_closed_deck"
+    selected_state_key = f"{deck_key}_selected_indices"
+    if deck_state_key not in st.session_state:
+        st.session_state[deck_state_key] = random.sample(card_pool, len(card_pool))
+        st.session_state[selected_state_key] = []
+
+    deck = st.session_state[deck_state_key]
+    selected_indices = list(st.session_state.get(selected_state_key, []))
+    st.caption(f"Kapalı desteden {required_count} kart seç. Seçtiğin kartlar aşağıda sırayla açılır.")
+
+    cols = st.columns(4)
+    for idx, _card in enumerate(deck):
+        with cols[idx % 4]:
+            if idx in selected_indices:
+                order = selected_indices.index(idx) + 1
+                st.button(f"✓ {order}. kart", key=f"{deck_key}_card_{idx}", disabled=True, use_container_width=True)
+            else:
+                disabled = len(selected_indices) >= required_count
+                if st.button("◇ Kapalı kart", key=f"{deck_key}_card_{idx}", disabled=disabled, use_container_width=True):
+                    selected_indices.append(idx)
+                    st.session_state[selected_state_key] = selected_indices
+                    st.rerun()
+
+    chosen_cards = [deck[i] for i in selected_indices]
+    if chosen_cards:
+        st.markdown("#### Seçtiğin kartlar")
+        render_drawn_cards(chosen_cards, element)
+    if st.button("Desteyi sıfırla", key=f"{deck_key}_reset", use_container_width=True):
+        st.session_state.pop(deck_state_key, None)
+        st.session_state.pop(selected_state_key, None)
+        st.rerun()
+    return chosen_cards
+
+
 def page_manual_tarot(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]]) -> None:
     render_module_intro("tarot", "free", module_meta("tarot", module_settings))
     if not require_account(user):
         return
     info = personal_info_form("tarot", include_zodiac=True)
     question = st.text_area("Tarot için niyetin veya sorun", height=120, key="tarot_question")
-    if st.button("7 tarot kartı çek", key="draw_tarot"):
-        st.session_state["tarot_cards"] = select_tarot_cards(count=7)
-    cards = st.session_state.get("tarot_cards", [])
-    if cards:
-        render_drawn_cards(cards, "fire")
+    cards = closed_card_deck_selector("tarot", TAROT_CARDS, 7, "fire")
     if st.button("Talebimi admin paneline gönder", key="submit_tarot"):
         if not validate_personal_info(info):
             return
         if len(cards) != 7:
-            st.warning("Önce 7 tarot kartı çekmelisin.")
+            st.warning("Lütfen kapalı desteden 7 tarot kartı seç.")
             return
         payload = {"title": "Tarot Falı", "kişisel_bilgiler": info, "soru": question, "çekilen_kartlar": cards}
         request_id = submit_manual_request(user, "tarot", payload)
@@ -816,18 +1018,14 @@ def page_manual_katina(user: Dict[str, Any], module_settings: Dict[str, Dict[str
     render_module_intro("katina", "free", module_meta("katina", module_settings))
     if not require_account(user):
         return
-    info = personal_info_form("katina")
+    info = personal_info_form("katina", include_zodiac=True)
     question = st.text_area("Katina için niyetin veya sorun", height=120, key="katina_question")
-    if st.button("7 katina kartı çek", key="draw_katina"):
-        st.session_state["katina_cards"] = select_katina_cards(count=7)
-    cards = st.session_state.get("katina_cards", [])
-    if cards:
-        render_drawn_cards(cards, "earth")
+    cards = closed_card_deck_selector("katina", KATINA_CARDS, 7, "earth")
     if st.button("Talebimi admin paneline gönder", key="submit_katina"):
         if not validate_personal_info(info):
             return
         if len(cards) != 7:
-            st.warning("Önce 7 katina kartı çekmelisin.")
+            st.warning("Lütfen kapalı desteden 7 katina kartı seç.")
             return
         payload = {"title": "Katina Falı", "kişisel_bilgiler": info, "soru": question, "çekilen_kartlar": cards}
         request_id = submit_manual_request(user, "katina", payload)
@@ -840,26 +1038,34 @@ def page_coffee_image(user: Dict[str, Any], module_settings: Dict[str, Dict[str,
         return
     info = personal_info_form("coffee_image", include_zodiac=True)
     note = st.text_area("Varsa niyetini yaz", height=100, placeholder="Aşk hayatımla ilgili bir işaret görmek istiyorum...")
-    uploaded_files = st.file_uploader("Fincan görsellerini yükle (en fazla 5)", type=["png", "jpg", "jpeg", "webp"], accept_multiple_files=True)
-    if uploaded_files:
-        if len(uploaded_files) > 5:
-            st.warning("En fazla 5 görsel yükleyebilirsin.")
-        for uploaded in uploaded_files[:5]:
-            st.image(uploaded, caption=uploaded.name, use_container_width=True)
+
+    st.markdown("### Fincan görselleri")
+    st.caption("Her kareye bir görsel yükleyebilirsin. En az 1, en fazla 5 görsel kabul edilir.")
+    uploaded_files = []
+    slot_cols = st.columns(5)
+    for i, col in enumerate(slot_cols, start=1):
+        with col:
+            st.markdown(f"<div class='kp-upload-slot'>☕<br>Kare {i}</div>", unsafe_allow_html=True)
+            file = st.file_uploader(
+                f"Kare {i}",
+                type=["png", "jpg", "jpeg", "webp"],
+                key=f"coffee_image_slot_{i}",
+                label_visibility="collapsed",
+            )
+            if file:
+                uploaded_files.append(file)
+                st.image(file, caption=f"Kare {i}", use_container_width=True)
+
     if st.button("Kahve falı talebimi gönder", key="submit_coffee_image"):
         if not validate_personal_info(info):
             return
         if not uploaded_files:
             st.warning("En az bir fincan görseli yüklemelisin.")
             return
-        if len(uploaded_files) > 5:
-            st.warning("Lütfen 5 görselden fazlasını kaldır.")
-            return
         images = [image_to_data_url(file) for file in uploaded_files]
         payload = {"title": "Kahve Falı (Resim Yüklemeli)", "kişisel_bilgiler": info, "niyet": note, "görseller": images}
         request_id = submit_manual_request(user, "coffee_image", payload)
         st.success(f"Talebin admin paneline düştü. Talep no: {request_id}")
-
 
 def page_dream(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]]) -> None:
     render_module_intro("dream", "free", module_meta("dream", module_settings))
@@ -909,11 +1115,7 @@ def page_content(content_type: str, module_key: str, module_settings: Dict[str, 
         return
 
     item = options[selected_label]
-    st.markdown(f"### {item.get('title', '')}")
-    if item.get("category"):
-        st.markdown(f"<span class='kp-tag'>{item.get('category')}</span>", unsafe_allow_html=True)
-    st.write(item.get("body", ""))
-
+    render_styled_content_item(item)
 
 def page_inbox(user: Dict[str, Any]) -> None:
     if not require_account(user):
@@ -980,16 +1182,52 @@ def admin_content() -> None:
     st.markdown("### Meditasyon & Ritüel İçerikleri")
     content_type = st.radio("İçerik türü", ["meditation", "ritual"], format_func=lambda x: "Meditasyon" if x == "meditation" else "Ritüel", horizontal=True)
     items = get_content_items(content_type, include_inactive=True)
+
+    template_options = {
+        "mistik_kart": "Mistik kart",
+        "parchment": "Parşömen görünümü",
+        "calm": "Sade ve sakin",
+        "ritual": "Ritüel adımları",
+    }
+    font_options = {
+        "Inter, system-ui, sans-serif": "Modern / Inter",
+        "'Cormorant Garamond', Georgia, serif": "Mistik başlık / Cormorant",
+        "Georgia, serif": "Klasik / Georgia",
+        "Arial, sans-serif": "Sade / Arial",
+    }
+
     st.markdown("#### Yeni içerik ekle")
     title = st.text_input("Başlık", key=f"new_{content_type}_title")
     category = st.text_input("Kategori", key=f"new_{content_type}_category")
-    body = st.text_area("Metin", height=180, key=f"new_{content_type}_body")
+    body = st.text_area("Metin / tarif", height=260, key=f"new_{content_type}_body", placeholder="Giriş, hazırlık, uygulama adımları ve kapanış niyeti gibi bölümler ekleyebilirsin.")
+    image_file = st.file_uploader("İçerik görseli", type=["png", "jpg", "jpeg", "webp"], key=f"new_{content_type}_image")
+    col1, col2 = st.columns(2)
+    with col1:
+        template = st.selectbox("Yazım şablonu", list(template_options.keys()), format_func=lambda k: template_options[k], key=f"new_{content_type}_template")
+        font_family = st.selectbox("Yazı tipi", list(font_options.keys()), format_func=lambda k: font_options[k], key=f"new_{content_type}_font")
+    with col2:
+        title_size = st.slider("Başlık büyüklüğü", 22, 42, 30, key=f"new_{content_type}_title_size")
+        font_size = st.slider("Metin büyüklüğü", 14, 24, 17, key=f"new_{content_type}_font_size")
     active = st.checkbox("Aktif", value=True, key=f"new_{content_type}_active")
     if st.button("İçerik ekle", key=f"add_{content_type}"):
         if not title.strip() or not body.strip():
             st.warning("Başlık ve metin zorunlu.")
         else:
-            create_content_item(content_type, title, category, body, active)
+            image_payload = image_to_data_url(image_file, max_side=900, quality=72) if image_file else None
+            create_content_item(
+                content_type,
+                title,
+                category,
+                body,
+                active,
+                extra={
+                    "image": image_payload,
+                    "template": template,
+                    "font_family": font_family,
+                    "font_size": font_size,
+                    "title_size": title_size,
+                },
+            )
             st.success("İçerik eklendi.")
             st.rerun()
 
@@ -1004,14 +1242,59 @@ def admin_content() -> None:
     if selected_id.startswith("default_"):
         st.info("Bu varsayılan içerik. Düzenlemek için aynı içerikten yeni kayıt oluşturabilirsin.")
         return
+
     edit_title = st.text_input("Başlık", value=item.get("title", ""), key=f"edit_title_{selected_id}")
     edit_category = st.text_input("Kategori", value=item.get("category", ""), key=f"edit_category_{selected_id}")
-    edit_body = st.text_area("Metin", value=item.get("body", ""), height=180, key=f"edit_body_{selected_id}")
+    edit_body = st.text_area("Metin / tarif", value=item.get("body", ""), height=260, key=f"edit_body_{selected_id}")
+    current_image = item.get("image")
+    if _content_image_data_url(current_image):
+        st.caption("Mevcut görsel")
+        st.image(_content_image_data_url(current_image), use_container_width=True)
+    edit_image_file = st.file_uploader("Yeni görsel yükle", type=["png", "jpg", "jpeg", "webp"], key=f"edit_image_{selected_id}")
+    remove_image = st.checkbox("Mevcut görseli kaldır", value=False, key=f"remove_image_{selected_id}")
+
+    current_template = item.get("template", "mistik_kart")
+    current_font = item.get("font_family", "Inter, system-ui, sans-serif")
+    col1, col2 = st.columns(2)
+    with col1:
+        edit_template = st.selectbox("Yazım şablonu", list(template_options.keys()), index=list(template_options.keys()).index(current_template) if current_template in template_options else 0, format_func=lambda k: template_options[k], key=f"edit_template_{selected_id}")
+        edit_font = st.selectbox("Yazı tipi", list(font_options.keys()), index=list(font_options.keys()).index(current_font) if current_font in font_options else 0, format_func=lambda k: font_options[k], key=f"edit_font_{selected_id}")
+    with col2:
+        edit_title_size = st.slider("Başlık büyüklüğü", 22, 42, int(item.get("title_size", 30) or 30), key=f"edit_title_size_{selected_id}")
+        edit_font_size = st.slider("Metin büyüklüğü", 14, 24, int(item.get("font_size", 17) or 17), key=f"edit_font_size_{selected_id}")
     edit_active = st.checkbox("Aktif", value=bool(item.get("active", True)), key=f"edit_active_{selected_id}")
+
+    st.markdown("#### Önizleme")
+    preview_item = {
+        **item,
+        "title": edit_title,
+        "category": edit_category,
+        "body": edit_body,
+        "template": edit_template,
+        "font_family": edit_font,
+        "font_size": edit_font_size,
+        "title_size": edit_title_size,
+    }
+    render_styled_content_item(preview_item)
+
     col1, col2 = st.columns(2)
     with col1:
         if st.button("Güncelle", key=f"update_content_{selected_id}"):
-            update_content_item(selected_id, {"title": edit_title, "category": edit_category, "body": edit_body, "active": edit_active})
+            values = {
+                "title": edit_title,
+                "category": edit_category,
+                "body": edit_body,
+                "active": edit_active,
+                "template": edit_template,
+                "font_family": edit_font,
+                "font_size": edit_font_size,
+                "title_size": edit_title_size,
+            }
+            if remove_image:
+                values["image"] = None
+            elif edit_image_file:
+                values["image"] = image_to_data_url(edit_image_file, max_side=900, quality=72)
+            update_content_item(selected_id, values)
             st.success("İçerik güncellendi.")
             st.rerun()
     with col2:
@@ -1019,7 +1302,6 @@ def admin_content() -> None:
             delete_content_item(selected_id)
             st.success("İçerik silindi.")
             st.rerun()
-
 
 def render_request_payload(payload: Dict[str, Any]) -> None:
     info = payload.get("kişisel_bilgiler")
@@ -1183,6 +1465,7 @@ def render_page(page: str, user: Dict[str, Any], prompts: Dict[str, str], module
 def main() -> None:
     user = auth_sidebar()
     if not user:
+        apply_page_background("home")
         render_hero()
         render_safety_notice()
         st.info("Sol menüden giriş yapabilir, yeni hesap oluşturabilir veya misafir olarak 5 ücretsiz yorumu deneyebilirsin.")
@@ -1190,6 +1473,7 @@ def main() -> None:
         if st.button("Misafir olarak hemen dene", key="main_guest_btn", use_container_width=True):
             st.session_state["auth_user"] = guest_user()
             st.session_state["current_page"] = "home"
+            persist_auth_query(st.session_state["auth_user"], "home")
             st.rerun()
         render_footer()
         return
@@ -1203,6 +1487,8 @@ def main() -> None:
 
     sidebar_status(user)
     page = navigation(user, module_settings)
+    persist_auth_query(user, page)
+    apply_page_background(page)
     render_page(page, user, prompts, module_settings)
     render_footer()
 
