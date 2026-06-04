@@ -5,10 +5,12 @@ import datetime as dt
 import hashlib
 import hmac
 import io
+from html import escape as html_escape
 import json
 import random
 import time
 import unicodedata
+from urllib.parse import urlencode
 from typing import Any, Dict, List, Optional
 
 import streamlit as st
@@ -65,6 +67,7 @@ from services.db import (
 from services.ui import (
     APP_NAME,
     apply_page_background,
+    asset_data_uri,
     inject_css,
     render_drawn_cards,
     render_footer,
@@ -961,29 +964,89 @@ def render_styled_content_item(item: Dict[str, Any]) -> None:
     )
 
 
+def _deck_pick_href(deck_key: str, idx: int) -> str:
+    params: Dict[str, str] = {}
+    try:
+        for key, value in st.query_params.items():
+            if isinstance(value, list):
+                params[key] = str(value[0]) if value else ""
+            else:
+                params[key] = str(value)
+    except Exception:
+        params = {}
+    params[f"{deck_key}_pick"] = str(idx)
+    return "?" + urlencode(params)
+
+
+def _render_deck_card_image(card_uri: str, label: str, css_class: str = "") -> None:
+    if not card_uri:
+        st.markdown(
+            f"<div class='kp-deck-card-static {css_class}'><div class='kp-deck-card-overlay'>{html_escape(label)}</div></div>",
+            unsafe_allow_html=True,
+        )
+        return
+    st.markdown(
+        f"""
+        <div class="kp-deck-card-static {html_escape(css_class)}">
+            <img class="kp-deck-card-img" src="{card_uri}" alt="Kapalı tarot kartı">
+            <div class="kp-deck-card-overlay">{html_escape(label)}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def closed_card_deck_selector(deck_key: str, card_pool: List[str], required_count: int, element: str = "fire") -> List[str]:
     deck_state_key = f"{deck_key}_closed_deck"
     selected_state_key = f"{deck_key}_selected_indices"
+    pick_query_key = f"{deck_key}_pick"
     if deck_state_key not in st.session_state:
         st.session_state[deck_state_key] = random.sample(card_pool, len(card_pool))
         st.session_state[selected_state_key] = []
 
     deck = st.session_state[deck_state_key]
     selected_indices = list(st.session_state.get(selected_state_key, []))
-    st.caption(f"Kapalı desteden {required_count} kart seç. Seçtiğin kartlar aşağıda sırayla açılır.")
+
+    picked_raw = _query_get(pick_query_key)
+    if picked_raw:
+        try:
+            picked_idx = int(picked_raw)
+            if 0 <= picked_idx < len(deck) and picked_idx not in selected_indices and len(selected_indices) < required_count:
+                selected_indices.append(picked_idx)
+                st.session_state[selected_state_key] = selected_indices
+        except Exception:
+            pass
+        _query_delete(pick_query_key)
+        st.rerun()
+
+    st.caption(f"Kapalı desteden {required_count} kart seç. Her kart görseline tıkladığında kart seçilmiş olur.")
+    card_uri = asset_data_uri("Tarot_Kartları")
 
     cols = st.columns(4)
     for idx, _card in enumerate(deck):
         with cols[idx % 4]:
             if idx in selected_indices:
                 order = selected_indices.index(idx) + 1
-                st.button(f"✓ {order}. kart", key=f"{deck_key}_card_{idx}", disabled=True, use_container_width=True)
+                _render_deck_card_image(card_uri, f"✓ {order}. kart", "selected")
+            elif len(selected_indices) >= required_count:
+                _render_deck_card_image(card_uri, "Seçim tamam", "disabled")
             else:
-                disabled = len(selected_indices) >= required_count
-                if st.button("◇ Kapalı kart", key=f"{deck_key}_card_{idx}", disabled=disabled, use_container_width=True):
-                    selected_indices.append(idx)
-                    st.session_state[selected_state_key] = selected_indices
-                    st.rerun()
+                href = _deck_pick_href(deck_key, idx)
+                if card_uri:
+                    st.markdown(
+                        f"""
+                        <a class="kp-deck-card-link" href="{html_escape(href)}" title="Kart seç">
+                            <img class="kp-deck-card-img" src="{card_uri}" alt="Kapalı tarot kartı">
+                            <div class="kp-deck-card-overlay">Kart seç</div>
+                        </a>
+                        """,
+                        unsafe_allow_html=True,
+                    )
+                else:
+                    if st.button("Kart seç", key=f"{deck_key}_card_{idx}", use_container_width=True):
+                        selected_indices.append(idx)
+                        st.session_state[selected_state_key] = selected_indices
+                        st.rerun()
 
     chosen_cards = [deck[i] for i in selected_indices]
     if chosen_cards:
@@ -992,9 +1055,9 @@ def closed_card_deck_selector(deck_key: str, card_pool: List[str], required_coun
     if st.button("Desteyi sıfırla", key=f"{deck_key}_reset", use_container_width=True):
         st.session_state.pop(deck_state_key, None)
         st.session_state.pop(selected_state_key, None)
+        _query_delete(pick_query_key)
         st.rerun()
     return chosen_cards
-
 
 def page_manual_tarot(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]]) -> None:
     render_module_intro("tarot", "free", module_meta("tarot", module_settings))
