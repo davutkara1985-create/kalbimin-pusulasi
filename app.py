@@ -855,7 +855,7 @@ def page_content(content_type: str, module_key: str, module_settings: Dict[str, 
 def page_inbox(user: Dict[str, Any]) -> None:
     if not require_account(user):
         return
-    render_section_header("Gelen Kutusu", "Admin tarafından gönderilen yorumlarını burada okuyabilirsin.", kicker="Hesabım")
+    render_section_header("Gelen Kutusu", "Kalbinizin sesi ve kaderinizin pusulası size buradan sesleniyor", kicker="Hesabım")
     items = list_inbox(user)
     if not items:
         st.info("Henüz gelen kutunda mesaj yok.")
