@@ -39,7 +39,7 @@ PLAN_CONFIG: Dict[str, dict] = {
         "badge": "Başlangıç",
         "description": "Aşk ve ilişki odağındaki temel AI yorumlarını denemek için ücretsiz plan.",
         "features": [
-            "Günde 5 AI yorumu",
+            "Günde 5 yorum",
             "İlişki yorumu",
             "Mesaj analizi",
             "Aşk falı",
@@ -54,7 +54,7 @@ PLAN_CONFIG: Dict[str, dict] = {
         "badge": "Popüler",
         "description": "Daha sık yorum almak ve admin yorumlu romantik fal taleplerini açmak için plan.",
         "features": [
-            "Günde 75 AI yorumu",
+            "Günde 75 yorum",
             "Admin yorumlu tarot/katina talepleri",
             "Kahve falı görsel talebi",
             "Rüya yorumu talebi",
@@ -69,7 +69,7 @@ PLAN_CONFIG: Dict[str, dict] = {
         "badge": "Derin yorum",
         "description": "Haftalık aşk raporu, ruh eşi çizimi ve daha yoğun kullanım için üst plan.",
         "features": [
-            "Günde 200 AI yorumu",
+            "Günde 200 yorum",
             "Tüm Premium özellikler",
             "Özel haftalık aşk raporu",
             "Ruh eşi çizimi talepleri",
