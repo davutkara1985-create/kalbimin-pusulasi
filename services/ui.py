@@ -14,7 +14,6 @@ APP_NAME = "Kalbimin Pusulası"
 MODULE_VISUALS: Dict[str, Tuple[str, str, str]] = {
     "relationship": ("Aşk & İlişki", "♡", "fire"),
     "message_analysis": ("Aşk & İlişki", "✉", "air"),
-    "weekly_report": ("Aşk & İlişki", "✦", "air"),
     "love_fortune": ("Aşk & İlişki", "☽", "fire"),
     "daily_energy": ("Aşk & İlişki", "✺", "air"),
     "emotion": ("Duygusal & Kişisel Analiz", "◌", "water"),
@@ -689,6 +688,74 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
             margin-bottom: 10px;
         }}
 
+
+        .kp-content-visual {{
+            position: relative;
+            min-height: 210px;
+            padding: 24px;
+            border-radius: 28px;
+            overflow: hidden;
+            border: 1px solid rgba(255,241,184,0.24);
+            background:
+                radial-gradient(circle at 20% 20%, rgba(255,241,184,0.18), transparent 28%),
+                radial-gradient(circle at 78% 28%, rgba(123,75,214,0.32), transparent 34%),
+                radial-gradient(circle at 50% 95%, rgba(36,109,181,0.28), transparent 36%),
+                linear-gradient(145deg, rgba(255,255,255,0.11), rgba(255,255,255,0.035)),
+                rgba(10, 12, 36, 0.78);
+            box-shadow: 0 24px 58px rgba(0,0,0,0.34), inset 0 1px 0 rgba(255,255,255,0.12);
+            margin: 12px 0 18px;
+        }}
+        .kp-content-visual::after {{
+            content: "☽  ✦  ◌  ✺  ☉";
+            position: absolute;
+            right: -18px;
+            bottom: 12px;
+            color: rgba(255,241,184,0.12);
+            font-family: var(--kp-font-serif);
+            font-size: 3.15rem;
+            letter-spacing: 0.35rem;
+            transform: rotate(-12deg);
+            white-space: nowrap;
+        }}
+        .kp-content-visual.ritual {{
+            background:
+                radial-gradient(circle at 20% 20%, rgba(217,183,110,0.23), transparent 30%),
+                radial-gradient(circle at 80% 35%, rgba(170,90,52,0.30), transparent 34%),
+                radial-gradient(circle at 50% 95%, rgba(123,75,214,0.28), transparent 36%),
+                linear-gradient(145deg, rgba(255,255,255,0.11), rgba(255,255,255,0.035)),
+                rgba(12, 15, 44, 0.78);
+        }}
+        .kp-content-visual-icon {{
+            width: 58px;
+            height: 58px;
+            display: grid;
+            place-items: center;
+            border-radius: 22px;
+            background: rgba(217,183,110,0.14);
+            border: 1px solid rgba(255,241,184,0.24);
+            color: var(--kp-gold-2);
+            font-family: var(--kp-font-serif);
+            font-size: 2rem;
+            margin-bottom: 16px;
+        }}
+        .kp-content-visual-title {{
+            position: relative;
+            z-index: 2;
+            font-family: var(--kp-font-serif);
+            font-size: 2rem;
+            line-height: 1.05;
+            color: var(--kp-gold-2);
+            margin-bottom: 8px;
+        }}
+        .kp-content-visual-text {{
+            position: relative;
+            z-index: 2;
+            max-width: 420px;
+            color: var(--kp-muted);
+            font-size: 0.92rem;
+            line-height: 1.6;
+        }}
+
         @keyframes kpParticleDrift {{ 0% {{ background-position: 0 0, 28px 46px; }} 100% {{ background-position: 120px 160px, -40px 190px; }} }}
         @keyframes kpFadeUp {{ from {{ opacity: 0; transform: translateY(12px); }} to {{ opacity: 1; transform: translateY(0); }} }}
 
@@ -813,6 +880,28 @@ def render_drawn_cards(cards: list[str], element: str = "fire") -> None:
                     unsafe_allow_html=True,
                 )
 
+
+
+def render_content_visual(content_type: str) -> None:
+    is_meditation = content_type == "meditation"
+    klass = "meditation" if is_meditation else "ritual"
+    icon = "☽" if is_meditation else "✺"
+    title = "Kalp Meditasyonları" if is_meditation else "Aşk Ritüelleri"
+    text = (
+        "Nefesini yavaşlat, kalbinin sesini duy. Aşağıdan bir meditasyon seçtiğinde metin burada açılacak."
+        if is_meditation
+        else "Romantik niyet, öz değer ve sakinleşme için sembolik ritüeller. Aşağıdan bir ritüel seçtiğinde tarif burada açılacak."
+    )
+    st.markdown(
+        f"""
+        <div class="kp-content-visual {klass}">
+            <div class="kp-content-visual-icon">{icon}</div>
+            <div class="kp-content-visual-title">{escape(title)}</div>
+            <div class="kp-content-visual-text">{escape(text)}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 def render_safety_notice() -> None:
     st.markdown(
