@@ -537,10 +537,10 @@ def page_subscription(user: Dict[str, Any]) -> None:
 
 def page_relationship(user: Dict[str, Any], prompts: Dict[str, str], module_settings: Dict[str, Dict[str, Any]]) -> None:
     render_module_intro("relationship", "free", module_meta("relationship", module_settings))
-    situation = st.text_area("İlişkindeki durumu anlat.", height=210, placeholder="Aramızda son zamanlarda şöyle bir şey oluyor...")
+    situation = st.text_area("İlişkindeki güncel durumu bizimle paylaş", height=210, placeholder="Aramızda son zamanlarda şöyle bir şey oluyor...")
     question = st.text_input("En çok neyi merak ediyorsun?", placeholder="Beni seviyor mu, mesafe neden arttı, ne yapmalıyım?")
-    relationship_stage = st.selectbox("Bağ türü", ["Flört", "İlişki", "Eski partner", "Platonik", "Karmaşık bağ"])
-    if st.button("İlişki yorumu al"):
+    relationship_stage = st.selectbox("İlişki Türü", ["Flört", "İlişki", "Eski partner", "Platonik", "Karmaşık bağ"])
+    if st.button("İlişkimi yorumla"):
         if not situation.strip():
             st.warning("Durumu birkaç cümleyle anlatmalısın.")
             return
