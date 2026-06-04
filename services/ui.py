@@ -742,7 +742,7 @@ def render_hero(user: Optional[Dict[str, Any]] = None) -> None:
             </div>
             <div class="kp-title">Kalbimin <span>Pusulası</span></div>
             <div class="kp-subtitle">
-                Kader gürültüde değil, sükûtta konuşur. Hislerin pusulan.
+                KADER GÜRÜLTÜDE DEĞİL, SÜKûTTA KONUŞUR
             </div>
             </div>
         """,
