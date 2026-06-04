@@ -550,7 +550,7 @@ def page_relationship(user: Dict[str, Any], prompts: Dict[str, str], module_sett
 def page_message_analysis(user: Dict[str, Any], prompts: Dict[str, str], module_settings: Dict[str, Dict[str, Any]]) -> None:
     render_module_intro("message_analysis", "free", module_meta("message_analysis", module_settings))
     sender = st.text_input("Bu mesaj kimden geldi?", placeholder="Sevgilim, flörtüm, eski partnerim...")
-    messages = st.text_area("Analiz edilecek mesajları buraya yapıştır.", height=230)
+    messages = st.text_area("Analiz edilecek mesajı bizimle paylaş", height=230)
     goal = st.selectbox("Ne istiyorsun?", ["Alt metni anlamak", "Cevap yazmak", "Kırıcı mı değil mi görmek", "Kararsızlığımı azaltmak"])
     if st.button("Mesajları analiz et"):
         if not messages.strip():
@@ -582,7 +582,7 @@ def page_daily_energy(user: Dict[str, Any], prompts: Dict[str, str], module_sett
 
 def page_emotion(user: Dict[str, Any], prompts: Dict[str, str], module_settings: Dict[str, Dict[str, Any]]) -> None:
     render_module_intro("emotion", "free", module_meta("emotion", module_settings))
-    text = st.text_area("Şu an hissettiklerini yaz.", height=190, placeholder="Ne hissettiğimi tam bilmiyorum ama...")
+    text = st.text_area("Şu an hissettiklerini bizimle paylaş", height=190, placeholder="Ne hissettiğimi tam bilmiyorum ama...")
     intensity = st.slider("Duygu yoğunluğu", 1, 10, 5)
     if st.button("Duygumu analiz et"):
         if not text.strip():
@@ -629,7 +629,7 @@ def page_weekly_report(user: Dict[str, Any], prompts: Dict[str, str], module_set
 def page_mini_tarot(user: Dict[str, Any], prompts: Dict[str, str], module_settings: Dict[str, Dict[str, Any]]) -> None:
     render_module_intro("mini_tarot", "free", module_meta("mini_tarot", module_settings))
     question = st.text_area("Tarota sormak istediğin niyet veya soru", height=130)
-    if st.button("Tek kartımı çek ve yorumla"):
+    if st.button("Benim adıma kart çek ve yorumla"):
         cards = select_tarot_cards(mini=True)
         render_drawn_cards(cards, "fire")
         run_ai_free(user, "mini_tarot", {"soru": question, "çekilen_kart": cards[0]}, prompts)
@@ -638,7 +638,7 @@ def page_mini_tarot(user: Dict[str, Any], prompts: Dict[str, str], module_settin
 def page_mini_katina(user: Dict[str, Any], prompts: Dict[str, str], module_settings: Dict[str, Dict[str, Any]]) -> None:
     render_module_intro("mini_katina", "free", module_meta("mini_katina", module_settings))
     question = st.text_area("Katina'ya sormak istediğin konu", height=130)
-    if st.button("Tek sembolümü çek ve yorumla"):
+    if st.button("Benim adıma kart çek ve yorumla"):
         cards = select_katina_cards(mini=True)
         render_drawn_cards(cards, "earth")
         run_ai_free(user, "mini_katina", {"soru": question, "çekilen_sembol": cards[0]}, prompts)
