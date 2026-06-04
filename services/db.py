@@ -460,26 +460,47 @@ def get_content_items(content_type: str, include_inactive: bool = False) -> List
     return sorted(items, key=lambda x: str(x.get("created_at", "")), reverse=True)
 
 
-def create_content_item(content_type: str, title: str, category: str, body: str, active: bool = True) -> str:
+CONTENT_ITEM_ALLOWED_FIELDS = {
+    "title",
+    "category",
+    "body",
+    "active",
+    "image",
+    "template",
+    "font_family",
+    "font_size",
+    "title_size",
+}
+
+
+def create_content_item(
+    content_type: str,
+    title: str,
+    category: str,
+    body: str,
+    active: bool = True,
+    extra: Optional[Dict[str, Any]] = None,
+) -> str:
     db = get_firestore_client()
     ref = db.collection("content_items").document()
-    ref.set(
-        {
-            "type": content_type,
-            "title": title.strip(),
-            "category": category.strip(),
-            "body": body.strip(),
-            "active": bool(active),
-            "created_at": firestore.SERVER_TIMESTAMP,
-            "updated_at": firestore.SERVER_TIMESTAMP,
-        }
-    )
+    data = {
+        "type": content_type,
+        "title": title.strip(),
+        "category": category.strip(),
+        "body": body.strip(),
+        "active": bool(active),
+        "created_at": firestore.SERVER_TIMESTAMP,
+        "updated_at": firestore.SERVER_TIMESTAMP,
+    }
+    if extra:
+        data.update({k: v for k, v in extra.items() if k in CONTENT_ITEM_ALLOWED_FIELDS})
+    ref.set(data)
     return ref.id
 
 
 def update_content_item(item_id: str, values: Dict[str, Any]) -> None:
     db = get_firestore_client()
-    clean = {k: v for k, v in values.items() if k in {"title", "category", "body", "active"}}
+    clean = {k: v for k, v in values.items() if k in CONTENT_ITEM_ALLOWED_FIELDS}
     clean["updated_at"] = firestore.SERVER_TIMESTAMP
     db.collection("content_items").document(item_id).set(clean, merge=True)
 
