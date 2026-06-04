@@ -1048,7 +1048,7 @@ def _deck_pick_href(deck_key: str, idx: int) -> str:
         params = {}
     params[PAGE_QUERY_KEY] = deck_key
     params[f"{deck_key}_pick"] = str(idx)
-    return "?" + urlencode(params)
+    return "?" + urlencode(params) + "#kp-deck-anchor"
 
 
 def _render_selected_cards(chosen_cards: List[str], element: str) -> None:
@@ -1089,19 +1089,30 @@ def closed_card_deck_selector(deck_key: str, card_pool: List[str], required_coun
                 st.session_state[selected_state_key] = selected_indices
         except Exception:
             pass
+        _query_delete(pick_query_key)
 
     chosen_cards = [deck[i] for i in selected_indices]
+    st.markdown('<div id="kp-deck-anchor"></div>', unsafe_allow_html=True)
     st.caption(f"Kapalı desteden {required_count} kart seç. Seçim tamamlandığında kapalı deste kapanır ve seçtiğin kartlar açılır.")
 
     if len(chosen_cards) >= required_count:
         _render_selected_cards(chosen_cards[:required_count], element)
     else:
-        card_uri = asset_data_uri("Tarot_Kartları") or asset_data_uri("Tarot_Kartlari") or _default_card_back_svg_uri(deck_key)
+        # IMPORTANT: The closed card image is injected ONCE as a CSS background.
+        # Do not repeat a base64 image in every card; otherwise Streamlit can exceed
+        # server.maxMessageSize when 78/68 cards are rendered.
+        card_uri = asset_data_uri("Tarot_Kartları", max_side=90, quality=62) or asset_data_uri("Tarot_Kartlari", max_side=90, quality=62) or _default_card_back_svg_uri(deck_key)
+        st.markdown(
+            f"""<style>
+            .kp-deck-card-face {{ background-image: url("{card_uri}"); }}
+            </style>""",
+            unsafe_allow_html=True,
+        )
         links = []
         for idx, _card in enumerate(deck):
             if idx in selected_indices:
                 css = " selected"
-                href = "javascript:void(0)"
+                href = "#kp-deck-anchor"
                 aria = "Seçilmiş kart"
             else:
                 css = ""
@@ -1109,7 +1120,7 @@ def closed_card_deck_selector(deck_key: str, card_pool: List[str], required_coun
                 aria = "Kapalı kart"
             links.append(
                 f'<a class="kp-deck-card-link{css}" href="{html_escape(href)}" aria-label="{aria}">'
-                f'<img class="kp-deck-card-img" src="{card_uri}" alt="Kapalı kart">'
+                f'<span class="kp-deck-card-face" role="img" aria-hidden="true"></span>'
                 f'</a>'
             )
         st.markdown(f'<div class="kp-deck-grid">{"".join(links)}</div>', unsafe_allow_html=True)
