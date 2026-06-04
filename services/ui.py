@@ -1002,6 +1002,69 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
         }}
 
 
+
+
+        .kp-deck-button-scope {
+            width: 100%;
+            margin: 10px 0 14px;
+        }
+        .kp-deck-button-scope div.stButton {
+            display: flex !important;
+            justify-content: center !important;
+            align-items: center !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+        .kp-deck-button-scope div.stButton > button {
+            width: 34px !important;
+            min-width: 34px !important;
+            max-width: 34px !important;
+            height: 51px !important;
+            min-height: 51px !important;
+            max-height: 51px !important;
+            margin: 0 auto 5px !important;
+            padding: 0 !important;
+            border: none !important;
+            outline: none !important;
+            border-radius: 4px !important;
+            background-color: transparent !important;
+            background-repeat: no-repeat !important;
+            background-position: center center !important;
+            background-size: contain !important;
+            box-shadow: none !important;
+            color: transparent !important;
+            font-size: 0 !important;
+            line-height: 0 !important;
+            overflow: hidden !important;
+            transition: transform 120ms ease, filter 120ms ease, opacity 120ms ease !important;
+        }
+        .kp-deck-button-scope div.stButton > button:hover {
+            transform: translateY(-2px) scale(1.04) !important;
+            filter: brightness(1.08) !important;
+            border: none !important;
+            box-shadow: none !important;
+        }
+        .kp-deck-button-scope div.stButton > button:focus,
+        .kp-deck-button-scope div.stButton > button:active {
+            border: none !important;
+            outline: none !important;
+            box-shadow: none !important;
+        }
+        .kp-deck-button-scope div.stButton > button:disabled {
+            opacity: 0.28 !important;
+            filter: grayscale(0.35) brightness(0.82) !important;
+            cursor: default !important;
+        }
+        .kp-deck-button-scope div.stButton > button p,
+        .kp-deck-button-scope div.stButton > button span,
+        .kp-deck-button-scope div.stButton > button div {
+            display: none !important;
+            visibility: hidden !important;
+            color: transparent !important;
+            font-size: 0 !important;
+            line-height: 0 !important;
+        }
+
         @keyframes kpParticleDrift {{ 0% {{ background-position: 0 0, 28px 46px; }} 100% {{ background-position: 120px 160px, -40px 190px; }} }}
         @keyframes kpFadeUp {{ from {{ opacity: 0; transform: translateY(12px); }} to {{ opacity: 1; transform: translateY(0); }} }}
 
