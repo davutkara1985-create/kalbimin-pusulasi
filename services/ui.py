@@ -892,47 +892,84 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
             background: radial-gradient(circle at 18% 12%, rgba(217,183,110,0.18), transparent 32%), linear-gradient(145deg, rgba(123,75,214,0.18), rgba(255,255,255,0.04)), rgba(12,15,44,0.78);
         }}
 
+
+        .kp-deck-grid {{
+            display: grid;
+            grid-template-columns: repeat(12, minmax(0, 1fr));
+            gap: 7px 5px;
+            align-items: center;
+            margin: 12px 0 14px;
+        }}
         .kp-deck-card-link, .kp-deck-card-static {{
-            position: relative;
             display: block;
-            min-height: 118px;
-            border-radius: 18px;
-            overflow: hidden;
-            border: 1px solid rgba(255,241,184,0.32);
-            background: rgba(7,10,34,0.58);
-            box-shadow: 0 14px 34px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.12);
+            width: 100%;
+            min-height: 0;
+            padding: 0 !important;
+            margin: 0 !important;
+            border: none !important;
+            outline: none !important;
+            background: transparent !important;
+            box-shadow: none !important;
             text-decoration: none !important;
-            margin: 5px 0 12px;
-            transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease, opacity 180ms ease;
+            overflow: visible;
+            line-height: 0;
+            transition: transform 130ms ease, opacity 130ms ease, filter 130ms ease;
         }}
         .kp-deck-card-link:hover {{
-            transform: translateY(-2px) scale(1.025);
-            border-color: rgba(255,241,184,0.72);
-            box-shadow: 0 18px 42px rgba(0,0,0,0.34), 0 0 26px rgba(217,183,110,0.18);
+            transform: translateY(-2px) scale(1.06);
+            filter: brightness(1.08);
         }}
-        .kp-deck-card-static.disabled {{ opacity: 0.45; }}
+        .kp-deck-card-link.selected {{
+            opacity: 0.34;
+            filter: grayscale(0.35) brightness(0.82);
+            pointer-events: none;
+        }}
+        .kp-deck-card-static.disabled {{ opacity: 0.34; }}
         .kp-deck-card-img {{
-            width: 100%;
-            height: 118px;
-            object-fit: cover;
             display: block;
+            width: 100%;
+            max-width: 46px;
+            height: auto;
+            aspect-ratio: 2 / 3;
+            object-fit: contain;
+            margin: 0 auto;
+            border: none !important;
+            border-radius: 6px;
+            box-shadow: none !important;
+            background: transparent !important;
         }}
-        .kp-deck-card-overlay {{
-            position: absolute;
-            inset: 0;
-            display: grid;
-            place-items: center;
-            background: linear-gradient(160deg, rgba(5,6,18,0.10), rgba(34,15,66,0.22));
+        .kp-deck-card-overlay {{ display: none !important; }}
+        .kp-selected-card-panel {{
+            margin: 14px 0;
+            padding: 12px 0 4px;
+            background: transparent;
+            border: none;
+            box-shadow: none;
+        }}
+        .kp-selected-card-title {{
             color: var(--kp-gold-2);
-            font-weight: 950;
-            font-size: 0.86rem;
-            text-align: center;
-            text-shadow: 0 2px 10px rgba(0,0,0,0.65);
+            font-family: var(--kp-font-serif);
+            font-size: 1.35rem;
+            font-weight: 700;
+            margin-bottom: 10px;
         }}
-        .kp-deck-card-static.selected .kp-deck-card-overlay {{
-            background: linear-gradient(160deg, rgba(5,6,18,0.18), rgba(217,183,110,0.32));
-            font-size: 1rem;
+        .kp-open-card-grid {{
+            display: grid;
+            grid-template-columns: repeat(7, minmax(0, 1fr));
+            gap: 8px;
+            align-items: start;
         }}
+        .kp-open-card-img {{
+            display: block;
+            width: 100%;
+            max-width: 78px;
+            height: auto;
+            margin: 0 auto;
+            border: none !important;
+            border-radius: 8px;
+            box-shadow: 0 10px 24px rgba(0,0,0,0.22);
+        }}
+
 
         @keyframes kpParticleDrift {{ 0% {{ background-position: 0 0, 28px 46px; }} 100% {{ background-position: 120px 160px, -40px 190px; }} }}
         @keyframes kpFadeUp {{ from {{ opacity: 0; transform: translateY(12px); }} to {{ opacity: 1; transform: translateY(0); }} }}
