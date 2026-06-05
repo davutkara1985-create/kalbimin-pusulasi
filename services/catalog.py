@@ -170,7 +170,7 @@ MODULES: Dict[str, dict] = {
         "guest_allowed": True,
     },
     "tarot": {
-        "title": "Tarot Falı (Premium)",
+        "title": "Tarot Falı",
         "icon": "✧",
         "description": "Premium üyeler için 7 kartlık yorum",
         "category": "Fal & Kehanet",
@@ -188,7 +188,7 @@ MODULES: Dict[str, dict] = {
         "guest_allowed": True,
     },
     "katina": {
-        "title": "Katina Falı (Premium)",
+        "title": "Katina Falı",
         "icon": "🗝",
         "description": "İlişki ve romantik bağ odaklı Katina yorumu",
         "category": "Fal & Kehanet",
@@ -197,7 +197,7 @@ MODULES: Dict[str, dict] = {
         "guest_allowed": False,
     },
     "coffee_text": {
-        "title": "Kahve Falı",
+        "title": "Mini Kahve Falı",
         "icon": "☕",
         "description": "Fincanda gördüğün sembolleri yazarak yorumunu al",
         "category": "Fal & Kehanet",
@@ -206,7 +206,7 @@ MODULES: Dict[str, dict] = {
         "guest_allowed": True,
     },
     "coffee_image": {
-        "title": "Kahve Falı (Premium)",
+        "title": "Kahve Falı",
         "icon": "☕",
         "description": "Premium üyeler için görsel yüklemeli aşk ve ilişki yorumu.",
         "category": "Fal & Kehanet",
@@ -215,7 +215,7 @@ MODULES: Dict[str, dict] = {
         "guest_allowed": False,
     },
     "dream": {
-        "title": "Rüya Tabirleri (Premium)",
+        "title": "Rüya Tabirleri",
         "icon": "☾",
         "description": "Bilinçaltınız size ne anlatmak istiyor",
         "category": "Fal & Kehanet",
@@ -224,7 +224,7 @@ MODULES: Dict[str, dict] = {
         "guest_allowed": False,
     },
     "soulmate": {
-        "title": "Ruh Eşi Çizimi (Premium)",
+        "title": "Ruh Eşi Çizimi",
         "icon": "♁",
         "description": "Size özel ruh eşi yorumunuz ve görseliniz",
         "category": "Fal & Kehanet",
