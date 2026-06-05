@@ -100,20 +100,52 @@ def prevent_browser_translate() -> None:
         <script>
         try {
             const doc = window.parent.document;
-            doc.documentElement.lang = 'tr';
-            doc.documentElement.setAttribute('translate', 'no');
-            doc.documentElement.classList.add('notranslate');
-            if (doc.body) {
-                doc.body.setAttribute('translate', 'no');
-                doc.body.classList.add('notranslate');
+
+            const applyNoTranslate = () => {
+                doc.documentElement.lang = 'tr';
+                doc.documentElement.setAttribute('translate', 'no');
+                doc.documentElement.classList.add('notranslate');
+                if (doc.body) {
+                    doc.body.setAttribute('translate', 'no');
+                    doc.body.classList.add('notranslate');
+                }
+                let meta = doc.querySelector('meta[name="google"]');
+                if (!meta) {
+                    meta = doc.createElement('meta');
+                    meta.setAttribute('name', 'google');
+                    doc.head.appendChild(meta);
+                }
+                meta.setAttribute('content', 'notranslate');
+            };
+
+            applyNoTranslate();
+            setTimeout(applyNoTranslate, 350);
+            setTimeout(applyNoTranslate, 1200);
+
+            if (!window.parent.__kpNoTranslateObserver) {
+                window.parent.__kpNoTranslateObserver = true;
+                const observer = new MutationObserver(applyNoTranslate);
+                observer.observe(doc.documentElement, { attributes: true, childList: true, subtree: true });
             }
-            let meta = doc.querySelector('meta[name="google"]');
-            if (!meta) {
-                meta = doc.createElement('meta');
-                meta.setAttribute('name', 'google');
-                doc.head.appendChild(meta);
+
+            // Streamlit'in tek harfli "c" kısayolu bazen Clear caches penceresini açabiliyor.
+            // Normal Ctrl/Cmd+C kopyalama korunur; sadece düzenlenebilir alan dışında çıplak "c" engellenir.
+            if (!window.parent.__kpDisableClearCacheShortcut) {
+                window.parent.__kpDisableClearCacheShortcut = true;
+                doc.addEventListener('keydown', function(event) {
+                    const key = (event.key || '').toLowerCase();
+                    const target = event.target;
+                    const editable = target && (
+                        target.tagName === 'INPUT' ||
+                        target.tagName === 'TEXTAREA' ||
+                        target.isContentEditable
+                    );
+                    if (key === 'c' && !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && !editable) {
+                        event.preventDefault();
+                        event.stopImmediatePropagation();
+                    }
+                }, true);
             }
-            meta.setAttribute('content', 'notranslate');
         } catch (e) {}
         </script>
         """,
@@ -133,38 +165,49 @@ inject_css(PUBLIC_SETTINGS.get("style", {}))
 
 
 BASE_MENU_GROUPS = [
-    ("Ana Bölüm", "☽", [("home", "Ana Sayfa", "⌂"), ("subscription", "Planlar & Abonelik", "✦")]),
+    (
+        "Romantik Fal",
+        "✧",
+        [
+            ("tarot", "Tarot Falı", "✧"),
+            ("katina", "Katina Falı", "🗝"),
+            ("coffee_image", "Kahve Falı", "☕"),
+            ("mini_tarot", "Mini Tarot Falı", "◇"),
+            ("mini_katina", "Mini Katina Falı", "⚿"),
+            ("coffee_text", "Mini Kahve Falı", "☕"),
+            ("love_fortune", "Aşk Falı", "☽"),
+        ],
+    ),
+    (
+        "Astroloji",
+        "♈",
+        [
+            ("birth_chart", "Doğum Haritası Analizi", "♈"),
+            ("dream", "Rüya Tabirleri", "☾"),
+            ("soulmate", "Ruh Eşi Çizimi", "♁"),
+            ("zodiac", "Kişisel Burç ve Uyum", "♓"),
+        ],
+    ),
     (
         "Aşk & İlişki",
         "♡",
         [
             ("relationship", "İlişki Yorumu", "♡"),
             ("message_analysis", "Mesaj Analizi", "✉"),
-            ("love_fortune", "Aşk Falı", "☽"),
             ("daily_energy", "Günlük Aşk Enerjisi", "✺"),
+            ("emotion", "Duygu Analizi", "◌"),
         ],
     ),
     (
-        "Astroloji",
-        "◌",
-        [("emotion", "Duygu Analizi", "◌"), ("zodiac", "Kişisel Burç & Uyum", "♓"), ("birth_chart", "Doğum Haritası", "♈")],
-    ),
-    (
-        "Romantik Fal",
-        "✧",
+        "Ruhsal Çözümler",
+        "☉",
         [
-            ("mini_tarot", "Mini Tarot Falı", "◇"),
-            ("tarot", "Tarot Falı", "✧"),
-            ("mini_katina", "Mini Katina Falı", "⚿"),
-            ("katina", "Katina Falı", "🗝"),
-            ("coffee_text", "Kahve Falı", "☕"),
-            ("coffee_image", "Kahve Falı (Resim Yüklemeli)", "☕"),
-            ("dream", "Rüya Tabirleri", "☾"),
-            ("soulmate", "Ruh Eşi Çizimi", "♁"),
+            ("meditation", "Meditasyonlar", "☽"),
+            ("rituals", "Ritüeller", "✺"),
         ],
     ),
-    ("Ruhsal Çözümler", "☉", [("meditation", "Kalp Meditasyonları", "☽"), ("rituals", "Aşk Ritüelleri", "✺")]),
 ]
+
 
 
 TURKISH_CITIES = [
@@ -322,21 +365,25 @@ def logout() -> None:
 
 
 def auth_sidebar() -> Optional[Dict[str, Any]]:
-    render_sidebar_brand()
-
     user = st.session_state.get("auth_user") or restore_auth_from_query()
     if user:
-        st.sidebar.markdown(f"**{user.get('display_name', 'Kullanıcı')}**")
-        role_label = "Admin" if is_admin(user) else ("Misafir" if user.get("is_guest") else "Üye")
-        st.sidebar.caption(f"Durum: {role_label}")
-        if not user.get("is_guest"):
-            st.sidebar.caption(user.get("email", ""))
-        if st.sidebar.button("Çıkış yap", key="logout_btn", use_container_width=True):
-            logout()
+        display_name = str(user.get("display_name") or user.get("email", "Kullanıcı").split("@")[0]).strip()
+        st.sidebar.markdown(
+            f"""
+            <div class="kp-account-mini">
+                <div class="kp-account-mini-name">{html_escape(display_name)}</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        if st.sidebar.button("Hesabım", key="account_btn", use_container_width=True):
+            st.session_state["current_page"] = "account"
+            persist_auth_query(user, "account")
             st.rerun()
         st.sidebar.divider()
         return user
 
+    render_sidebar_brand()
     st.sidebar.markdown("### Giriş")
     st.sidebar.caption("Kalbinizdeki işaretleri görmek için üye girişi yapınız")
 
@@ -401,23 +448,18 @@ def build_menu_groups(user: Dict[str, Any], module_settings: Dict[str, Dict[str,
         for page_key, default_label, icon in items:
             if page_key in MODULES and not module_active(page_key, module_settings):
                 continue
-            label = module_meta(page_key, module_settings).get("title", default_label) if page_key in MODULES else default_label
-            visible_items.append((page_key, label, icon))
+            # Menüde istenen sabit isim ve sıra korunur; sayfa içi başlıklar admin ayarlarından gelmeye devam eder.
+            visible_items.append((page_key, default_label, icon))
         if visible_items:
             groups.append((group_title, group_icon, visible_items))
 
-    account_items = []
-    if is_logged_in(user):
-        account_items.append(("inbox", "Gelen Kutusu", "✉"))
     if is_admin(user):
-        account_items.append(("admin", "Admin Paneli", "⚙"))
-    if account_items:
-        groups.insert(1, ("Hesabım", "✉", account_items))
+        groups.append(("Yönetim", "⚙", [("admin", "Admin Paneli", "⚙")]))
     return groups
 
 
 def valid_pages_for(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]]) -> set[str]:
-    pages = set()
+    pages = {"home", "subscription", "account", "inbox"}
     for _, _, items in build_menu_groups(user, module_settings):
         pages.update(page_key for page_key, _, _ in items)
     return pages
@@ -478,32 +520,10 @@ def navigation(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]])
 
 
 def sidebar_status(user: Dict[str, Any]) -> None:
-    if user.get("is_guest"):
-        st.sidebar.info("Misafir modundasın. Özel talepler ve gelen kutusu için hesap oluşturmalısın.")
-        return
+    # Sol menüde plan, kota, e-posta ve premium kod alanı gösterilmez.
+    # Bu bilgiler Hesabım sayfasında sunulur.
+    return
 
-    plan = user.get("plan", "free")
-    try:
-        used = get_usage(user["email"])
-    except Exception:
-        used = 0
-    limit = PLAN_CONFIG.get(plan, PLAN_CONFIG["free"])["daily_limit"]
-
-    st.sidebar.markdown(f"**Plan:** {PLAN_CONFIG.get(plan, PLAN_CONFIG['free'])['name']}")
-    st.sidebar.progress(min(used / max(limit, 1), 1.0))
-    st.sidebar.caption(f"Bugünkü AI kullanım: {used}/{limit}")
-
-    with st.sidebar.expander("Premium kodum var"):
-        code = st.text_input("Erişim kodu", type="password", key="access_code")
-        if st.button("Kodu etkinleştir", key="activate_code_btn"):
-            ok, msg = activate_access_code(user["email"], code)
-            if ok:
-                st.success(msg)
-                fresh = get_or_create_user(user["email"])
-                st.session_state["auth_user"] = fresh
-                st.rerun()
-            else:
-                st.error(msg)
 
 def require_account(user: Dict[str, Any]) -> bool:
     if user.get("is_guest"):
@@ -696,12 +716,23 @@ def birth_place_input(prefix: str) -> str:
         key=f"{prefix}_birth_place_query",
         placeholder="Şehrin en az 3 harfini yaz...",
     )
-    matches = city_matches(birth_place_query)
-    if len(birth_place_query.strip()) >= 3 and matches:
-        return st.selectbox("Şehir seç", matches, key=f"{prefix}_birth_place_select")
-    if len(birth_place_query.strip()) >= 3:
-        st.caption("Listede yoksa şehir adını yazdığın şekilde kullanabilirsin.")
-    return birth_place_query
+    clean_query = birth_place_query.strip()
+    if len(clean_query) < 3:
+        return clean_query
+
+    matches = city_matches(clean_query)
+    if matches:
+        st.caption("Eşleşen şehirlerden birini seçebilirsin.")
+        selected_city = st.selectbox(
+            "Şehir seç",
+            matches,
+            index=0,
+            key=f"{prefix}_birth_place_select",
+        )
+        return selected_city or clean_query
+
+    st.caption("Listede yoksa şehir adını yazdığın şekilde kullanabilirsin.")
+    return clean_query
 
 
 def birth_details_form(prefix: str, include_birth_date: bool = False, include_zodiac: bool = True) -> Dict[str, Any]:
@@ -1478,8 +1509,8 @@ def closed_card_deck_selector(deck_key: str, card_pool: List[str], required_coun
                             current_selected.append(idx)
                             st.session_state[selected_state_key] = current_selected
                             st.session_state["current_page"] = deck_key
-                            if len(current_selected) >= required_count:
-                                st.rerun()
+                            # Her seçimden hemen sonra rerun: kullanıcı seçtiği kartı anında seçilmiş görür.
+                            st.rerun()
 
     if st.button("Desteyi sıfırla", key=f"{deck_key}_reset", use_container_width=True):
         st.session_state.pop(deck_state_key, None)
@@ -1535,17 +1566,16 @@ def page_coffee_image(user: Dict[str, Any], module_settings: Dict[str, Dict[str,
     note = st.text_area("Varsa niyetini yaz", height=100, placeholder="Aşk hayatımla ilgili bir işaret görmek istiyorum...")
 
     st.markdown("### Fincan görselleri")
-    st.caption("Her kareye bir görsel yükleyebilirsin. En az 1, en fazla 5 görsel kabul edilir.")
+    st.caption("Karelere tıklayarak en az 1, en fazla 5 fincan görseli yükleyebilirsin.")
     uploaded_files = []
     slot_cols = st.columns(5)
     for i, col in enumerate(slot_cols, start=1):
         with col:
-            st.markdown(f"<div class='kp-upload-slot'>☕<br>Kare {i}</div>", unsafe_allow_html=True)
             file = st.file_uploader(
-                f"Kare {i}",
+                f"☕ Kare {i}",
                 type=["png", "jpg", "jpeg", "webp"],
                 key=f"coffee_image_slot_{i}",
-                label_visibility="collapsed",
+                label_visibility="visible",
             )
             if file:
                 uploaded_files.append(file)
@@ -1611,6 +1641,70 @@ def page_content(content_type: str, module_key: str, module_settings: Dict[str, 
 
     item = options[selected_label]
     render_styled_content_item(item)
+
+def page_account(user: Dict[str, Any]) -> None:
+    if not require_account(user):
+        return
+
+    render_section_header("Hesabım", "Gelen kutusu, plan ve kullanım bilgilerin", kicker="Hesap")
+
+    plan = user.get("plan", "free")
+    plan_info = PLAN_CONFIG.get(plan, PLAN_CONFIG["free"])
+    try:
+        used = get_usage(user["email"])
+    except Exception:
+        used = 0
+    limit = int(plan_info.get("daily_limit", 0) or 0)
+    remaining = max(limit - used, 0)
+
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        render_metric_card("Plan", str(plan_info.get("name", plan)), "Mevcut üyelik")
+    with col2:
+        render_metric_card("Bugünkü kullanım", f"{used}/{limit}", "AI yorum hakkı")
+    with col3:
+        render_metric_card("Kalan hak", str(remaining), "Bugün için")
+
+    with st.expander("Erişim kodu etkinleştir", expanded=False):
+        code = st.text_input("Erişim kodu", type="password", key="account_access_code")
+        if st.button("Kodu etkinleştir", key="account_activate_code_btn"):
+            ok, msg = activate_access_code(user["email"], code)
+            if ok:
+                st.success(msg)
+                fresh = get_or_create_user(user["email"])
+                st.session_state["auth_user"] = fresh
+                st.rerun()
+            else:
+                st.error(msg)
+
+    st.divider()
+    st.markdown("### Gelen Kutusu")
+    items = list_inbox(user)
+    if not items:
+        st.info("Henüz gelen kutunda mesaj yok.")
+    else:
+        for item in items:
+            status = "Okunmadı" if not item.get("read") else "Okundu"
+            st.markdown(
+                f"""
+                <div class="kp-inbox-card">
+                    <span class="kp-tag">{status}</span>
+                    <h3>{item.get('title', 'Yanıt')}</h3>
+                    <p>{item.get('message', '')}</p>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+            show_data_image(item.get("image"))
+            if not item.get("read") and st.button("Okundu olarak işaretle", key=f"account_read_{item['id']}"):
+                mark_inbox_read(user, item["id"])
+                st.rerun()
+
+    st.divider()
+    if st.button("Çıkış yap", key="account_logout_btn", use_container_width=True):
+        logout()
+        st.rerun()
+
 
 def page_inbox(user: Dict[str, Any]) -> None:
     if not require_account(user):
@@ -1924,6 +2018,8 @@ def render_page(page: str, user: Dict[str, Any], prompts: Dict[str, str], module
         page_home(user, module_settings)
     elif page == "subscription":
         page_subscription(user)
+    elif page == "account":
+        page_account(user)
     elif page == "inbox":
         page_inbox(user)
     elif page == "admin":
@@ -1992,7 +2088,6 @@ def main() -> None:
         stop_with_setup_error(exc)
         return
 
-    sidebar_status(user)
     page = navigation(user, module_settings)
     persist_auth_query(user, page)
     apply_page_background(page)
