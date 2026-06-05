@@ -102,7 +102,10 @@ def prevent_browser_translate() -> None:
             const doc = window.parent.document;
 
             const applyNoTranslate = () => {
-                doc.documentElement.lang = 'tr';
+                if (!doc || !doc.documentElement) return;
+                if (doc.documentElement.lang !== 'tr') {
+                    doc.documentElement.lang = 'tr';
+                }
                 doc.documentElement.setAttribute('translate', 'no');
                 doc.documentElement.classList.add('notranslate');
                 if (doc.body) {
@@ -115,31 +118,25 @@ def prevent_browser_translate() -> None:
                     meta.setAttribute('name', 'google');
                     doc.head.appendChild(meta);
                 }
-                meta.setAttribute('content', 'notranslate');
+                if (meta.getAttribute('content') !== 'notranslate') {
+                    meta.setAttribute('content', 'notranslate');
+                }
             };
 
             applyNoTranslate();
-            setTimeout(applyNoTranslate, 350);
-            setTimeout(applyNoTranslate, 1200);
+            setTimeout(applyNoTranslate, 500);
+            setTimeout(applyNoTranslate, 1500);
 
-            if (!window.parent.__kpNoTranslateObserver) {
-                window.parent.__kpNoTranslateObserver = true;
-                const observer = new MutationObserver(applyNoTranslate);
-                observer.observe(doc.documentElement, { attributes: true, childList: true, subtree: true });
-            }
+            // MutationObserver bilinçli olarak kullanılmıyor. Önceki sürümde observer,
+            // kendi yaptığı attribute güncellemeleriyle tekrar tetiklenip tarayıcıda beyaz sayfaya yol açabiliyordu.
 
-            // Streamlit'in tek harfli "c" kısayolu bazen Clear caches penceresini açabiliyor.
-            // Normal Ctrl/Cmd+C kopyalama korunur; sadece düzenlenebilir alan dışında çıplak "c" engellenir.
             if (!window.parent.__kpDisableClearCacheShortcut) {
                 window.parent.__kpDisableClearCacheShortcut = true;
                 doc.addEventListener('keydown', function(event) {
                     const key = (event.key || '').toLowerCase();
                     const target = event.target;
-                    const editable = target && (
-                        target.tagName === 'INPUT' ||
-                        target.tagName === 'TEXTAREA' ||
-                        target.isContentEditable
-                    );
+                    const tag = target && target.tagName ? target.tagName.toUpperCase() : '';
+                    const editable = target && (tag === 'INPUT' || tag === 'TEXTAREA' || target.isContentEditable);
                     if (key === 'c' && !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && !editable) {
                         event.preventDefault();
                         event.stopImmediatePropagation();
@@ -283,7 +280,14 @@ def _query_get(key: str, default: str = "") -> str:
 
 def _query_set(key: str, value: str) -> None:
     try:
-        st.query_params[key] = value
+        value = str(value or "")
+        current = st.query_params.get(key, "")
+        if isinstance(current, list):
+            current = str(current[0]) if current else ""
+        else:
+            current = str(current or "")
+        if current != value:
+            st.query_params[key] = value
     except Exception:
         pass
 
