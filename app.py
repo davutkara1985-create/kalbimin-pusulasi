@@ -1487,24 +1487,15 @@ def _select_deck_card(selected_state_key: str, deck_key: str, idx: int, required
 def closed_card_deck_selector(deck_key: str, card_pool: List[str], required_count: int, element: str = "fire") -> List[str]:
     deck_state_key = f"{deck_key}_closed_deck"
     selected_state_key = f"{deck_key}_selected_indices"
+    page_state_key = f"{deck_key}_deck_page"
 
-    # Tarot <-> Katina geçişinde eski seçimler kalmasın.
-    # Aynı sayfada yapılan normal rerunlarda seçim korunur; sadece diğer desteye geçildiğinde iki deste de sıfırlanır.
-    last_deck_key = st.session_state.get("_kp_active_manual_deck")
-    if last_deck_key in {"tarot", "katina"} and last_deck_key != deck_key:
-        for prefix in ("tarot", "katina"):
-            st.session_state.pop(f"{prefix}_closed_deck", None)
-            st.session_state.pop(f"{prefix}_selected_indices", None)
-            _clear_old_deck_query_params(prefix)
-    st.session_state["_kp_active_manual_deck"] = deck_key
-
-    # Safety: keep the current Streamlit page stable while users click cards.
     st.session_state["current_page"] = deck_key
     _clear_old_deck_query_params(deck_key)
 
     if deck_state_key not in st.session_state or len(st.session_state.get(deck_state_key, [])) != len(card_pool):
         st.session_state[deck_state_key] = random.sample(card_pool, len(card_pool))
         st.session_state[selected_state_key] = []
+        st.session_state[page_state_key] = 0
 
     deck = st.session_state[deck_state_key]
     selected_indices = list(st.session_state.get(selected_state_key, []))
@@ -1517,12 +1508,12 @@ def closed_card_deck_selector(deck_key: str, card_pool: List[str], required_coun
     if len(chosen_cards) >= required_count:
         _render_selected_cards(chosen_cards, element)
     else:
-        # Kart arkası görseli tek kez optimize edilerek CSS arka planı olarak kullanılır.
         card_uri = (
-            asset_data_uri("Tarot_Kartları", max_side=72, quality=55)
-            or asset_data_uri("Tarot_Kartlari", max_side=72, quality=55)
+            asset_data_uri("Tarot_Kartları", max_side=48, quality=42)
+            or asset_data_uri("Tarot_Kartlari", max_side=48, quality=42)
             or _default_card_back_svg_uri(deck_key)
         )
+
         st.markdown(
             f"""
             <style>
@@ -1534,20 +1525,56 @@ def closed_card_deck_selector(deck_key: str, card_pool: List[str], required_coun
             unsafe_allow_html=True,
         )
 
-        remaining_slots = max(required_count - len(selected_indices), 0)
-        st.caption(f"Seçilen kart sayısı: {len(selected_indices)}/{required_count}")
+        cards_per_page = 24
+        total_pages = max((len(deck) + cards_per_page - 1) // cards_per_page, 1)
+        current_page = int(st.session_state.get(page_state_key, 0))
+        current_page = max(0, min(current_page, total_pages - 1))
+        st.session_state[page_state_key] = current_page
+
+        start_idx = current_page * cards_per_page
+        end_idx = min(start_idx + cards_per_page, len(deck))
+        visible_indexes = list(range(start_idx, end_idx))
+
+        st.caption(
+            f"Seçilen kart sayısı: {len(selected_indices)}/{required_count} · "
+            f"Destenin {current_page + 1}/{total_pages}. bölümü"
+        )
+
+        nav_col1, nav_col2, nav_col3 = st.columns([1, 1.4, 1])
+        with nav_col1:
+            if st.button("← Önceki", key=f"{deck_key}_prev_page", disabled=current_page <= 0, use_container_width=True):
+                st.session_state[page_state_key] = max(current_page - 1, 0)
+                st.rerun()
+        with nav_col2:
+            st.markdown(
+                f"<div style='text-align:center; color:rgba(255,241,184,0.78); font-weight:800; padding-top:8px;'>"
+                f"{start_idx + 1}-{end_idx} / {len(deck)} kart"
+                f"</div>",
+                unsafe_allow_html=True,
+            )
+        with nav_col3:
+            if st.button("Sonraki →", key=f"{deck_key}_next_page", disabled=current_page >= total_pages - 1, use_container_width=True):
+                st.session_state[page_state_key] = min(current_page + 1, total_pages - 1)
+                st.rerun()
+
         safe_card_uri = html_escape(card_uri, quote=True)
-        for row_start in range(0, len(deck), 12):
+
+        for row_start in range(0, len(visible_indexes), 12):
             cols = st.columns(12, gap="small")
-            for col_offset, idx in enumerate(range(row_start, min(row_start + 12, len(deck)))):
+            for col_offset, idx in enumerate(visible_indexes[row_start : row_start + 12]):
                 with cols[col_offset]:
                     already_selected = idx in selected_indices
-                    disabled = already_selected or remaining_slots <= 0
+                    disabled = already_selected or len(selected_indices) >= required_count
                     selected_class = " selected" if already_selected else ""
+
                     st.markdown(
-                        f'<div class="kp-card-slot-wrap"><div class="kp-card-slot{selected_class}" style="background-image:url(&quot;{safe_card_uri}&quot;);"></div></div>',
+                        f'<div class="kp-card-slot-wrap">'
+                        f'<div class="kp-card-slot{selected_class}" '
+                        f'style="background-image:url(&quot;{safe_card_uri}&quot;);"></div>'
+                        f'</div>',
                         unsafe_allow_html=True,
                     )
+
                     st.button(
                         " ",
                         key=f"{deck_key}_card_btn_{idx}",
@@ -1560,6 +1587,7 @@ def closed_card_deck_selector(deck_key: str, card_pool: List[str], required_coun
     if st.button("Desteyi sıfırla", key=f"{deck_key}_reset", use_container_width=True):
         st.session_state.pop(deck_state_key, None)
         st.session_state.pop(selected_state_key, None)
+        st.session_state.pop(page_state_key, None)
         _clear_old_deck_query_params(deck_key)
         st.session_state["current_page"] = deck_key
         st.rerun()
