@@ -147,7 +147,7 @@ BASE_MENU_GROUPS = [
     (
         "Astroloji",
         "◌",
-        [("emotion", "Duygu Analizi", "◌"), ("zodiac", "Kişisel Burç & Uyum", "♓")],
+        [("emotion", "Duygu Analizi", "◌"), ("zodiac", "Kişisel Burç & Uyum", "♓"), ("birth_chart", "Doğum Haritası", "♈")],
     ),
     (
         "Romantik Fal",
@@ -834,6 +834,363 @@ Kalbimin Pusulası burç uyumum için {result['score']}/100 verdi."""
 
 
 
+BIRTH_CHART_PLANETS = [
+    "Güneş", "Ay", "Merkür", "Venüs", "Mars", "Jüpiter", "Satürn", "Uranüs", "Neptün", "Plüton"
+]
+
+BIRTH_CHART_ASPECT_TYPES = ["Kavuşum", "Karşıt", "Kare", "Üçgen", "Sekstil"]
+BIRTH_CHART_FOCUS_AREAS = ["Genel", "Aşk", "Kariyer", "Yaşam Amacı"]
+
+
+def _degree_number(label: str, key: str) -> float:
+    return float(st.number_input(label, min_value=0.0, max_value=29.99, value=0.0, step=0.1, key=key))
+
+
+def _birth_chart_planet_form(prefix: str = "birth_chart") -> Dict[str, Dict[str, Any]]:
+    st.markdown("#### Gezegen Konumları")
+    st.caption("Her gezegen için burç, derece ve ev bilgisini gir. Bu sekme hesaplama yapmaz; girdiğin harita verilerini derinlemesine yorumlar.")
+    planets: Dict[str, Dict[str, Any]] = {}
+    for planet in BIRTH_CHART_PLANETS:
+        col1, col2, col3, col4 = st.columns([1.25, 1.2, 0.9, 0.8])
+        with col1:
+            st.markdown(f"**{planet}**")
+        with col2:
+            sign = st.selectbox("Burç", ZODIAC_SIGNS, key=f"{prefix}_{planet}_sign", label_visibility="collapsed")
+        with col3:
+            degree = _degree_number("Derece", f"{prefix}_{planet}_degree")
+        with col4:
+            house = st.selectbox("Ev", list(range(1, 13)), key=f"{prefix}_{planet}_house", label_visibility="collapsed")
+        planets[planet] = {"burç": sign, "derece": degree, "ev": house}
+    return planets
+
+
+def _birth_chart_houses_form(planets: Dict[str, Dict[str, Any]], prefix: str = "birth_chart") -> Dict[str, Dict[str, Any]]:
+    st.markdown("#### 12 Ev Yerleşimi")
+    st.caption("Ev başlangıç burçlarını gir. Evlerin içindeki gezegenler, yukarıdaki gezegen-ev seçimlerine göre otomatik eklenir.")
+    houses: Dict[str, Dict[str, Any]] = {}
+    for row_start in range(1, 13, 3):
+        cols = st.columns(3)
+        for offset, house_no in enumerate(range(row_start, min(row_start + 3, 13))):
+            with cols[offset]:
+                cusp_sign = st.selectbox(f"{house_no}. ev başlangıç burcu", ZODIAC_SIGNS, key=f"{prefix}_house_{house_no}_cusp")
+                house_planets = [planet for planet, data in planets.items() if int(data.get("ev", 0)) == house_no]
+                if house_planets:
+                    st.caption("Gezegenler: " + ", ".join(house_planets))
+                houses[str(house_no)] = {
+                    "başlangıç_burcu": cusp_sign,
+                    "içindeki_gezegenler": house_planets,
+                }
+    return houses
+
+
+def _birth_chart_aspects_form(prefix: str = "birth_chart") -> List[Dict[str, Any]]:
+    st.markdown("#### Majör Açılar")
+    st.caption("Bildiğin majör açıları ekle. Boş bırakılan satırlar analize dahil edilmez.")
+    aspects: List[Dict[str, Any]] = []
+    aspect_planet_options = BIRTH_CHART_PLANETS + ["Kuzey Ay Düğümü", "Güney Ay Düğümü", "Şiron"]
+    for idx in range(1, 11):
+        active = st.checkbox(f"{idx}. açıyı kullan", value=(idx <= 3), key=f"{prefix}_aspect_{idx}_active")
+        if not active:
+            continue
+        col1, col2, col3, col4 = st.columns([1.2, 1.0, 1.2, 0.75])
+        with col1:
+            planet_a = st.selectbox("Gezegen 1", aspect_planet_options, key=f"{prefix}_aspect_{idx}_a", label_visibility="collapsed")
+        with col2:
+            aspect_type = st.selectbox("Açı", BIRTH_CHART_ASPECT_TYPES, key=f"{prefix}_aspect_{idx}_type", label_visibility="collapsed")
+        with col3:
+            planet_b = st.selectbox("Gezegen 2", aspect_planet_options, index=min(1, len(aspect_planet_options)-1), key=f"{prefix}_aspect_{idx}_b", label_visibility="collapsed")
+        with col4:
+            orb = float(st.number_input("Orb", min_value=0.0, max_value=12.0, value=2.0, step=0.1, key=f"{prefix}_aspect_{idx}_orb", label_visibility="collapsed"))
+        if planet_a != planet_b:
+            aspects.append({"gezegen_1": planet_a, "açı": aspect_type, "gezegen_2": planet_b, "orb": orb})
+    return aspects
+
+
+def _node_and_chiron_form(prefix: str = "birth_chart") -> Dict[str, Any]:
+    st.markdown("#### Kadersel Eksen ve Şiron")
+    col1, col2 = st.columns(2)
+    with col1:
+        north_sign = st.selectbox("Kuzey Ay Düğümü burcu", ZODIAC_SIGNS, key=f"{prefix}_north_node_sign")
+        north_house = st.selectbox("Kuzey Ay Düğümü evi", list(range(1, 13)), key=f"{prefix}_north_node_house")
+        chiron_sign = st.selectbox("Şiron burcu", ZODIAC_SIGNS, key=f"{prefix}_chiron_sign")
+    with col2:
+        south_sign = st.selectbox("Güney Ay Düğümü burcu", ZODIAC_SIGNS, key=f"{prefix}_south_node_sign")
+        south_house = st.selectbox("Güney Ay Düğümü evi", list(range(1, 13)), key=f"{prefix}_south_node_house")
+        chiron_house = st.selectbox("Şiron evi", list(range(1, 13)), key=f"{prefix}_chiron_house")
+    return {
+        "kuzey_ay_düğümü": {"burç": north_sign, "ev": north_house},
+        "güney_ay_düğümü": {"burç": south_sign, "ev": south_house},
+        "şiron": {"burç": chiron_sign, "ev": chiron_house},
+    }
+
+
+def _birth_chart_payload_from_form() -> Dict[str, Any]:
+    st.markdown("### Doğum Haritası Bilgileri")
+    col1, col2 = st.columns(2)
+    with col1:
+        first_name = st.text_input("Ad", key="birth_chart_first_name")
+    with col2:
+        last_name = st.text_input("Soyad", key="birth_chart_last_name")
+
+    birth_date = st.date_input(
+        "Doğum tarihi",
+        value=dt.date(1995, 1, 1),
+        min_value=dt.date(1900, 1, 1),
+        max_value=dt.date.today(),
+        format="DD/MM/YYYY",
+        key="birth_chart_birth_date",
+    )
+    birth_time = birth_time_input("birth_chart")
+    birth_place = birth_place_input("birth_chart")
+    focus_area = st.selectbox("Odak alanı", BIRTH_CHART_FOCUS_AREAS, key="birth_chart_focus_area")
+
+    with st.expander("Gezegen konumlarını gir", expanded=True):
+        planets = _birth_chart_planet_form("birth_chart")
+    with st.expander("12 ev başlangıç burçlarını gir", expanded=False):
+        houses = _birth_chart_houses_form(planets, "birth_chart")
+    with st.expander("Majör açıları gir", expanded=False):
+        aspects = _birth_chart_aspects_form("birth_chart")
+    with st.expander("Ay düğümleri ve Şiron bilgilerini gir", expanded=False):
+        karmic_axis = _node_and_chiron_form("birth_chart")
+
+    return {
+        "kişisel_bilgiler": {
+            "ad": first_name,
+            "soyad": last_name,
+            "doğum_tarihi": str(birth_date),
+            "doğum_saati": birth_time,
+            "doğum_yeri": birth_place,
+        },
+        "kullanıcı_odak_alanı": focus_area,
+        "gezegen_konumları": planets,
+        "ev_yerleşimleri": houses,
+        "açılar": aspects,
+        "kuzey_ve_güney_ay_düğümleri": {
+            "kuzey": karmic_axis["kuzey_ay_düğümü"],
+            "güney": karmic_axis["güney_ay_düğümü"],
+        },
+        "şiron": karmic_axis["şiron"],
+    }
+
+
+def _birth_chart_payload_from_json(raw_json: str, focus_area: str) -> Optional[Dict[str, Any]]:
+    try:
+        data = json.loads(raw_json)
+    except Exception as exc:
+        st.warning(f"JSON okunamadı: {exc}")
+        return None
+    if not isinstance(data, dict):
+        st.warning("Harita verisi JSON nesnesi olmalı.")
+        return None
+    data["kullanıcı_odak_alanı"] = data.get("kullanıcı_odak_alanı") or focus_area
+    return data
+
+
+def build_birth_chart_prompt(payload: Dict[str, Any], prompts: Dict[str, str]) -> str:
+    admin_prompt = prompts.get("birth_chart", "")
+    payload_text = json.dumps(payload, ensure_ascii=False, indent=2, default=str)
+    return f"""
+Admin tarafından belirlenen doğum haritası yönlendirmesi:
+{admin_prompt}
+
+Sen ileri seviye astroloji analizi yapan, psikolojik derinliği yüksek bir yorumlayıcısın.
+Sana verilen doğum haritası JSON verilerini kullanarak eksiksiz, derinlikli ve tamamen kişiye özel bir "Doğum Haritası Analizi" oluştur.
+
+GİRDİ VERİSİ JSON:
+{payload_text}
+
+GENEL TALİMATLAR:
+- ASLA kısa veya yüzeysel içerik üretme.
+- HER ZAMAN detaylı, katmanlı ve derin psikolojik analiz yap.
+- Klişelerden ve genel geçer astroloji cümlelerinden kaçın.
+- Her yorum mutlaka psikolojik anlam, davranışsal yansıma, gölge yön ve gelişim/iyileştirme önerisi içersin.
+- Anlatım tutarlı olmalı; çıktı kişisel rehber kitabı gibi hissettirmeli.
+- Verilen doğum haritası verileri dışında kesin astronomik hesap iddiası kurma; yalnızca sağlanan verileri yorumla.
+
+ÇIKTI FORMATI:
+- Çıktı MUTLAKA HTML olmalı.
+- Sadece şu etiketleri kullan: <h3>, <h4>, <strong>, <p>, <ul>, <li>.
+- Markdown kullanma. Kod bloğu kullanma. HTML dışında açıklama yazma.
+- Paragraflar ferah, okunabilir ve uzun olmalı.
+
+ZORUNLU İÇERİK YAPISI:
+<h3>1. Giriş ve Büyük Üçlü Analizi</h3>
+- Güneş, Ay ve Yükselen kombinasyonunun derin analizi.
+- Kimlik, duygular ve dış dünya yansıması.
+- İçsel çatışmalar ve uyum noktaları.
+- Kişinin psikolojik çekirdek yapısı.
+
+<h3>2. Kişisel ve Sosyal Gezegenler</h3>
+<h4>Merkür</h4>
+<h4>Venüs</h4>
+<h4>Mars</h4>
+<h4>Jüpiter</h4>
+<h4>Satürn</h4>
+Her gezegen için burç etkisi, ev yerleşimi, gerçek hayattaki yansıma, gölge yön ve gelişim stratejisi açıkla.
+
+<h3>3. 12 Evin Detaylı Analizi</h3>
+1. evden 12. eve kadar her evi ayrı açıkla:
+- Yaşam alanı açıklaması.
+- Ev başlangıç burcu.
+- İçindeki gezegenler.
+- Gerçek hayata etkileri.
+
+<h3>4. Majör Açılar (Psikodinamik Analiz)</h3>
+Kavuşum, Karşıt, Kare, Üçgen ve Sekstil açılarını verilen veriye göre açıkla:
+- Davranış kalıpları.
+- İçsel gerilimler.
+- Doğal güçlü yönler.
+- Dengeleme stratejileri.
+
+<h3>5. Kadersel Eksen ve Şifa Alanı</h3>
+<h4>Kuzey Ay Düğümü</h4>
+<h4>Güney Ay Düğümü</h4>
+<h4>Şiron</h4>
+Karmik temalar, duygusal döngüler ve dönüşüm önerilerini açıkla.
+
+<h3>6. Odak Alanı Derin Analizi</h3>
+Kullanıcı odak alanı: {payload.get("kullanıcı_odak_alanı", "Genel")}
+Eğer odak Aşk ise ilişki dinamikleri, partner seçimi ve bağlanma kalıplarını;
+Kariyer ise mesleki yönelimler ve başarı stratejisini;
+Yaşam Amacı ise ruhsal yön ve potansiyel açılımı;
+Genel ise dengeli geniş analizi derinleştir.
+
+<h3>7. Final Sentez ve Stratejik Rehberlik</h3>
+- Tüm haritayı tek bir bütün olarak yorumla.
+- Net ve uygulanabilir hayat önerileri ver.
+- Kritik yaşam pattern'lerini ortaya çıkar.
+- Gerçekçi ve güçlü yönlendirme yap.
+
+TON & ÜSLUP:
+- Derin, bilge, içgörülü, empatik ama analitik.
+- Abartılı mistisizm kullanma; dengeli spiritüellik kullan.
+- Premium kişisel analiz hissi ver.
+
+KESİN KURALLAR:
+- Asla özet geçme; derinleştir.
+- Verilen hiçbir yerleşimi atlama.
+- Genelleme yapma; sağlanan veriye göre kişiselleştir.
+- Çıktı çok uzun ve detaylı olmalı.
+- İçerik 3000 kelimenin altında kalacak gibi görünürse bölümleri genişlet.
+"""
+
+
+def _clean_birth_chart_html(result: str) -> str:
+    cleaned = result.strip()
+    if cleaned.startswith("```"):
+        cleaned = cleaned.strip("`").strip()
+        if cleaned.lower().startswith("html"):
+            cleaned = cleaned[4:].strip()
+    return cleaned
+
+
+def render_birth_chart_html_result(result: str, plan: str) -> None:
+    module = MODULES.get("birth_chart", {"title": "Doğum Haritası Analizi"})
+    title = html_escape(str(module.get("title", "Doğum Haritası Analizi")))
+    plan_name = html_escape(str(PLAN_CONFIG.get(plan, PLAN_CONFIG["free"])["name"]))
+    body = _clean_birth_chart_html(result)
+    st.markdown(
+        f"""
+        <div class="kp-result-card">
+            <div class="kp-result-title">Analizin hazır: {title}</div>
+            <div class="kp-result-meta">Plan: {plan_name} · Kişisel doğum haritası yorumu · Eğlence ve farkındalık amaçlıdır.</div>
+            <div class="kp-result-body">{body}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def run_birth_chart_ai(user: Dict[str, Any], payload: Dict[str, Any], prompts: Dict[str, str]) -> None:
+    plan = "premium_plus" if is_admin(user) else user.get("plan", "free")
+
+    if user.get("is_guest"):
+        st.warning("Doğum Haritası Analizi için hesapla giriş yapmalısın.")
+        return
+    elif is_admin(user):
+        st.caption("Admin yetkisi aktif: doğum haritası analizi için kullanım limiti uygulanmaz.")
+    else:
+        try:
+            ok, msg, _meta = can_generate(user["email"])
+        except Exception as exc:
+            st.error(f"Kullanım hakkı kontrol edilemedi: {exc}")
+            return
+        if not ok:
+            st.warning(msg)
+            render_upgrade_prompt("premium", plan)
+            return
+        st.caption(msg)
+
+    prompt = build_birth_chart_prompt(payload, prompts)
+    with st.spinner("Doğum haritası analizin hazırlanıyor... Bu bölüm uzun ve detaylı üretildiği için biraz zaman alabilir."):
+        try:
+            result = generate_text(prompt, plan="birth_chart", max_output_tokens=8500, temperature=0.72)
+            if not is_admin(user):
+                record_usage(user["email"], "birth_chart")
+                if st.session_state.get("save_history", False):
+                    save_reading(user["email"], "birth_chart", payload, result)
+            st.success("Doğum haritası analizin hazır.")
+            render_birth_chart_html_result(result, plan)
+        except Exception as exc:
+            st.error(f"Doğum haritası analizi oluşturulamadı: {exc}")
+
+
+def page_birth_chart(user: Dict[str, Any], prompts: Dict[str, str], module_settings: Dict[str, Dict[str, Any]]) -> None:
+    render_module_intro("birth_chart", "premium", module_meta("birth_chart", module_settings))
+    if not require_account(user):
+        return
+
+    st.info(
+        "Doğum Haritası talebin admin paneline düşer. "
+        "Admin; doğum bilgilerine ve sorularına göre metin yanıtı ve gerekirse görsel yükleyerek cevap verir."
+    )
+
+    info = personal_info_form("birth_chart")
+    focus_area = st.selectbox("Odak alanı", BIRTH_CHART_FOCUS_AREAS, key="birth_chart_focus_area_manual")
+
+    st.markdown("### Varsa özel soruların")
+    question_1 = st.text_input(
+        "1. soru",
+        key="birth_chart_question_1",
+        placeholder="Örn: Kariyerimde hangi yöne ilerlemeliyim?",
+    )
+    question_2 = st.text_input(
+        "2. soru",
+        key="birth_chart_question_2",
+        placeholder="Örn: İlişkilerimde tekrar eden döngü nedir?",
+    )
+    question_3 = st.text_input(
+        "3. soru",
+        key="birth_chart_question_3",
+        placeholder="Örn: Yaşam amacımla ilgili hangi potansiyeller öne çıkıyor?",
+    )
+    note = st.text_area(
+        "Eklemek istediğin özel not",
+        height=110,
+        key="birth_chart_note",
+        placeholder="Varsa hayatında özellikle yorumlanmasını istediğin dönem, konu veya hassas noktayı yazabilirsin.",
+    )
+
+    if st.button("Doğum haritası talebimi gönder", key="submit_birth_chart", use_container_width=True):
+        if not validate_personal_info(info):
+            return
+        questions = [q.strip() for q in [question_1, question_2, question_3] if q.strip()]
+        payload = {
+            "title": "Doğum Haritası Analizi",
+            "kişisel_bilgiler": info,
+            "odak_alanı": focus_area,
+            "sorular": questions,
+            "not": note,
+            "admin_notu": (
+                "Kullanıcıdan yalnızca temel doğum bilgileri ve özel sorular alınmıştır. "
+                "Gezegen konumları, evler, açılar, Ay Düğümleri ve Şiron bilgileri admin tarafından hazırlanıp yorumlanmalıdır."
+            ),
+        }
+        request_id = submit_manual_request(user, "birth_chart", payload)
+        st.success(f"Talebin admin paneline düştü. Talep no: {request_id}")
+
+
+
 
 def page_mini_tarot(user: Dict[str, Any], prompts: Dict[str, str], module_settings: Dict[str, Dict[str, Any]]) -> None:
     render_module_intro("mini_tarot", "free", module_meta("mini_tarot", module_settings))
@@ -1446,6 +1803,16 @@ def render_request_payload(payload: Dict[str, Any]) -> None:
     if info:
         st.markdown("#### Kişisel bilgiler")
         st.json(info)
+    if payload.get("odak_alanı"):
+        st.markdown("#### Odak Alanı")
+        st.write(payload["odak_alanı"])
+    if payload.get("sorular"):
+        st.markdown("#### Kullanıcının Soruları")
+        for idx, question in enumerate(payload.get("sorular", []), start=1):
+            st.write(f"{idx}. {question}")
+    if payload.get("admin_notu"):
+        st.markdown("#### Admin Notu")
+        st.info(payload["admin_notu"])
     for key in ["soru", "niyet", "rüya", "not"]:
         if payload.get(key):
             st.markdown(f"#### {key.title()}")
@@ -1573,6 +1940,8 @@ def render_page(page: str, user: Dict[str, Any], prompts: Dict[str, str], module
         page_emotion(user, prompts, module_settings)
     elif page == "zodiac":
         page_zodiac(module_settings)
+    elif page == "birth_chart":
+        page_birth_chart(user, prompts, module_settings)
     elif page == "mini_tarot":
         page_mini_tarot(user, prompts, module_settings)
     elif page == "tarot":
