@@ -347,7 +347,7 @@ def activate_access_code(email: str, code: str) -> Tuple[bool, str]:
 # Admin-managed app settings
 # -----------------------------
 
-
+@st.cache_data(ttl=180, show_spinner=False)
 def get_public_settings() -> Dict[str, Any]:
     db = get_firestore_client()
     snap = db.collection("app_config").document("public_settings").get()
@@ -377,8 +377,9 @@ def save_style_settings(style: Dict[str, Any]) -> None:
     db.collection("app_config").document("public_settings").set(
         {"style": safe_style, "updated_at": firestore.SERVER_TIMESTAMP}, merge=True
     )
+get_public_settings.clear()
 
-
+@st.cache_data(ttl=180, show_spinner=False)
 def get_all_prompts() -> Dict[str, str]:
     db = get_firestore_client()
     snap = db.collection("app_config").document("prompts").get()
@@ -402,8 +403,9 @@ def save_prompt(module_key: str, prompt: str) -> None:
         },
         merge=True,
     )
+    get_all_prompts.clear()
 
-
+@st.cache_data(ttl=180, show_spinner=False)
 def get_all_module_settings() -> Dict[str, Dict[str, Any]]:
     db = get_firestore_client()
     defaults = module_defaults()
@@ -431,7 +433,7 @@ def save_module_setting(module_key: str, setting: Dict[str, Any]) -> None:
     db.collection("app_config").document("modules").set(
         {"settings": {module_key: clean}, "updated_at": firestore.SERVER_TIMESTAMP}, merge=True
     )
-
+get_all_module_settings.clear()
 
 # -----------------------------
 # Admin-managed content
