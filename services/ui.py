@@ -20,6 +20,127 @@ from services.catalog import MODULES, PLAN_CONFIG, plan_allows
 
 APP_NAME = "Kalbimin Pusulası"
 
+
+DECK_WIDGET_CSS = """
+<style>
+/* Card deck: visible image slot + invisible Streamlit button overlay. */
+.element-container:has(.kp-card-slot-wrap) {
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    margin: 0 0 -52px 0 !important;
+    padding: 0 !important;
+    height: 52px !important;
+    position: relative !important;
+    z-index: 1 !important;
+    pointer-events: none !important;
+}
+.kp-card-slot-wrap {
+    width: 36px !important;
+    height: 52px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    pointer-events: none !important;
+}
+.kp-card-slot {
+    display: block !important;
+    width: 34px !important;
+    height: 51px !important;
+    background-repeat: no-repeat !important;
+    background-position: center center !important;
+    background-size: contain !important;
+    background-color: transparent !important;
+    border: none !important;
+    border-radius: 4px !important;
+    box-shadow: none !important;
+    pointer-events: none !important;
+}
+.kp-card-slot.selected {
+    opacity: 0.28 !important;
+    filter: grayscale(0.35) brightness(0.78) !important;
+}
+.element-container:has(.kp-card-slot-wrap) + .element-container {
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    margin: 0 0 5px 0 !important;
+    padding: 0 !important;
+    height: 52px !important;
+    min-height: 52px !important;
+    position: relative !important;
+    z-index: 2 !important;
+}
+.element-container:has(.kp-card-slot-wrap) + .element-container div.stButton {
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    width: 36px !important;
+    height: 52px !important;
+    min-height: 52px !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+}
+.element-container:has(.kp-card-slot-wrap) + .element-container div.stButton > button {
+    display: block !important;
+    width: 34px !important;
+    min-width: 34px !important;
+    max-width: 34px !important;
+    height: 51px !important;
+    min-height: 51px !important;
+    max-height: 51px !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    border: none !important;
+    outline: none !important;
+    border-radius: 4px !important;
+    background: transparent !important;
+    background-image: none !important;
+    box-shadow: none !important;
+    color: transparent !important;
+    font-size: 0 !important;
+    line-height: 0 !important;
+    overflow: hidden !important;
+    opacity: 1 !important;
+    cursor: pointer !important;
+    transition: transform 120ms ease, filter 120ms ease !important;
+}
+.element-container:has(.kp-card-slot-wrap) + .element-container div.stButton > button:hover {
+    transform: translateY(-2px) scale(1.04) !important;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+}
+.element-container:has(.kp-card-slot-wrap) + .element-container div.stButton > button:focus,
+.element-container:has(.kp-card-slot-wrap) + .element-container div.stButton > button:active {
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+}
+.element-container:has(.kp-card-slot-wrap) + .element-container div.stButton > button:disabled {
+    opacity: 1 !important;
+    cursor: default !important;
+    background: transparent !important;
+}
+.element-container:has(.kp-card-slot-wrap) + .element-container div.stButton > button p,
+.element-container:has(.kp-card-slot-wrap) + .element-container div.stButton > button span,
+.element-container:has(.kp-card-slot-wrap) + .element-container div.stButton > button div {
+    display: none !important;
+    visibility: hidden !important;
+    color: transparent !important;
+    font-size: 0 !important;
+    line-height: 0 !important;
+}
+</style>
+"""
+
 MODULE_VISUALS: Dict[str, Tuple[str, str, str]] = {
     "relationship": ("Aşk & İlişki", "♡", "fire"),
     "message_analysis": ("Aşk & İlişki", "✉", "air"),
@@ -1002,68 +1123,7 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
         }}
 
 
-
-
-        .kp-deck-button-scope {{
-            width: 100%;
-            margin: 10px 0 14px;
-        }}
-        .kp-deck-button-scope div.stButton {{
-            display: flex !important;
-            justify-content: center !important;
-            align-items: center !important;
-            margin: 0 !important;
-            padding: 0 !important;
-        }}
-        .kp-deck-button-scope div.stButton > button {{
-            width: 34px !important;
-            min-width: 34px !important;
-            max-width: 34px !important;
-            height: 51px !important;
-            min-height: 51px !important;
-            max-height: 51px !important;
-            margin: 0 auto 5px !important;
-            padding: 0 !important;
-            border: none !important;
-            outline: none !important;
-            border-radius: 4px !important;
-            background-color: transparent !important;
-            background-repeat: no-repeat !important;
-            background-position: center center !important;
-            background-size: contain !important;
-            box-shadow: none !important;
-            color: transparent !important;
-            font-size: 0 !important;
-            line-height: 0 !important;
-            overflow: hidden !important;
-            transition: transform 120ms ease, filter 120ms ease, opacity 120ms ease !important;
-        }}
-        .kp-deck-button-scope div.stButton > button:hover {{
-            transform: translateY(-2px) scale(1.04) !important;
-            filter: brightness(1.08) !important;
-            border: none !important;
-            box-shadow: none !important;
-        }}
-        .kp-deck-button-scope div.stButton > button:focus,
-        .kp-deck-button-scope div.stButton > button:active {{
-            border: none !important;
-            outline: none !important;
-            box-shadow: none !important;
-        }}
-        .kp-deck-button-scope div.stButton > button:disabled {{
-            opacity: 0.28 !important;
-            filter: grayscale(0.35) brightness(0.82) !important;
-            cursor: default !important;
-        }}
-        .kp-deck-button-scope div.stButton > button p,
-        .kp-deck-button-scope div.stButton > button span,
-        .kp-deck-button-scope div.stButton > button div {{
-            display: none !important;
-            visibility: hidden !important;
-            color: transparent !important;
-            font-size: 0 !important;
-            line-height: 0 !important;
-        }}
+        /* Deck button CSS is injected separately outside this f-string. */
 
         @keyframes kpParticleDrift {{ 0% {{ background-position: 0 0, 28px 46px; }} 100% {{ background-position: 120px 160px, -40px 190px; }} }}
         @keyframes kpFadeUp {{ from {{ opacity: 0; transform: translateY(12px); }} to {{ opacity: 1; transform: translateY(0); }} }}
@@ -1087,6 +1147,7 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
         """,
         unsafe_allow_html=True,
     )
+    st.markdown(DECK_WIDGET_CSS, unsafe_allow_html=True)
 
 
 def render_sidebar_brand() -> None:
