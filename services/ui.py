@@ -217,16 +217,29 @@ def asset_data_uri(name: str, max_side: Optional[int] = None, quality: int = 70)
         return ""
     mime = _asset_mime(path)
     raw = path.read_bytes()
+
+    # Arka plan dosyaları büyük olduğunda Streamlit her sayfa geçişinde çok büyük HTML/CSS payload üretir.
+    # Bu yüzden sadece gerekli ekranda kullanılacak kadar küçültülmüş JPEG veri URI'si üretiyoruz.
     if max_side and Image is not None:
         try:
-            img = Image.open(io.BytesIO(raw)).convert("RGB")
+            img = Image.open(io.BytesIO(raw))
+            if getattr(img, "is_animated", False):
+                img.seek(0)
+            img = img.convert("RGB")
             img.thumbnail((int(max_side), int(max_side)))
             buffer = io.BytesIO()
-            img.save(buffer, format="JPEG", quality=int(quality), optimize=True)
+            img.save(
+                buffer,
+                format="JPEG",
+                quality=int(quality),
+                optimize=True,
+                progressive=True,
+            )
             raw = buffer.getvalue()
             mime = "image/jpeg"
         except Exception:
             pass
+
     encoded = base64.b64encode(raw).decode("utf-8")
     return f"data:{mime};base64,{encoded}"
 
@@ -240,17 +253,22 @@ def apply_page_background(page_key: str) -> None:
         "emotion": "İliski_Resmi",
         "coffee_text": "Kahve_Fali",
         "coffee_image": "Kahve_Fali",
-        "dream": "Ruya_Yorumu",
+        "birth_chart": "Dogum.jpeg",
+        "dream": "Ruya_Yorumu.jpeg",
+        "zodiac": "Burc_Uyum.jpeg",
         "soulmate": "Ruh_Esi",
         "meditation": "Meditasyon",
+        "rituals": "Ritueller.jpeg",
     }
     filename = page_backgrounds.get(page_key, "Genel")
 
-    uri = asset_data_uri(filename) or asset_data_uri("Genel")
+    # Büyük görselleri tam boy base64 olarak tarayıcıya göndermek sayfaları çok yavaşlatıyordu.
+    # Arka planlar burada tek noktadan optimize edilerek yüklenir.
+    uri = asset_data_uri(filename, max_side=1500, quality=62) or asset_data_uri("Genel", max_side=1500, quality=62)
     if not uri:
         return
     st.markdown(
-        f'''
+        f"""
         <style>
         .stApp {{
             background-image:
@@ -264,7 +282,7 @@ def apply_page_background(page_key: str) -> None:
             background: transparent !important;
         }}
         </style>
-        ''',
+        """,
         unsafe_allow_html=True,
     )
 
