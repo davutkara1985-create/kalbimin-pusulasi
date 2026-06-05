@@ -438,6 +438,22 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
             font-size: 0.62rem;
             line-height: 1.25;
         }}
+        .kp-account-mini {{
+            padding: 8px 10px 4px;
+            margin: 2px 0 6px;
+            border-radius: 14px;
+            background: rgba(255,255,255,0.045);
+            border: 1px solid rgba(255,241,184,0.10);
+        }}
+        .kp-account-mini-name {{
+            color: var(--kp-gold-2);
+            font-weight: 900;
+            font-size: 0.84rem;
+            line-height: 1.25;
+            letter-spacing: 0.01em;
+            word-break: break-word;
+        }}
+
         .kp-sidebar-menu-title {{
             margin: 12px 0 7px;
             color: var(--kp-gold-2);
@@ -1001,6 +1017,20 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
             font-size: 1.05rem;
             margin-bottom: 8px;
             box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 14px 30px rgba(0,0,0,0.18);
+        }}
+        [data-testid="stFileUploader"] label p {{
+            text-align: center !important;
+            width: 100% !important;
+        }}
+        [data-testid="stFileUploader"] section {{
+            min-height: 94px !important;
+            padding: 0.45rem !important;
+            display: grid !important;
+            place-items: center !important;
+            cursor: pointer !important;
+        }}
+        [data-testid="stFileUploader"] small {{
+            display: none !important;
         }}
 
         .kp-written-template {{
