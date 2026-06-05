@@ -1103,21 +1103,26 @@ def closed_card_deck_selector(deck_key: str, card_pool: List[str], required_coun
 
         remaining_slots = max(required_count - len(selected_indices), 0)
         st.caption(f"Seçilen kart sayısı: {len(selected_indices)}/{required_count}")
-        st.markdown('<div class="kp-deck-button-scope">', unsafe_allow_html=True)
+        safe_card_uri = html_escape(card_uri, quote=True)
         for row_start in range(0, len(deck), 12):
             cols = st.columns(12, gap="small")
             for col_offset, idx in enumerate(range(row_start, min(row_start + 12, len(deck)))):
                 with cols[col_offset]:
                     already_selected = idx in selected_indices
                     disabled = already_selected or remaining_slots <= 0
+                    selected_class = " selected" if already_selected else ""
+                    st.markdown(
+                        f'<div class="kp-card-slot-wrap"><div class="kp-card-slot{selected_class}" style="background-image:url(&quot;{safe_card_uri}&quot;);"></div></div>',
+                        unsafe_allow_html=True,
+                    )
                     if st.button(" ", key=f"{deck_key}_card_btn_{idx}", disabled=disabled, use_container_width=True):
                         current_selected = list(st.session_state.get(selected_state_key, []))
                         if idx not in current_selected and len(current_selected) < required_count:
                             current_selected.append(idx)
                             st.session_state[selected_state_key] = current_selected
+                            st.session_state["current_page"] = deck_key
                             if len(current_selected) >= required_count:
                                 st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
 
     if st.button("Desteyi sıfırla", key=f"{deck_key}_reset", use_container_width=True):
         st.session_state.pop(deck_state_key, None)
