@@ -723,27 +723,41 @@ def birth_time_input(prefix: str, label: str = "Doğum saati") -> str:
 
 
 def birth_place_input(prefix: str) -> str:
+    query_key = f"{prefix}_birth_place_query"
+    selected_key = f"{prefix}_birth_place_selected"
+
     birth_place_query = st.text_input(
         "Doğum yeri",
-        key=f"{prefix}_birth_place_query",
+        key=query_key,
         placeholder="Şehrin en az 3 harfini yaz...",
     )
     clean_query = birth_place_query.strip()
+
+    selected_city = str(st.session_state.get(selected_key, "") or "").strip()
+    if selected_city and normalize_city_text(selected_city) == normalize_city_text(clean_query):
+        st.caption(f"Seçilen şehir: {selected_city}")
+        return selected_city
+
+    if selected_city and clean_query and normalize_city_text(selected_city) != normalize_city_text(clean_query):
+        st.session_state.pop(selected_key, None)
+
     if len(clean_query) < 3:
         st.caption("Şehir listesini görmek için en az 3 harf yaz.")
         return clean_query
 
     matches = city_matches(clean_query)
     if matches:
+        st.caption("Eşleşen şehirler")
         visible_matches = matches[:12]
-        selected_city = st.radio(
-            "Eşleşen şehirler",
-            visible_matches,
-            index=0,
-            key=f"{prefix}_birth_place_match_{normalize_city_text(clean_query)}",
-            horizontal=(len(visible_matches) <= 4),
-        )
-        return selected_city or clean_query
+        for row_start in range(0, len(visible_matches), 3):
+            cols = st.columns(3)
+            for col, city in zip(cols, visible_matches[row_start : row_start + 3]):
+                with col:
+                    if st.button(city, key=f"{prefix}_city_match_{normalize_city_text(clean_query)}_{normalize_city_text(city)}", use_container_width=True):
+                        st.session_state[selected_key] = city
+                        st.session_state[query_key] = city
+                        st.rerun()
+        return clean_query
 
     st.caption("Listede eşleşme yoksa şehir adını yazdığın şekilde kullanabilirsin.")
     return clean_query
@@ -1474,6 +1488,16 @@ def closed_card_deck_selector(deck_key: str, card_pool: List[str], required_coun
     deck_state_key = f"{deck_key}_closed_deck"
     selected_state_key = f"{deck_key}_selected_indices"
 
+    # Tarot <-> Katina geçişinde eski seçimler kalmasın.
+    # Aynı sayfada yapılan normal rerunlarda seçim korunur; sadece diğer desteye geçildiğinde iki deste de sıfırlanır.
+    last_deck_key = st.session_state.get("_kp_active_manual_deck")
+    if last_deck_key in {"tarot", "katina"} and last_deck_key != deck_key:
+        for prefix in ("tarot", "katina"):
+            st.session_state.pop(f"{prefix}_closed_deck", None)
+            st.session_state.pop(f"{prefix}_selected_indices", None)
+            _clear_old_deck_query_params(prefix)
+    st.session_state["_kp_active_manual_deck"] = deck_key
+
     # Safety: keep the current Streamlit page stable while users click cards.
     st.session_state["current_page"] = deck_key
     _clear_old_deck_query_params(deck_key)
@@ -1493,8 +1517,7 @@ def closed_card_deck_selector(deck_key: str, card_pool: List[str], required_coun
     if len(chosen_cards) >= required_count:
         _render_selected_cards(chosen_cards, element)
     else:
-        # The card back image is loaded once as CSS. Buttons only carry state,
-        # so no link/query navigation and no repeated base64 payload is used.
+        # Kart arkası görseli tek kez optimize edilerek CSS arka planı olarak kullanılır.
         card_uri = (
             asset_data_uri("Tarot_Kartları", max_side=72, quality=55)
             or asset_data_uri("Tarot_Kartlari", max_side=72, quality=55)
@@ -1544,6 +1567,7 @@ def closed_card_deck_selector(deck_key: str, card_pool: List[str], required_coun
     final_selected = list(st.session_state.get(selected_state_key, []))[:required_count]
     return [deck[i] for i in final_selected]
 
+
 def page_manual_tarot(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]]) -> None:
     render_module_intro("tarot", "free", module_meta("tarot", module_settings))
     if not require_account(user):
@@ -1589,15 +1613,66 @@ def page_coffee_image(user: Dict[str, Any], module_settings: Dict[str, Dict[str,
 
     st.markdown("### Fincan görselleri")
     st.caption("Karelere tıklayarak en az 1, en fazla 5 fincan görseli yükleyebilirsin.")
+    st.markdown(
+        """
+        <style>
+        /* Bu stil yalnızca Kahve Falı sayfasında basılır. File uploader içindeki Upload/Browse metnini gizler. */
+        [data-testid="stFileUploader"] section {
+            min-height: 82px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            padding: 0 !important;
+            cursor: pointer !important;
+        }
+        [data-testid="stFileUploader"] section div {
+            font-size: 0 !important;
+            line-height: 0 !important;
+        }
+        [data-testid="stFileUploader"] section button {
+            font-size: 0 !important;
+            color: transparent !important;
+            width: 56px !important;
+            height: 56px !important;
+            border-radius: 18px !important;
+            padding: 0 !important;
+        }
+        [data-testid="stFileUploader"] section button::after {
+            content: "+" !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            color: #120d23 !important;
+            font-size: 1.6rem !important;
+            font-weight: 900 !important;
+            line-height: 1 !important;
+        }
+        [data-testid="stFileUploader"] small,
+        [data-testid="stFileUploader"] [data-testid="stFileUploaderDropzoneInstructions"] {
+            display: none !important;
+            visibility: hidden !important;
+        }
+        .kp-coffee-slot-title {
+            text-align: center;
+            margin: 0 0 8px;
+            color: var(--kp-gold-2);
+            font-weight: 900;
+            font-size: 0.78rem;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
     uploaded_files = []
     slot_cols = st.columns(5)
     for i, col in enumerate(slot_cols, start=1):
         with col:
+            st.markdown(f'<div class="kp-coffee-slot-title">☕ Kare {i}</div>', unsafe_allow_html=True)
             file = st.file_uploader(
-                f"☕ Kare {i}",
+                f"Kare {i}",
                 type=["png", "jpg", "jpeg", "webp"],
                 key=f"coffee_image_slot_{i}",
-                label_visibility="visible",
+                label_visibility="collapsed",
             )
             if file:
                 uploaded_files.append(file)
@@ -1613,6 +1688,7 @@ def page_coffee_image(user: Dict[str, Any], module_settings: Dict[str, Dict[str,
         payload = {"title": "Kahve Falı (Resim Yüklemeli)", "kişisel_bilgiler": info, "niyet": note, "görseller": images}
         request_id = submit_manual_request(user, "coffee_image", payload)
         st.success(f"Talebin admin paneline düştü. Talep no: {request_id}")
+
 
 def page_dream(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]]) -> None:
     render_module_intro("dream", "free", module_meta("dream", module_settings))
