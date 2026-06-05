@@ -160,6 +160,15 @@ MODULES: Dict[str, dict] = {
         "mode": "local",
         "guest_allowed": True,
     },
+    "birth_chart": {
+        "title": "Doğum Haritası Analizi",
+        "icon": "♈",
+        "description": "Doğum bilgilerin ve özel sorularınla admin yorumlu kişisel analiz talebi oluştur",
+        "category": "Astroloji",
+        "min_plan": "premium",
+        "mode": "manual_request",
+        "guest_allowed": False,
+    },
     "mini_tarot": {
         "title": "Mini Tarot Falı",
         "icon": "◇",
@@ -271,6 +280,7 @@ MANUAL_REQUEST_TYPES = {
     "coffee_image": "Kahve Falı (Resim Yüklemeli)",
     "dream": "Rüya Tabirleri",
     "soulmate": "Ruh Eşi Çizimi",
+    "birth_chart": "Doğum Haritası Analizi",
 }
 
 DEFAULT_PROMPTS: Dict[str, str] = {
@@ -282,6 +292,7 @@ DEFAULT_PROMPTS: Dict[str, str] = {
     "mini_tarot": "Çekilen tek tarot kartını aşk, farkındalık ve içsel pusula temasıyla yorumla. Kesin gelecek kehaneti verme; kartı bir davet gibi açıkla.",
     "mini_katina": "Çekilen tek Katina sembolünü romantik enerji, iletişim ve kalp farkındalığı bağlamında yorumla. Kesinlik iddiasından kaçın.",
     "coffee_text": "Kullanıcının yazdığı kahve sembollerini aşk, haber, yol, bekleyiş ve içsel farkındalık temalarıyla yorumla. Eğlence ve farkındalık dili kullan.",
+    "birth_chart": "Kullanıcının verdiği doğum haritası JSON verilerini kullanarak tamamen HTML formatında, uzun, detaylı, psikolojik ve kişiye özel doğum haritası analizi üret. Markdown kullanma; <h3>, <h4>, <strong> ve <p> etiketleriyle yaz.",
 }
 
 DEFAULT_MEDITATIONS = [
