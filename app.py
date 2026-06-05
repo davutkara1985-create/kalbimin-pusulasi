@@ -369,25 +369,11 @@ def logout() -> None:
 
 
 def auth_sidebar() -> Optional[Dict[str, Any]]:
+    render_sidebar_brand()
     user = st.session_state.get("auth_user") or restore_auth_from_query()
     if user:
-        display_name = str(user.get("display_name") or user.get("email", "Kullanıcı").split("@")[0]).strip()
-        st.sidebar.markdown(
-            f"""
-            <div class="kp-account-mini">
-                <div class="kp-account-mini-name">{html_escape(display_name)}</div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-        if st.sidebar.button("Hesabım", key="account_btn", use_container_width=True):
-            st.session_state["current_page"] = "account"
-            persist_auth_query(user, "account")
-            st.rerun()
-        st.sidebar.divider()
         return user
 
-    render_sidebar_brand()
     st.sidebar.markdown("### Giriş")
     st.sidebar.caption("Kalbinizdeki işaretleri görmek için üye girişi yapınız")
 
@@ -432,6 +418,28 @@ def auth_sidebar() -> Optional[Dict[str, Any]]:
         st.rerun()
 
     return None
+
+
+def render_top_account(user: Dict[str, Any]) -> None:
+    if not user or user.get("is_guest"):
+        return
+    display_name = str(user.get("display_name") or user.get("email", "Kullanıcı").split("@")[0]).strip()
+    token = _query_get(AUTH_QUERY_KEY)
+    if not read_auth_token(token):
+        token = create_auth_token(user.get("email", "")) if user.get("email") else ""
+    params = {PAGE_QUERY_KEY: "account"}
+    if token:
+        params[AUTH_QUERY_KEY] = token
+    account_href = "?" + urlencode(params)
+    st.markdown(
+        f"""
+        <div class="kp-top-account-floating">
+            <span class="kp-top-account-name">{html_escape(display_name)}</span>
+            <a class="kp-top-account-link" href="{html_escape(account_href, quote=True)}" target="_self">Hesabım</a>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 def module_meta(module_key: str, module_settings: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
@@ -722,20 +730,22 @@ def birth_place_input(prefix: str) -> str:
     )
     clean_query = birth_place_query.strip()
     if len(clean_query) < 3:
+        st.caption("Şehir listesini görmek için en az 3 harf yaz.")
         return clean_query
 
     matches = city_matches(clean_query)
     if matches:
-        st.caption("Eşleşen şehirlerden birini seçebilirsin.")
-        selected_city = st.selectbox(
-            "Şehir seç",
-            matches,
+        visible_matches = matches[:12]
+        selected_city = st.radio(
+            "Eşleşen şehirler",
+            visible_matches,
             index=0,
-            key=f"{prefix}_birth_place_select",
+            key=f"{prefix}_birth_place_match_{normalize_city_text(clean_query)}",
+            horizontal=(len(visible_matches) <= 4),
         )
         return selected_city or clean_query
 
-    st.caption("Listede yoksa şehir adını yazdığın şekilde kullanabilirsin.")
+    st.caption("Listede eşleşme yoksa şehir adını yazdığın şekilde kullanabilirsin.")
     return clean_query
 
 
@@ -1452,6 +1462,14 @@ def _clear_old_deck_query_params(deck_key: str) -> None:
     _query_delete(f"{deck_key}_pick")
 
 
+def _select_deck_card(selected_state_key: str, deck_key: str, idx: int, required_count: int) -> None:
+    current_selected = list(st.session_state.get(selected_state_key, []))
+    if idx not in current_selected and len(current_selected) < required_count:
+        current_selected.append(idx)
+        st.session_state[selected_state_key] = current_selected
+    st.session_state["current_page"] = deck_key
+
+
 def closed_card_deck_selector(deck_key: str, card_pool: List[str], required_count: int, element: str = "fire") -> List[str]:
     deck_state_key = f"{deck_key}_closed_deck"
     selected_state_key = f"{deck_key}_selected_indices"
@@ -1507,14 +1525,14 @@ def closed_card_deck_selector(deck_key: str, card_pool: List[str], required_coun
                         f'<div class="kp-card-slot-wrap"><div class="kp-card-slot{selected_class}" style="background-image:url(&quot;{safe_card_uri}&quot;);"></div></div>',
                         unsafe_allow_html=True,
                     )
-                    if st.button(" ", key=f"{deck_key}_card_btn_{idx}", disabled=disabled, use_container_width=True):
-                        current_selected = list(st.session_state.get(selected_state_key, []))
-                        if idx not in current_selected and len(current_selected) < required_count:
-                            current_selected.append(idx)
-                            st.session_state[selected_state_key] = current_selected
-                            st.session_state["current_page"] = deck_key
-                            # Her seçimden hemen sonra rerun: kullanıcı seçtiği kartı anında seçilmiş görür.
-                            st.rerun()
+                    st.button(
+                        " ",
+                        key=f"{deck_key}_card_btn_{idx}",
+                        disabled=disabled,
+                        use_container_width=True,
+                        on_click=_select_deck_card,
+                        args=(selected_state_key, deck_key, idx, required_count),
+                    )
 
     if st.button("Desteyi sıfırla", key=f"{deck_key}_reset", use_container_width=True):
         st.session_state.pop(deck_state_key, None)
@@ -2092,6 +2110,7 @@ def main() -> None:
         stop_with_setup_error(exc)
         return
 
+    render_top_account(user)
     page = navigation(user, module_settings)
     persist_auth_query(user, page)
     apply_page_background(page)
