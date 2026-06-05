@@ -145,7 +145,7 @@ BASE_MENU_GROUPS = [
         ],
     ),
     (
-        "Kalp & Bağ Analizi",
+        "Astroloji",
         "◌",
         [("emotion", "Duygu Analizi", "◌"), ("zodiac", "Kişisel Burç & Uyum", "♓")],
     ),
@@ -163,7 +163,7 @@ BASE_MENU_GROUPS = [
             ("soulmate", "Ruh Eşi Çizimi", "♁"),
         ],
     ),
-    ("Kalp Destek", "☉", [("meditation", "Kalp Meditasyonları", "☽"), ("rituals", "Aşk Ritüelleri", "✺")]),
+    ("Ruhsal Çözümler", "☉", [("meditation", "Kalp Meditasyonları", "☽"), ("rituals", "Aşk Ritüelleri", "✺")]),
 ]
 
 
