@@ -439,19 +439,74 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
             line-height: 1.25;
         }}
         .kp-account-mini {{
-            padding: 8px 10px 4px;
-            margin: 2px 0 6px;
-            border-radius: 14px;
-            background: rgba(255,255,255,0.045);
-            border: 1px solid rgba(255,241,184,0.10);
+            display: none !important;
         }}
         .kp-account-mini-name {{
-            color: var(--kp-gold-2);
+            display: none !important;
+        }}
+        .kp-top-account-floating {{
+            position: fixed;
+            top: 12px;
+            right: 18px;
+            z-index: 999999;
+            display: inline-flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 8px;
+            max-width: min(360px, calc(100vw - var(--kp-sidebar-width) - 28px));
+            padding: 6px 8px;
+            border-radius: 999px;
+            background: rgba(6, 8, 23, 0.62);
+            border: 1px solid rgba(255, 241, 184, 0.18);
+            box-shadow: 0 12px 28px rgba(0,0,0,0.22), inset 0 1px 0 rgba(255,255,255,0.08);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+        }}
+        .kp-top-account-name {{
+            color: var(--kp-gold-2) !important;
+            font-size: 0.76rem;
             font-weight: 900;
-            font-size: 0.84rem;
-            line-height: 1.25;
-            letter-spacing: 0.01em;
-            word-break: break-word;
+            line-height: 1;
+            max-width: 170px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }}
+        .kp-top-account-link {{
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 26px;
+            padding: 0 10px;
+            border-radius: 999px;
+            background: linear-gradient(135deg, rgba(217,183,110,0.96), rgba(154,112,52,0.96));
+            color: #120d23 !important;
+            border: 1px solid rgba(255,241,184,0.32);
+            font-size: 0.72rem;
+            font-weight: 900;
+            text-decoration: none !important;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.28);
+        }}
+        .kp-top-account-link:hover {{
+            filter: brightness(1.06);
+            text-decoration: none !important;
+        }}
+        @media (max-width: 760px) {{
+            .kp-top-account-floating {{
+                top: 8px;
+                right: 10px;
+                max-width: calc(100vw - 20px);
+                padding: 5px 7px;
+            }}
+            .kp-top-account-name {{
+                max-width: 120px;
+                font-size: 0.70rem;
+            }}
+            .kp-top-account-link {{
+                min-height: 24px;
+                padding: 0 8px;
+                font-size: 0.68rem;
+            }}
         }}
 
         .kp-sidebar-menu-title {{
