@@ -148,6 +148,7 @@ MODULE_VISUALS: Dict[str, Tuple[str, str, str]] = {
     "daily_energy": ("Aşk & İlişki", "✺", "air"),
     "emotion": ("Duygusal & Kişisel Analiz", "◌", "water"),
     "zodiac": ("Duygusal & Kişisel Analiz", "♓", "air"),
+    "birth_chart": ("Astroloji", "♈", "air"),
     "mini_tarot": ("Fal & Kehanet", "◇", "fire"),
     "tarot": ("Fal & Kehanet", "✧", "fire"),
     "mini_katina": ("Fal & Kehanet", "⚿", "earth"),
