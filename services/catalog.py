@@ -233,7 +233,7 @@ MODULES: Dict[str, dict] = {
         "guest_allowed": False,
     },
     "meditation": {
-        "title": "Kalp Meditasyonları",
+        "title": "Meditasyonları",
         "icon": "☽",
         "description": "Aşk ve ilişki odağında kalbinizi sakinleştirin",
         "category": "Ruhsal & Zihinsel",
@@ -242,7 +242,7 @@ MODULES: Dict[str, dict] = {
         "guest_allowed": True,
     },
     "rituals": {
-        "title": "Aşk Ritüelleri",
+        "title": "Ritüeller",
         "icon": "✺",
         "description": "Romantik niyet, öz değer ve sakinleşme odaklı güvenli ritüeller",
         "category": "Ruhsal & Zihinsel",
