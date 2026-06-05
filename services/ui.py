@@ -264,7 +264,7 @@ def apply_page_background(page_key: str) -> None:
 
     # Büyük görselleri tam boy base64 olarak tarayıcıya göndermek sayfaları çok yavaşlatıyordu.
     # Arka planlar burada tek noktadan optimize edilerek yüklenir.
-    uri = asset_data_uri(filename, max_side=1500, quality=62) or asset_data_uri("Genel", max_side=1500, quality=62)
+    uri = asset_data_uri(filename, max_side=900, quality=45) or asset_data_uri("Genel", max_side=900, quality=45)
     if not uri:
         return
     st.markdown(
@@ -276,7 +276,7 @@ def apply_page_background(page_key: str) -> None:
                 url("{uri}") !important;
             background-size: cover !important;
             background-position: center center !important;
-            background-attachment: fixed !important;
+            background-attachment: scroll !important;
         }}
         [data-testid="stAppViewContainer"] {{
             background: transparent !important;
