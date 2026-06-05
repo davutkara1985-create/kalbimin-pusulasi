@@ -1418,7 +1418,7 @@ def render_footer() -> None:
     st.markdown(
         """
         <div class="kp-footer">
-            Kalbimin Pusulası · Eğlence ve farkındalık amaçlıdır · Acil durumlarda yerel destek hatlarına başvurun.
+            · Kalbimin Pusulası · Eğlence ve farkındalık amaçlıdır ·
         </div>
         """,
         unsafe_allow_html=True,
