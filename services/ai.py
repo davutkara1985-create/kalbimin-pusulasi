@@ -51,6 +51,8 @@ def get_model(vision: bool = False) -> str:
 
 
 def _temperature_for_plan(plan: str) -> float:
+    if plan == "birth_chart":
+        return 0.72
     if plan == "premium_plus":
         return 0.86
     if plan == "premium":
@@ -59,6 +61,8 @@ def _temperature_for_plan(plan: str) -> float:
 
 
 def _max_tokens_for_plan(plan: str) -> int:
+    if plan == "birth_chart":
+        return 8500
     if plan == "premium_plus":
         return 1800
     if plan == "premium":
@@ -66,14 +70,19 @@ def _max_tokens_for_plan(plan: str) -> int:
     return 950
 
 
-def generate_text(prompt: str, plan: str = "free") -> str:
+def generate_text(
+    prompt: str,
+    plan: str = "free",
+    max_output_tokens: Optional[int] = None,
+    temperature: Optional[float] = None,
+) -> str:
     client = get_openai_client()
     response = client.responses.create(
         model=get_model(vision=False),
         instructions=SYSTEM_PROMPT,
         input=prompt,
-        temperature=_temperature_for_plan(plan),
-        max_output_tokens=_max_tokens_for_plan(plan),
+        temperature=_temperature_for_plan(plan) if temperature is None else float(temperature),
+        max_output_tokens=_max_tokens_for_plan(plan) if max_output_tokens is None else int(max_output_tokens),
     )
     return response.output_text.strip()
 
