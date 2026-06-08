@@ -8,6 +8,7 @@ import io
 from html import escape as html_escape
 import json
 import random
+import re
 import time
 import unicodedata
 from urllib.parse import urlencode
@@ -589,23 +590,126 @@ def show_plan_gate(user: Dict[str, Any], module_key: str, module_settings: Dict[
         st.rerun()
 
 
+PROMPT_FIELD_ALIASES: Dict[str, Dict[str, Any]] = {
+    "relationship": {
+        "guncel_durum": "durum",
+        "merak": "soru",
+        "iliski_turu": "bağ_türü",
+        "sure": "ilişki_süresi",
+        "iliski_tanimi": "ilişki_tanımı",
+    },
+    "message_analysis": {
+        "kisi_tipi": "gönderen",
+        "mesaj": "mesajlar",
+        "istek": "amaç",
+    },
+    "love_fortune": {
+        "ad_soyad": ("ad", "soyad"),
+        "burc": "burç",
+        "dogum_yeri": "doğum_yeri",
+        "dogum_saati": "doğum_saati",
+        "niyet": "niyet",
+    },
+    "daily_energy": {
+        "duygu": "ruh_hali",
+        "odak": "odak",
+    },
+    "emotion": {
+        "hisler": "metin",
+        "duygu_yogunlugu": "yoğunluk",
+    },
+    "mini_tarot": {
+        "dogum_tarihi": "doğum_tarihi",
+        "burc": "burç",
+        "dogum_yeri": "doğum_yeri",
+        "dogum_saati": "doğum_saati",
+        "niyet": "soru",
+    },
+    "mini_katina": {
+        "konu": "soru",
+    },
+    "coffee_text": {
+        "dogum_tarihi": "doğum_tarihi",
+        "burc": "burç",
+        "dogum_yeri": "doğum_yeri",
+        "dogum_saati": "doğum_saati",
+        "sekiller": "semboller",
+        "niyet": "niyet",
+    },
+    "zodiac": {
+        "benim_burcum": "benim_burcum",
+        "karsi_taraf_burcu": "karsi_taraf_burcu",
+        "bag_turu": "bag_turu",
+    },
+}
+
+
+def _prompt_value_to_text(value: Any) -> str:
+    if value is None:
+        return "Belirtilmedi"
+    if isinstance(value, (list, tuple)):
+        parts = [_prompt_value_to_text(item) for item in value]
+        parts = [item for item in parts if item and item != "Belirtilmedi"]
+        return ", ".join(parts) if parts else "Belirtilmedi"
+    if isinstance(value, dict):
+        return json.dumps(value, ensure_ascii=False, default=str)
+    text = str(value).strip()
+    return text if text else "Belirtilmedi"
+
+
+def _payload_lookup(payload: Dict[str, Any], source: Any) -> str:
+    if isinstance(source, (list, tuple)):
+        values = []
+        for key in source:
+            value = payload.get(str(key), "")
+            text = _prompt_value_to_text(value)
+            if text != "Belirtilmedi":
+                values.append(text)
+        return " ".join(values).strip() or "Belirtilmedi"
+    return _prompt_value_to_text(payload.get(str(source), ""))
+
+
+def render_admin_prompt(module_key: str, admin_prompt: str, payload: Dict[str, Any]) -> str:
+    aliases = PROMPT_FIELD_ALIASES.get(module_key, {})
+
+    def replace_placeholder(match: re.Match) -> str:
+        name = match.group(1).strip()
+        if name in aliases:
+            return _payload_lookup(payload, aliases[name])
+        return _prompt_value_to_text(payload.get(name, ""))
+
+    return re.sub(r"\{\{\s*([^{}]+?)\s*\}\}", replace_placeholder, admin_prompt)
+
+
 def build_ai_prompt(module_key: str, payload: Dict[str, Any], prompts: Dict[str, str]) -> str:
-    admin_prompt = prompts.get(module_key, "")
+    module_title = MODULES.get(module_key, {}).get("title", module_key)
+    admin_prompt = str(prompts.get(module_key, "") or "").strip()
+    rendered_prompt = render_admin_prompt(module_key, admin_prompt, payload)
     payload_text = json.dumps(payload, ensure_ascii=False, indent=2, default=str)
     return f"""
-Admin tarafından belirlenen ana yönlendirme:
-{admin_prompt}
+GÖREV / SAYFA:
+{module_title}
 
-Kullanıcı girdileri:
+ADMIN PROMPTU:
+Aşağıdaki prompt bu sayfa için ana talimattır. Başlık, paragraf sayısı, çıktı formatı, ton ve yasaklar burada nasıl yazıldıysa öyle uygulanmalıdır.
+
+{rendered_prompt}
+
+KULLANICI GİRDİLERİ JSON:
+Promptta yer almayan ama yoruma yardımcı olabilecek ek bilgiler aşağıdadır. Özellikle çekilen kart/sembol gibi bilgiler burada bulunabilir.
 {payload_text}
 
-Yanıt dili ve sınırlar:
+ZORUNLU GÜVENLİK SINIRLARI:
 - Türkçe yaz.
 - Kesin gelecek, terapi, teşhis, hukuki veya finansal tavsiye iddiası kurma.
-- Yargılayıcı veya manipülatif öneriler verme.
-- Sonuç ekranı için detaylı, doyurucu ve paylaşılabilir bir metin üret.
-- En az şu başlıkları kullan: Kalbinin Şu Anki Sesi, Pusulanın İşaret Ettiği Yön, İlişki Dinamiği, Bugün İçin Küçük Bir Adım, Paylaşılabilir Kısa Mesaj.
-- Kısa tek paragraf yazma; her başlığın altında açıklayıcı 2-4 cümle ver.
+- Yargılayıcı, manipülatif, takip/baskı öneren veya sınır ihlaline yönlendiren ifade kullanma.
+- Kullanıcı kendine zarar verme, intihar, şiddet, istismar veya acil riskten bahsederse fal/ilişki yorumuna devam etme; güvenliğe ve profesyonel desteğe yönlendir.
+
+ÇIKTI TALİMATI:
+- Admin promptundaki ÇIKTI bölümüne aynen uy.
+- Admin promptu “başlık ekleme” diyorsa başlık ekleme.
+- Admin promptu “madde işareti ekleme” diyorsa madde işareti ekleme.
+- Admin promptu paragraf sayısı belirttiyse o sayıya uy.
 """
 
 
@@ -862,7 +966,7 @@ def page_emotion(user: Dict[str, Any], prompts: Dict[str, str], module_settings:
         run_ai_free(user, "emotion", {"metin": text, "yoğunluk": intensity}, prompts)
 
 
-def page_zodiac(module_settings: Dict[str, Dict[str, Any]]) -> None:
+def page_zodiac(user: Dict[str, Any], prompts: Dict[str, str], module_settings: Dict[str, Dict[str, Any]]) -> None:
     render_module_intro("zodiac", "free", module_meta("zodiac", module_settings))
     col1, col2 = st.columns(2)
     with col1:
@@ -870,22 +974,22 @@ def page_zodiac(module_settings: Dict[str, Dict[str, Any]]) -> None:
     with col2:
         partner_sign = st.selectbox("Karşı tarafın burcu", ZODIAC_SIGNS)
     relation_type = st.selectbox("Bağ türü", ["Flört", "İlişki", "Eski partner", "Platonik", "Karmaşık bağ"])
-    if st.button("Burç uyumunu hesapla"):
-        result = calculate_zodiac_compatibility(user_sign, partner_sign, relation_type)
-        result_text = f"""### Uyum puanı: {result['score']}/100
-
-#### {result['headline']}
-Senin elementin: {result['user_element']} | Karşı tarafın elementi: {result['partner_element']}
-
-#### İlişki Dinamiği
-{result['detail']}
-
-#### Bugün İçin Küçük Bir Adım
-{result['advice']}
-
-#### Paylaşılabilir Kısa Mesaj
-Kalbimin Pusulası burç uyumum için {result['score']}/100 verdi."""
-        render_result_panel("zodiac", result_text, "free")
+    if st.button("Burç uyumunu yorumla"):
+        local_result = calculate_zodiac_compatibility(user_sign, partner_sign, relation_type)
+        run_ai_free(
+            user,
+            "zodiac",
+            {
+                "benim_burcum": user_sign,
+                "karsi_taraf_burcu": partner_sign,
+                "bag_turu": relation_type,
+                "uyum_puani": local_result["score"],
+                "benim_elementim": local_result["user_element"],
+                "karsi_taraf_elementi": local_result["partner_element"],
+                "yerel_kisa_yorum": local_result["detail"],
+            },
+            prompts,
+        )
 
 
 
@@ -1249,7 +1353,7 @@ def page_birth_chart(user: Dict[str, Any], prompts: Dict[str, str], module_setti
 
 def page_mini_tarot(user: Dict[str, Any], prompts: Dict[str, str], module_settings: Dict[str, Dict[str, Any]]) -> None:
     render_module_intro("mini_tarot", "free", module_meta("mini_tarot", module_settings))
-    birth_details = birth_details_form("mini_tarot", include_birth_date=False, include_zodiac=True)
+    birth_details = birth_details_form("mini_tarot", include_birth_date=True, include_zodiac=True)
     question = st.text_area("Tarota sormak istediğin niyet veya soru", height=130)
     if st.button("Benim adıma kart çek ve yorumla"):
         cards = select_tarot_cards(mini=True)
@@ -1882,11 +1986,12 @@ def admin_module_status(module_settings: Dict[str, Dict[str, Any]]) -> None:
 def admin_prompts(prompts: Dict[str, str]) -> None:
     st.markdown("### AI Prompt Yönetimi")
     selected = st.selectbox("Prompt düzenlenecek sayfa", AI_PROMPT_MODULES, format_func=lambda k: MODULES[k]["title"])
-    text = st.text_area("Admin promptu", value=prompts.get(selected, ""), height=260)
-    st.caption("Kullanıcı form girdileri bu promptun altına JSON benzeri düzenli bir blok olarak eklenir.")
-    if st.button("Promptu kaydet", key="save_prompt"):
+    text = st.text_area("Admin promptu", value=prompts.get(selected, ""), height=300, key=f"admin_prompt_{selected}")
+    st.caption("Prompt içindeki {{alan_adi}} ifadeleri kullanıcı formundan gelen değerlerle otomatik doldurulur.")
+    if st.button("Promptu kaydet", key=f"save_prompt_{selected}"):
         save_prompt(selected, text)
-        st.success("Prompt kaydedildi.")
+        st.success("Prompt kaydedildi. Yeni prompt yükleniyor...")
+        st.rerun()
 
 
 def admin_content() -> None:
@@ -2157,7 +2262,7 @@ def render_page(page: str, user: Dict[str, Any], prompts: Dict[str, str], module
     elif page == "emotion":
         page_emotion(user, prompts, module_settings)
     elif page == "zodiac":
-        page_zodiac(module_settings)
+        page_zodiac(user, prompts, module_settings)
     elif page == "birth_chart":
         page_birth_chart(user, prompts, module_settings)
     elif page == "mini_tarot":
