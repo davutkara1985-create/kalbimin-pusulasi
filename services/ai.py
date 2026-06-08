@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-import base64
-from typing import Dict, Optional
+from typing import Optional
 
 import streamlit as st
-from openai import OpenAI
+from google import genai
+from google.genai import types
 
 
 SYSTEM_PROMPT = """
@@ -37,17 +37,18 @@ Güvenlik:
 
 
 @st.cache_resource(show_spinner=False)
-def get_openai_client() -> OpenAI:
-    api_key = st.secrets.get("OPENAI_API_KEY", "")
+def get_gemini_client() -> genai.Client:
+    api_key = st.secrets.get("GEMINI_API_KEY", "")
     if not api_key:
-        raise RuntimeError("OPENAI_API_KEY eksik. Streamlit Secrets alanına eklemelisin.")
-    return OpenAI(api_key=api_key)
+        raise RuntimeError("GEMINI_API_KEY eksik. Streamlit Secrets alanına eklemelisin.")
+    return genai.Client(api_key=str(api_key))
 
 
 def get_model(vision: bool = False) -> str:
+    default_model = "gemini-3.1-flash-lite"
     if vision:
-        return st.secrets.get("VISION_MODEL_NAME", st.secrets.get("MODEL_NAME", "gpt-4.1-mini"))
-    return st.secrets.get("MODEL_NAME", "gpt-4.1-mini")
+        return str(st.secrets.get("VISION_MODEL_NAME", st.secrets.get("MODEL_NAME", default_model)))
+    return str(st.secrets.get("MODEL_NAME", default_model))
 
 
 def _temperature_for_plan(plan: str) -> float:
@@ -70,44 +71,47 @@ def _max_tokens_for_plan(plan: str) -> int:
     return 950
 
 
+def _response_text(response: object) -> str:
+    text = getattr(response, "text", "") or ""
+    if text.strip():
+        return text.strip()
+    raise RuntimeError("AI yanıtı boş döndü. Lütfen biraz sonra tekrar dene.")
+
+
 def generate_text(
     prompt: str,
     plan: str = "free",
     max_output_tokens: Optional[int] = None,
     temperature: Optional[float] = None,
 ) -> str:
-    client = get_openai_client()
-    response = client.responses.create(
+    client = get_gemini_client()
+    response = client.models.generate_content(
         model=get_model(vision=False),
-        instructions=SYSTEM_PROMPT,
-        input=prompt,
-        temperature=_temperature_for_plan(plan) if temperature is None else float(temperature),
-        max_output_tokens=_max_tokens_for_plan(plan) if max_output_tokens is None else int(max_output_tokens),
+        contents=prompt,
+        config=types.GenerateContentConfig(
+            system_instruction=SYSTEM_PROMPT,
+            temperature=_temperature_for_plan(plan) if temperature is None else float(temperature),
+            max_output_tokens=_max_tokens_for_plan(plan) if max_output_tokens is None else int(max_output_tokens),
+        ),
     )
-    return response.output_text.strip()
+    return _response_text(response)
 
 
 def generate_with_image(prompt: str, uploaded_file, plan: str = "premium") -> str:
-    client = get_openai_client()
+    client = get_gemini_client()
     file_bytes = uploaded_file.getvalue()
     mime_type = uploaded_file.type or "image/jpeg"
-    encoded = base64.b64encode(file_bytes).decode("utf-8")
-    data_url = f"data:{mime_type};base64,{encoded}"
 
-    response = client.responses.create(
+    response = client.models.generate_content(
         model=get_model(vision=True),
-        instructions=SYSTEM_PROMPT,
-        input=[
-            {
-                "role": "user",
-                "content": [
-                    {"type": "input_text", "text": prompt},
-                    {"type": "input_image", "image_url": data_url},
-                ],
-            }
+        contents=[
+            types.Part.from_bytes(data=file_bytes, mime_type=mime_type),
+            prompt,
         ],
-        temperature=_temperature_for_plan(plan),
-        max_output_tokens=_max_tokens_for_plan(plan),
+        config=types.GenerateContentConfig(
+            system_instruction=SYSTEM_PROMPT,
+            temperature=_temperature_for_plan(plan),
+            max_output_tokens=_max_tokens_for_plan(plan),
+        ),
     )
-    return response.output_text.strip()
-  
+    return _response_text(response)
