@@ -590,6 +590,37 @@ def show_plan_gate(user: Dict[str, Any], module_key: str, module_settings: Dict[
 
 
 def build_ai_prompt(module_key: str, payload: Dict[str, Any], prompts: Dict[str, str]) -> str:
+    module_title = MODULES.get(module_key, {}).get("title", module_key)
+    admin_prompt = str(prompts.get(module_key, "") or "").strip()
+    payload_text = json.dumps(payload, ensure_ascii=False, indent=2, default=str)
+
+    return f"""
+GÖREV / MODÜL:
+{module_title}
+
+ÖNCELİKLİ ADMIN PROMPTU:
+Aşağıdaki admin promptu, bu modül için ana yazım talimatıdır.
+Başlıklar, üslup, uzunluk, bölüm sırası ve yorum tarzı admin promptunda belirtilmişse aynen uygulanmalıdır.
+
+{admin_prompt}
+
+KULLANICI GİRDİLERİ:
+{payload_text}
+
+ZORUNLU GÜVENLİK SINIRLARI:
+- Türkçe yaz.
+- Kesin gelecek kehaneti, terapi, teşhis, hukuki veya finansal tavsiye verme.
+- Kullanıcıyı korkutma, bağımlı hâle getirme, manipüle etme veya karşı tarafı baskılamaya yönlendirme.
+- Takip, ısrar, tehdit, sınır ihlali veya zarar verici davranış önermeme.
+- Kullanıcı kendine zarar verme, intihar, şiddet, istismar veya acil riskten bahsederse fal/ilişki yorumuna devam etme; güvenlik ve profesyonel destek yönlendirmesi yap.
+
+ÇIKTI KURALI:
+- Admin promptu özel başlıklar verdiyse sadece o başlıkları kullan.
+- Admin promptu çıktı formatı verdiyse o formatı aynen uygula.
+- Admin promptu uzunluk belirttiyse o uzunluğa yakın yaz.
+- Admin promptu başlık belirtmediyse, modül konusuna uygun doğal başlıklar oluştur.
+- Tek paragraf yazma; okunabilir, bölümlü ve doyurucu bir yorum üret.
+"""
     admin_prompt = prompts.get(module_key, "")
     payload_text = json.dumps(payload, ensure_ascii=False, indent=2, default=str)
     return f"""
