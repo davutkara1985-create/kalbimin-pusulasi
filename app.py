@@ -734,12 +734,9 @@ def birth_place_input(prefix: str) -> str:
     clean_query = birth_place_query.strip()
 
     selected_city = str(st.session_state.get(selected_key, "") or "").strip()
-    if selected_city and normalize_city_text(selected_city) == normalize_city_text(clean_query):
+    if selected_city:
         st.caption(f"Seçilen şehir: {selected_city}")
         return selected_city
-
-    if selected_city and clean_query and normalize_city_text(selected_city) != normalize_city_text(clean_query):
-        st.session_state.pop(selected_key, None)
 
     if len(clean_query) < 3:
         st.caption("Şehir listesini görmek için en az 3 harf yaz.")
@@ -755,7 +752,6 @@ def birth_place_input(prefix: str) -> str:
                 with col:
                     if st.button(city, key=f"{prefix}_city_match_{normalize_city_text(clean_query)}_{normalize_city_text(city)}", use_container_width=True):
                         st.session_state[selected_key] = city
-                        st.session_state[query_key] = city
                         st.rerun()
         return clean_query
 
