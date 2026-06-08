@@ -16,6 +16,7 @@ from services.catalog import (
     DEFAULT_RITUALS,
     MODULES,
     PLAN_CONFIG,
+    PROMPT_VERSION,
     module_defaults,
 )
 
@@ -386,7 +387,10 @@ def get_all_prompts() -> Dict[str, str]:
     prompts = dict(DEFAULT_PROMPTS)
     if snap.exists:
         data = snap.to_dict() or {}
-        prompts.update({k: str(v) for k, v in data.get("prompts", {}).items()})
+        # Eski admin paneli kayıtları yeni kod içi promptları ezmesin diye sürüm kontrolü yapılır.
+        # Admin panelinden yeni kayıt yapıldığında save_prompt aynı PROMPT_VERSION değerini kaydeder.
+        if data.get("prompt_version") == PROMPT_VERSION:
+            prompts.update({k: str(v) for k, v in data.get("prompts", {}).items()})
     return prompts
 
 
@@ -399,6 +403,7 @@ def save_prompt(module_key: str, prompt: str) -> None:
     db.collection("app_config").document("prompts").set(
         {
             "prompts": {module_key: prompt.strip()},
+            "prompt_version": PROMPT_VERSION,
             "updated_at": firestore.SERVER_TIMESTAMP,
         },
         merge=True,
