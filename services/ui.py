@@ -1481,26 +1481,52 @@ def render_result_panel(module_key: str, result: str, plan: str = "free") -> Non
 def render_viral_share_box(module_key: str, result: str) -> None:
     module = MODULES.get(module_key, {"title": "Kalbimin Pusulası"})
     title = str(module.get("title", "Kalbimin Pusulası"))
+
     short_result = " ".join(result.strip().split())[:230]
     share_text = (
         f"Kalbimin Pusulası'nda {title} yorumumu aldım. "
-        f"Bana çıkan kısa mesaj: {short_result}... Sen de kendi aşk pusulanı dene."
+        f"Bana çıkan kısa mesaj: {short_result}... "
+        f"Sen de kendi aşk pusulanı dene."
     )
-    encoded = quote(share_text)
+
+    # Uygulamanın yayındaki adresini Streamlit Secrets üzerinden alır.
+    # Secrets içine APP_PUBLIC_URL eklemezsen aşağıdaki varsayılan adres kullanılır.
+    app_url = str(
+        st.secrets.get(
+            "APP_PUBLIC_URL",
+            "https://kalbimin-pusulasi.streamlit.app",
+        )
+    ).strip()
+
+    encoded_text = quote(share_text)
+    encoded_url = quote(app_url, safe="")
+    encoded_text_with_url = quote(f"{share_text} {app_url}")
+
+    whatsapp_url = f"https://wa.me/?text={encoded_text_with_url}"
+    x_url = f"https://twitter.com/intent/tweet?text={encoded_text}&url={encoded_url}"
+    facebook_url = f"https://www.facebook.com/sharer/sharer.php?u={encoded_url}&quote={encoded_text}"
+
+    # Instagram web tarafında WhatsApp/X/Facebook gibi doğrudan metin paylaşım linki vermez.
+    # Bu yüzden Instagram butonu Instagram'ı açar; kullanıcı sonucu hikaye/gönderi olarak paylaşabilir.
+    instagram_url = "https://www.instagram.com/"
+
     st.markdown(
         f"""
         <div class="kp-share-card">
             <div class="kp-section-kicker">Paylaş ve arkadaşını davet et</div>
-            <div class="kp-login-note">Aşağıdaki metni kopyalayarak sosyal medyada, WhatsApp'ta veya hikayende paylaşabilirsin.</div>
+            <div class="kp-login-note">
+                Yorumunu sosyal medyada paylaşabilir veya arkadaşlarını Kalbimin Pusulası'na davet edebilirsin.
+            </div>
             <div class="kp-share-links">
-                <a href="https://wa.me/?text={encoded}" target="_blank">WhatsApp'ta paylaş</a>
-                <a href="https://twitter.com/intent/tweet?text={encoded}" target="_blank">X'te paylaş</a>
+                <a href="{whatsapp_url}" target="_blank" rel="noopener noreferrer">WhatsApp</a>
+                <a href="{x_url}" target="_blank" rel="noopener noreferrer">X</a>
+                <a href="{facebook_url}" target="_blank" rel="noopener noreferrer">Facebook</a>
+                <a href="{instagram_url}" target="_blank" rel="noopener noreferrer">Instagram</a>
             </div>
         </div>
         """,
         unsafe_allow_html=True,
     )
-    st.text_area("Kopyalanabilir paylaşım metni", value=share_text, height=110, key=f"share_text_{module_key}")
 
 
 def render_upgrade_prompt(required_plan: str, current_plan: str = "free") -> None:
