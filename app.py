@@ -148,15 +148,28 @@ def prevent_browser_translate() -> None:
                     const editable = target && (
                         tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target.isContentEditable
                     );
-                    if (event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return;
-                    if (!editable && (key === 'c' || code === 'keyc')) {
-                        event.preventDefault();
+                    const isC = (key === 'c' || code === 'keyc');
+                    if (!isC) return;
+
+                    // Ctrl/Cmd+C gerçek kopyalamayı sürdürür; sadece Streamlit'in Clear caches kısayoluna gitmesini engeller.
+                    if (event.ctrlKey || event.metaKey) {
                         event.stopPropagation();
                         event.stopImmediatePropagation();
-                        return false;
+                        return true;
                     }
+
+                    // Metin alanına normal c yazmayı bozma.
+                    if (editable) return;
+
+                    // Düz c tuşu Streamlit'te Clear caches penceresini açtığı için tamamen engellenir.
+                    event.preventDefault();
+                    event.stopPropagation();
+                    event.stopImmediatePropagation();
+                    return false;
                 };
                 doc.addEventListener('keydown', blockClearCacheShortcut, true);
+                doc.addEventListener('keypress', blockClearCacheShortcut, true);
+                doc.addEventListener('keyup', blockClearCacheShortcut, true);
             }
         } catch (e) {}
         </script>
