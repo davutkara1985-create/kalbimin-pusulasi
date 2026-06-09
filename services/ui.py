@@ -1266,15 +1266,90 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
             margin: 14px 0;
             color: var(--kp-text);
             line-height: 1.72;
+            overflow: hidden;
+            position: relative;
+            isolation: isolate;
+        }}
+        .kp-written-template::before {{
+            content: "";
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            background:
+                radial-gradient(circle at 14% 12%, rgba(255,241,184,0.13), transparent 30%),
+                radial-gradient(circle at 86% 88%, rgba(123,75,214,0.14), transparent 32%);
+            z-index: -1;
+        }}
+        .kp-written-text {{
+            position: relative;
+            z-index: 1;
         }}
         .kp-written-title {{
-            font-family: var(--kp-font-serif);
             color: var(--kp-gold-2);
             line-height: 1.05;
             margin: 10px 0 14px;
+            text-shadow: 0 12px 28px rgba(0,0,0,0.32), 0 0 20px rgba(217,183,110,0.10);
         }}
         .kp-written-body {{
-            color: rgba(255,248,232,0.90);
+            color: rgba(255,248,232,0.93);
+            line-height: 1.72;
+        }}
+        .kp-written-body p {{
+            margin: 0 0 0.88rem;
+            color: inherit;
+            line-height: inherit;
+            font: inherit;
+        }}
+        .kp-written-subhead {{
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin: 0.82rem 0 0.32rem;
+            padding: 4px 9px;
+            border-radius: 999px;
+            color: var(--kp-gold-2);
+            background: rgba(217,183,110,0.12);
+            border: 1px solid rgba(255,241,184,0.18);
+            font-size: 0.74em;
+            font-weight: 900;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            clear: none;
+        }}
+        .kp-written-image {{
+            width: min(var(--kp-written-image-width, 220px), 44vw);
+            margin: 0;
+            padding: 0;
+        }}
+        .kp-written-image img {{
+            display: block;
+            width: 100%;
+            height: auto;
+            border-radius: 18px;
+            border: 1px solid rgba(255,241,184,0.24);
+            box-shadow: 0 18px 40px rgba(0,0,0,0.34), inset 0 1px 0 rgba(255,255,255,0.12);
+            background: rgba(255,255,255,0.04);
+        }}
+        .kp-image-float-left {{
+            float: left;
+            margin: 0.22rem 1.08rem 0.72rem 0;
+        }}
+        .kp-image-float-right {{
+            float: right;
+            margin: 0.22rem 0 0.72rem 1.08rem;
+        }}
+        .kp-image-center {{
+            width: min(var(--kp-written-image-width, 260px), 100%);
+            max-width: 100%;
+            margin: 0.7rem auto 1rem;
+        }}
+        .image-bottom .kp-image-center {{
+            margin: 1rem auto 0;
+        }}
+        .kp-written-clear {{
+            clear: both;
+            display: block;
+            height: 0;
         }}
         .kp-template-parchment {{
             background: linear-gradient(145deg, rgba(255,248,232,0.18), rgba(217,183,110,0.08)), rgba(18, 14, 38, 0.82);
@@ -1285,67 +1360,19 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
         .kp-template-ritual {{
             background: radial-gradient(circle at 18% 12%, rgba(217,183,110,0.18), transparent 32%), linear-gradient(145deg, rgba(123,75,214,0.18), rgba(255,255,255,0.04)), rgba(12,15,44,0.78);
         }}
-        .kp-written-inner {{
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-        }}
-        .kp-written-text {{
-            min-width: 0;
-        }}
-        .kp-written-image-wrap {{
-            width: 100%;
-            max-width: 440px;
-            margin-left: auto;
-            margin-right: auto;
-        }}
-        .kp-written-image {{
-            display: block;
-            width: 100%;
-            max-height: 360px;
-            object-fit: cover;
-            border-radius: 22px;
-            border: 1px solid rgba(255,241,184,0.24);
-            box-shadow: 0 18px 42px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.10);
-        }}
-        .kp-layout-image_center_top .kp-written-inner,
-        .kp-layout-image_center_bottom .kp-written-inner {{
-            align-items: stretch;
-        }}
-        .kp-layout-image_left .kp-written-inner,
-        .kp-layout-image_right .kp-written-inner {{
-            display: grid;
-            grid-template-columns: minmax(180px, 0.86fr) minmax(0, 1.14fr);
-            gap: 20px;
-            align-items: center;
-        }}
-        .kp-layout-image_right .kp-written-inner {{
-            grid-template-columns: minmax(0, 1.14fr) minmax(180px, 0.86fr);
-        }}
-        .kp-layout-image_left .kp-written-image-wrap,
-        .kp-layout-image_right .kp-written-image-wrap {{
-            max-width: none;
-        }}
-        .kp-layout-image_center_bottom .kp-written-image-wrap {{
-            margin-top: 4px;
-        }}
-        .kp-layout-text_only .kp-written-image-wrap {{
-            display: none;
-        }}
-        @media (max-width: 760px) {{
-            .kp-layout-image_left .kp-written-inner,
-            .kp-layout-image_right .kp-written-inner {{
-                display: flex;
-                flex-direction: column;
+        @media (max-width: 640px) {{
+            .kp-written-template {{
+                padding: 18px;
             }}
-            .kp-written-image-wrap {{
-                max-width: 100%;
-            }}
-            .kp-written-image {{
-                max-height: 300px;
+            .kp-written-image,
+            .kp-image-float-left,
+            .kp-image-float-right,
+            .kp-image-center {{
+                float: none !important;
+                width: min(var(--kp-written-image-width, 240px), 100%) !important;
+                margin: 0 auto 1rem !important;
             }}
         }}
-
 
         .kp-deck-grid {{
             display: grid;
