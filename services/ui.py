@@ -190,12 +190,22 @@ MODULE_ICON_ASSETS: Dict[str, str] = {
 
 
 @st.cache_data(show_spinner=False)
-def icon_asset_data_uri(filename: str) -> str:
+def icon_asset_data_uri(filename: str, max_side: int = 96) -> str:
     path = Path(__file__).resolve().parent.parent / "assets" / "icons" / filename
     if not path.exists() or not path.is_file():
         return ""
     raw = path.read_bytes()
     mime = _asset_mime(path)
+    if Image is not None:
+        try:
+            img = Image.open(io.BytesIO(raw)).convert("RGBA")
+            img.thumbnail((int(max_side), int(max_side)))
+            buffer = io.BytesIO()
+            img.save(buffer, format="PNG", optimize=True)
+            raw = buffer.getvalue()
+            mime = "image/png"
+        except Exception:
+            pass
     encoded = base64.b64encode(raw).decode("utf-8")
     return f"data:{mime};base64,{encoded}"
 
@@ -305,7 +315,7 @@ def apply_page_background(page_key: str) -> None:
 
     # Büyük görselleri tam boy base64 olarak tarayıcıya göndermek sayfaları çok yavaşlatıyordu.
     # Arka planlar burada tek noktadan optimize edilerek yüklenir.
-    uri = asset_data_uri(filename, max_side=900, quality=45) or asset_data_uri("Genel", max_side=900, quality=45)
+    uri = asset_data_uri(filename, max_side=650, quality=38) or asset_data_uri("Genel", max_side=650, quality=38)
     if not uri:
         return
     st.markdown(
@@ -709,6 +719,107 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
             transform: translateX(1px) !important;
             border-color: rgba(255, 241, 184, 0.28) !important;
             background: rgba(217,183,110,0.09) !important;
+        }}
+
+
+        /* Mobil performans ve erişilebilir menü düzeni */
+        .kp-mobile-menu-panel {{
+            display: none;
+        }}
+        @media (max-width: 760px) {{
+            [data-testid="collapsedControl"] {{
+                display: flex !important;
+                visibility: visible !important;
+                opacity: 1 !important;
+                pointer-events: auto !important;
+                position: fixed !important;
+                top: 8px !important;
+                left: 8px !important;
+                z-index: 999999 !important;
+                background: rgba(6, 8, 23, 0.82) !important;
+                border: 1px solid rgba(255, 241, 184, 0.24) !important;
+                border-radius: 14px !important;
+                box-shadow: 0 10px 26px rgba(0,0,0,0.28) !important;
+            }}
+            [data-testid="stSidebar"] {{
+                width: min(84vw, 300px) !important;
+                min-width: min(84vw, 300px) !important;
+                max-width: min(84vw, 300px) !important;
+            }}
+            [data-testid="stSidebar"] > div {{
+                width: min(84vw, 300px) !important;
+                min-width: min(84vw, 300px) !important;
+                max-width: min(84vw, 300px) !important;
+            }}
+            .stApp::before {{
+                display: none !important;
+                animation: none !important;
+            }}
+            .kp-hero, .kp-card, .kp-plan, .kp-metric, .kp-safe, .kp-notice, .kp-admin-card, .kp-inbox-card {{
+                animation: none !important;
+                backdrop-filter: none !important;
+                -webkit-backdrop-filter: none !important;
+            }}
+            .kp-card:hover {{
+                transform: none !important;
+            }}
+            .kp-mobile-menu-panel {{
+                display: block;
+                margin: 4px 0 14px;
+                padding: 10px;
+                border-radius: 18px;
+                background: rgba(8, 10, 30, 0.72);
+                border: 1px solid rgba(255, 241, 184, 0.18);
+                box-shadow: 0 14px 34px rgba(0,0,0,0.24);
+            }}
+            .kp-mobile-menu-title {{
+                color: var(--kp-gold-2);
+                font-weight: 900;
+                font-size: 0.82rem;
+                margin-bottom: 8px;
+            }}
+            .kp-mobile-menu-list {{
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 7px;
+            }}
+            .kp-mobile-menu-link {{
+                min-height: 38px;
+                display: flex;
+                align-items: center;
+                gap: 7px;
+                padding: 6px 7px;
+                border-radius: 13px;
+                background: rgba(255,255,255,0.055);
+                border: 1px solid rgba(255,241,184,0.13);
+                color: rgba(255,248,232,0.88) !important;
+                text-decoration: none !important;
+                font-size: 0.70rem;
+                font-weight: 800;
+                line-height: 1.15;
+            }}
+            .kp-mobile-menu-link.active {{
+                background: linear-gradient(135deg, rgba(217,183,110,0.20), rgba(123,75,214,0.15));
+                border-color: rgba(255,241,184,0.34);
+                color: var(--kp-gold-2) !important;
+            }}
+            .kp-mobile-menu-icon {{
+                width: 24px;
+                height: 24px;
+                display: inline-grid;
+                place-items: center;
+                flex: 0 0 auto;
+                border-radius: 8px;
+                overflow: hidden;
+                background: rgba(217,183,110,0.10);
+                border: 1px solid rgba(217,183,110,0.14);
+            }}
+            .kp-mobile-menu-icon .kp-icon-img {{
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+                border-radius: 8px;
+            }}
         }}
 
         h1, h2, h3, h4, h5 {{ font-family: var(--kp-font-serif); color: var(--kp-text); letter-spacing: -0.018em; }}
