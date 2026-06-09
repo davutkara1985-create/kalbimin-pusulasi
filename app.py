@@ -128,21 +128,39 @@ def prevent_browser_translate() -> None:
             setTimeout(applyNoTranslate, 500);
             setTimeout(applyNoTranslate, 1500);
 
-            // MutationObserver bilinçli olarak kullanılmıyor. Önceki sürümde observer,
-            // kendi yaptığı attribute güncellemeleriyle tekrar tetiklenip tarayıcıda beyaz sayfaya yol açabiliyordu.
+            // Streamlit'in tek harfli "c" kısayolu Clear caches penceresini açabiliyor.
+            // Kullanıcının normal Ctrl/Cmd+C kopyalaması serbest bırakılır; sadece düz "c" kısayolu engellenir.
+            if (!window.parent.__kpDisableClearCacheShortcutV2) {
+                window.parent.__kpDisableClearCacheShortcutV2 = true;
 
-            if (!window.parent.__kpDisableClearCacheShortcut) {
-                window.parent.__kpDisableClearCacheShortcut = true;
-                doc.addEventListener('keydown', function(event) {
+                const blockClearCacheShortcut = function(event) {
                     const key = (event.key || '').toLowerCase();
+                    const code = (event.code || '').toLowerCase();
                     const target = event.target;
                     const tag = target && target.tagName ? target.tagName.toUpperCase() : '';
-                    const editable = target && (tag === 'INPUT' || tag === 'TEXTAREA' || target.isContentEditable);
-                    if (key === 'c' && !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && !editable) {
-                        event.preventDefault();
-                        event.stopImmediatePropagation();
+                    const editable = target && (
+                        tag === 'INPUT' ||
+                        tag === 'TEXTAREA' ||
+                        tag === 'SELECT' ||
+                        target.isContentEditable
+                    );
+
+                    // Ctrl+C / Cmd+C gerçek kopyalama işlemini bozma.
+                    if (event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) {
+                        return;
                     }
-                }, true);
+
+                    if (!editable && (key === 'c' || code === 'keyc')) {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        event.stopImmediatePropagation();
+                        return false;
+                    }
+                };
+
+                doc.addEventListener('keydown', blockClearCacheShortcut, true);
+                doc.addEventListener('keypress', blockClearCacheShortcut, true);
+                doc.addEventListener('keyup', blockClearCacheShortcut, true);
             }
         } catch (e) {}
         </script>
@@ -370,17 +388,68 @@ def logout() -> None:
 
 
 def auth_sidebar() -> Optional[Dict[str, Any]]:
-    render_sidebar_brand()
     user = st.session_state.get("auth_user") or restore_auth_from_query()
-    if user:
+    if user and not user.get("is_guest"):
+        render_sidebar_brand()
         return user
 
-    st.sidebar.markdown("### Giriş")
-    st.sidebar.caption("Kalbinizdeki işaretleri görmek için üye girişi yapınız")
+    # Giriş yapılmadan önce sol sütun kullanılmaz; giriş formu ana sayfada gösterilir.
+    return None
 
-    login_email = normalize_email(st.sidebar.text_input("E-posta", key="login_email"))
-    login_password = st.sidebar.text_input("Şifre", type="password", key="login_password")
-    if st.sidebar.button("Giriş yap", key="login_btn", use_container_width=True):
+
+def hide_sidebar_for_landing() -> None:
+    st.markdown(
+        """
+        <style>
+        [data-testid="stSidebar"],
+        [data-testid="stSidebarCollapseButton"],
+        [data-testid="collapsedControl"],
+        button[aria-label="Close sidebar"],
+        button[aria-label="Open sidebar"],
+        button[title="Close sidebar"],
+        button[title="Open sidebar"] {
+            display: none !important;
+            visibility: hidden !important;
+            pointer-events: none !important;
+            width: 0 !important;
+            min-width: 0 !important;
+            max-width: 0 !important;
+        }
+        [data-testid="stAppViewContainer"] {
+            margin-left: 0 !important;
+        }
+        [data-testid="stAppViewContainer"] .block-container {
+            max-width: 620px !important;
+            padding-top: 0.65rem !important;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_landing_auth() -> None:
+    st.markdown(
+        """
+        <div class="kp-auth-card">
+            <div class="kp-auth-brand">
+                <div class="kp-auth-orb">☽</div>
+                <div>
+                    <div class="kp-auth-brand-title">Kalbimin Pusulası</div>
+                    <div class="kp-auth-brand-subtitle">Kalbin Seni Çağırıyor</div>
+                </div>
+            </div>
+            <div class="kp-auth-title">Giriş</div>
+            <div class="kp-auth-note">Kalbinizdeki işaretleri görmek için üye girişi yapınız</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    login_email = normalize_email(st.text_input("E-posta", key="login_email", placeholder="ornek@mail.com"))
+    login_password = st.text_input("Şifre", type="password", key="login_password")
+
+    if st.button("Giriş yap", key="login_btn", use_container_width=True):
         try:
             ok, msg, auth_user = authenticate_user(login_email, login_password)
             if ok and auth_user:
@@ -394,9 +463,9 @@ def auth_sidebar() -> Optional[Dict[str, Any]]:
         except Exception as exc:
             stop_with_setup_error(exc)
 
-    with st.sidebar.expander("Yeni hesap oluştur"):
+    with st.expander("Yeni hesap oluştur"):
         display_name = st.text_input("Ad Soyad", key="register_name")
-        reg_email = normalize_email(st.text_input("E-posta", key="register_email"))
+        reg_email = normalize_email(st.text_input("E-posta", key="register_email", placeholder="ornek@mail.com"))
         reg_password = st.text_input("Şifre", type="password", key="register_password")
         if st.button("Hesap oluştur", key="register_btn", use_container_width=True):
             try:
@@ -411,14 +480,6 @@ def auth_sidebar() -> Optional[Dict[str, Any]]:
                     st.error(msg)
             except Exception as exc:
                 stop_with_setup_error(exc)
-
-    if st.sidebar.button("Misafir olarak dene", key="guest_btn", use_container_width=True):
-        st.session_state["auth_user"] = guest_user()
-        st.session_state["current_page"] = "home"
-        persist_auth_query(st.session_state["auth_user"], "home")
-        st.rerun()
-
-    return None
 
 
 def render_top_account(user: Dict[str, Any]) -> None:
@@ -769,10 +830,6 @@ def render_back_home_button(page: str) -> None:
 
 def page_home(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]]) -> None:
     render_hero(user)
-    render_safety_notice()
-
-    if user.get("is_guest"):
-        render_email_lead_form("home_guest")
 
     render_section_header("AŞK ODAĞIN", "Kalbimin Pusulası fısıldar, ruhun hatırlar", kicker="")
     priority_keys = ["relationship", "message_analysis", "love_fortune", "daily_energy", "mini_tarot", "coffee_text"]
@@ -2295,16 +2352,10 @@ def render_page(page: str, user: Dict[str, Any], prompts: Dict[str, str], module
 def main() -> None:
     user = auth_sidebar()
     if not user:
+        hide_sidebar_for_landing()
         apply_page_background("home")
         render_hero()
-        render_safety_notice()
-        st.info("Sol menüden giriş yapabilir, yeni hesap oluşturabilir veya misafir olarak 5 ücretsiz yorumu deneyebilirsin.")
-        render_email_lead_form("landing")
-        if st.button("Misafir olarak hemen dene", key="main_guest_btn", use_container_width=True):
-            st.session_state["auth_user"] = guest_user()
-            st.session_state["current_page"] = "home"
-            persist_auth_query(st.session_state["auth_user"], "home")
-            st.rerun()
+        render_landing_auth()
         render_footer()
         return
 
