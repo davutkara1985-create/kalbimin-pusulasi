@@ -453,32 +453,106 @@ def _default_items(content_type: str) -> List[Dict[str, Any]]:
     ]
 
 
+def _default_content_payload(content_type: str, idx: int, item: Dict[str, Any]) -> Dict[str, Any]:
+    """Convert bundled default content into a normal editable Firestore document.
+
+    Eski davranışta varsayılan meditasyon/ritüel içerikleri sadece kullanıcı
+    tarafında görünüyordu; Firestore dokümanı olmadığı için admin panelinden
+    düzenlenemiyordu. Bu payload ile varsayılanlar ilk çalıştırmada gerçek
+    content_items kaydına dönüşür ve normal içerik gibi düzenlenebilir.
+    """
+    return {
+        "type": content_type,
+        "title": str(item.get("title", "")).strip(),
+        "category": str(item.get("category", "")).strip(),
+        "body": str(item.get("body", "")).strip(),
+        "active": bool(item.get("active", True)),
+        "image": item.get("image"),
+        "template": str(item.get("template", "mistik_kart") or "mistik_kart"),
+        "font_family": str(item.get("font_family", "Inter, system-ui, sans-serif") or "Inter, system-ui, sans-serif"),
+        "font_size": int(item.get("font_size", 16) or 16),
+        "title_size": int(item.get("title_size", 28) or 28),
+        "image_layout": str(item.get("image_layout", "image_left_wrap") or "image_left_wrap"),
+        "image_width": int(item.get("image_width", 220) or 220),
+        "title_bold": bool(item.get("title_bold", True)),
+        "title_italic": bool(item.get("title_italic", False)),
+        "title_underline": bool(item.get("title_underline", False)),
+        "body_bold": bool(item.get("body_bold", False)),
+        "body_italic": bool(item.get("body_italic", False)),
+        "body_underline": bool(item.get("body_underline", False)),
+        "source": "bundled_default_seed",
+        "default_seed_index": idx,
+        "created_at": firestore.SERVER_TIMESTAMP,
+        "updated_at": firestore.SERVER_TIMESTAMP,
+    }
+
+
+def _seed_default_content_items_if_needed(content_type: str) -> None:
+    """Create editable Firestore records from bundled defaults once.
+
+    This runs only when there is no content document for the selected type.
+    A seed marker prevents deleted/deactivated defaults from coming back again
+    after the admin intentionally changes the content list.
+    """
+    if content_type not in {"meditation", "ritual"}:
+        return
+
+    db = get_firestore_client()
+    marker_ref = db.collection("app_config").document(f"content_defaults_seeded_{content_type}")
+    marker = marker_ref.get()
+    if marker.exists:
+        return
+
+    existing_docs = list(db.collection("content_items").where("type", "==", content_type).limit(1).stream())
+    if existing_docs:
+        marker_ref.set(
+            {
+                "seeded": True,
+                "skipped_because_existing_content": True,
+                "updated_at": firestore.SERVER_TIMESTAMP,
+            },
+            merge=True,
+        )
+        return
+
+    source = DEFAULT_MEDITATIONS if content_type == "meditation" else DEFAULT_RITUALS
+    for idx, item in enumerate(source, start=1):
+        doc_id = f"seeded_{content_type}_{idx}"
+        db.collection("content_items").document(doc_id).set(_default_content_payload(content_type, idx, item), merge=True)
+
+    marker_ref.set(
+        {
+            "seeded": True,
+            "content_type": content_type,
+            "count": len(source),
+            "updated_at": firestore.SERVER_TIMESTAMP,
+        },
+        merge=True,
+    )
+
+
 def get_content_items(content_type: str, include_inactive: bool = False) -> List[Dict[str, Any]]:
     db = get_firestore_client()
     docs = list(db.collection("content_items").where("type", "==", content_type).stream())
 
-    stored_items: List[Dict[str, Any]] = []
-    active_items: List[Dict[str, Any]] = []
+    # Firestore'da hiç kayıt yoksa, kod içindeki varsayılan içerikleri bir kez
+    # gerçek ve düzenlenebilir Firestore kayıtlarına dönüştür. Böylece kullanıcı
+    # tarafında görünen meditasyon/ritüeller admin panelinde de düzenlenebilir.
+    if not docs:
+        _seed_default_content_items_if_needed(content_type)
+        docs = list(db.collection("content_items").where("type", "==", content_type).stream())
+
+    items: List[Dict[str, Any]] = []
     for doc in docs:
         data = doc.to_dict() or {}
         data["id"] = doc.id
-        stored_items.append(data)
-        if data.get("active", True):
-            active_items.append(data)
+        if include_inactive or data.get("active", True):
+            items.append(data)
 
-    # Kullanıcı tarafında Firestore'da aktif içerik yoksa katalogdaki varsayılan
-    # meditasyon/ritüel içerikleri gösterilir. Admin paneli include_inactive=True
-    # ile çağırdığı için bu varsayılan içerikleri de listede göstermeliyiz; aksi halde
-    # kullanıcıda görünen 2 varsayılan meditasyon admin panelinde kayıp görünür.
-    if include_inactive:
-        items = list(stored_items)
-        if not active_items:
-            items = _default_items(content_type) + items
-        return sorted(items, key=lambda x: str(x.get("created_at", "")), reverse=True)
-
-    if not active_items:
-        return _default_items(content_type)
-    return sorted(active_items, key=lambda x: str(x.get("created_at", "")), reverse=True)
+    # Artık varsayılan içerikler Firestore'a taşındığı için burada yeniden
+    # _default_items döndürmeyiz. Böylece admin bir içeriği pasifleştirirse
+    # kullanıcı tarafında eski varsayılan içerik tekrar belirmez.
+    return sorted(items, key=lambda x: str(x.get("created_at", "")), reverse=True)
 
 
 CONTENT_ITEM_ALLOWED_FIELDS = {
