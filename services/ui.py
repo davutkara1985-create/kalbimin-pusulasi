@@ -666,40 +666,6 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
             object-fit: cover;
             border-radius: 9px;
         }}
-        .element-container:has(.kp-side-nav-clickrow) {{
-            margin: 0 0 -41px 0 !important;
-            padding: 0 !important;
-            position: relative !important;
-            z-index: 1 !important;
-            pointer-events: none !important;
-        }}
-        .element-container:has(.kp-side-nav-clickrow) + .element-container {{
-            height: 41px !important;
-            min-height: 41px !important;
-            margin: 0 0 3px 0 !important;
-            padding: 0 !important;
-            position: relative !important;
-            z-index: 3 !important;
-        }}
-        .element-container:has(.kp-side-nav-clickrow) + .element-container div.stButton {{
-            height: 41px !important;
-            min-height: 41px !important;
-            margin: 0 !important;
-            padding: 0 !important;
-        }}
-        .element-container:has(.kp-side-nav-clickrow) + .element-container div.stButton > button {{
-            height: 38px !important;
-            min-height: 38px !important;
-            margin: 3px 0 0 0 !important;
-            padding: 0 !important;
-            opacity: 0 !important;
-            color: transparent !important;
-            background: transparent !important;
-            border: none !important;
-            box-shadow: none !important;
-            cursor: pointer !important;
-        }}
-
         [data-testid="stSidebar"] div.stButton > button {{
             justify-content: flex-start !important;
             width: 100% !important;
@@ -726,62 +692,95 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
         .kp-mobile-menu-panel {{
             display: none;
         }}
+        .kp-side-nav-link {{
+            text-decoration: none !important;
+        }}
+        .kp-side-nav-link:hover {{
+            border-color: rgba(255, 241, 184, 0.28) !important;
+            background: rgba(217,183,110,0.09) !important;
+            text-decoration: none !important;
+        }}
+        .kp-side-nav-item:visited,
+        .kp-side-nav-link:visited {{
+            color: rgba(255, 248, 232, 0.86) !important;
+        }}
+
+        /* Hız için en ağır dekoratif katmanlar kapatıldı. */
+        .stApp::before {{
+            display: none !important;
+            animation: none !important;
+        }}
+        .kp-hero, .kp-card, .kp-plan, .kp-metric, .kp-safe, .kp-notice, .kp-admin-card,
+        .kp-inbox-card, .kp-result-card, .kp-share-card, .kp-lead-card, .kp-upgrade-card,
+        [data-testid="stSidebar"], .kp-top-account-floating {{
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+        }}
+        .kp-card:hover {{
+            transform: none !important;
+        }}
+
         @media (max-width: 760px) {{
-            [data-testid="collapsedControl"] {{
-                display: flex !important;
-                visibility: visible !important;
-                opacity: 1 !important;
-                pointer-events: auto !important;
-                position: fixed !important;
-                top: 8px !important;
-                left: 8px !important;
-                z-index: 999999 !important;
-                background: rgba(6, 8, 23, 0.82) !important;
-                border: 1px solid rgba(255, 241, 184, 0.24) !important;
-                border-radius: 14px !important;
-                box-shadow: 0 10px 26px rgba(0,0,0,0.28) !important;
-            }}
-            [data-testid="stSidebar"] {{
-                width: min(84vw, 300px) !important;
-                min-width: min(84vw, 300px) !important;
-                max-width: min(84vw, 300px) !important;
-            }}
-            [data-testid="stSidebar"] > div {{
-                width: min(84vw, 300px) !important;
-                min-width: min(84vw, 300px) !important;
-                max-width: min(84vw, 300px) !important;
-            }}
-            .stApp::before {{
+            /* Android/iOS'ta native sidebar overlay kapanma sorunu çıkarabildiği için mobilde gizlenir.
+               Aynı menü ana içerikteki açılır/kapanır panelle gösterilir. */
+            [data-testid="stSidebar"],
+            [data-testid="stSidebar"] > div,
+            [data-testid="collapsedControl"],
+            [data-testid="stSidebarCollapseButton"],
+            button[aria-label="Close sidebar"],
+            button[aria-label="Open sidebar"],
+            button[title="Close sidebar"],
+            button[title="Open sidebar"] {{
                 display: none !important;
-                animation: none !important;
+                visibility: hidden !important;
+                opacity: 0 !important;
+                pointer-events: none !important;
+                width: 0 !important;
+                min-width: 0 !important;
+                max-width: 0 !important;
+            }}
+            [data-testid="stAppViewContainer"] {{
+                margin-left: 0 !important;
             }}
             .kp-hero, .kp-card, .kp-plan, .kp-metric, .kp-safe, .kp-notice, .kp-admin-card, .kp-inbox-card {{
                 animation: none !important;
-                backdrop-filter: none !important;
-                -webkit-backdrop-filter: none !important;
-            }}
-            .kp-card:hover {{
-                transform: none !important;
+                box-shadow: 0 10px 26px rgba(0,0,0,0.22) !important;
             }}
             .kp-mobile-menu-panel {{
                 display: block;
                 margin: 4px 0 14px;
-                padding: 10px;
+                padding: 0;
                 border-radius: 18px;
-                background: rgba(8, 10, 30, 0.72);
+                background: rgba(8, 10, 30, 0.76);
                 border: 1px solid rgba(255, 241, 184, 0.18);
-                box-shadow: 0 14px 34px rgba(0,0,0,0.24);
+                box-shadow: 0 12px 28px rgba(0,0,0,0.22);
+                overflow: hidden;
             }}
-            .kp-mobile-menu-title {{
+            .kp-mobile-menu-summary {{
+                list-style: none;
+                cursor: pointer;
+                padding: 12px 13px;
                 color: var(--kp-gold-2);
                 font-weight: 900;
-                font-size: 0.82rem;
-                margin-bottom: 8px;
+                font-size: 0.86rem;
+                border-bottom: 1px solid rgba(255, 241, 184, 0.10);
+                user-select: none;
+            }}
+            .kp-mobile-menu-summary::-webkit-details-marker {{
+                display: none;
+            }}
+            .kp-mobile-menu-summary::after {{
+                content: "Kapat / Aç";
+                float: right;
+                color: rgba(242,226,202,0.66);
+                font-size: 0.68rem;
+                font-weight: 800;
             }}
             .kp-mobile-menu-list {{
                 display: grid;
                 grid-template-columns: 1fr 1fr;
                 gap: 7px;
+                padding: 10px;
             }}
             .kp-mobile-menu-link {{
                 min-height: 38px;
@@ -1701,7 +1700,6 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
         @keyframes kpFadeUp {{ from {{ opacity: 0; transform: translateY(12px); }} to {{ opacity: 1; transform: translateY(0); }} }}
 
         @media (max-width: 760px) {{
-            [data-testid="stSidebar"], [data-testid="stSidebar"] > div {{ width: 260px !important; min-width: 260px !important; max-width: 260px !important; }}
             [data-testid="stAppViewContainer"] .block-container {{ max-width: 100%; padding-left: 0.85rem; padding-right: 0.85rem; padding-top: 0.45rem; }}
             .kp-hero {{ min-height: 285px; border-radius: 26px; padding: 18px 15px 17px; }}
             .kp-hero-top {{ gap: 10px; margin-bottom: 10px; }}
