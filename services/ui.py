@@ -587,25 +587,35 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
             letter-spacing: 0.10em;
             text-transform: uppercase;
         }}
-        .kp-sidebar-section-title span:first-child {{
-            width: 18px;
-            height: 18px;
+        .kp-sidebar-section-icon {{
+            width: 22px;
+            height: 22px;
             display: inline-grid;
             place-items: center;
-            border-radius: 50%;
+            border-radius: 9px;
             background: rgba(217, 183, 110, 0.10);
             border: 1px solid rgba(217, 183, 110, 0.16);
             color: var(--kp-gold-2) !important;
             font-family: var(--kp-font-serif);
             font-size: 0.78rem;
             letter-spacing: 0;
+            overflow: hidden;
+            flex: 0 0 auto;
         }}
-        .kp-side-nav-item {{
+        .kp-sidebar-section-icon .kp-icon-img {{
+            width: 100%;
+            height: 100%;
+            display: block;
+            object-fit: cover;
+            border-radius: 9px;
+        }}
+        .kp-side-nav-item,
+        .kp-side-nav-clickrow {{
             display: flex;
             align-items: center;
             gap: 8px;
-            min-height: 34px;
-            padding: 7px 9px;
+            min-height: 38px;
+            padding: 6px 9px;
             margin: 3px 0;
             border-radius: 13px;
             color: rgba(255, 248, 232, 0.86) !important;
@@ -615,6 +625,9 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
             font-size: 0.74rem;
             font-weight: 760;
         }}
+        .kp-side-nav-clickrow {{
+            pointer-events: none;
+        }}
         .kp-side-nav-item.active {{
             color: var(--kp-gold-2) !important;
             background: linear-gradient(135deg, rgba(217,183,110,0.18), rgba(123,75,214,0.13));
@@ -622,17 +635,59 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
             box-shadow: 0 0 18px rgba(217,183,110,0.11), inset 0 1px 0 rgba(255,255,255,0.11);
         }}
         .kp-side-nav-icon {{
-            width: 20px;
-            height: 20px;
+            width: 26px;
+            height: 26px;
             display: inline-grid;
             place-items: center;
             flex: 0 0 auto;
-            border-radius: 8px;
+            border-radius: 9px;
             color: var(--kp-gold-2) !important;
             background: rgba(217,183,110,0.10);
             border: 1px solid rgba(217,183,110,0.15);
             font-family: var(--kp-font-serif);
             font-size: 0.82rem;
+            overflow: hidden;
+            box-shadow: 0 0 12px rgba(217,183,110,0.10);
+        }}
+        .kp-side-nav-icon .kp-icon-img {{
+            width: 100%;
+            height: 100%;
+            display: block;
+            object-fit: cover;
+            border-radius: 9px;
+        }}
+        .element-container:has(.kp-side-nav-clickrow) {{
+            margin: 0 0 -41px 0 !important;
+            padding: 0 !important;
+            position: relative !important;
+            z-index: 1 !important;
+            pointer-events: none !important;
+        }}
+        .element-container:has(.kp-side-nav-clickrow) + .element-container {{
+            height: 41px !important;
+            min-height: 41px !important;
+            margin: 0 0 3px 0 !important;
+            padding: 0 !important;
+            position: relative !important;
+            z-index: 3 !important;
+        }}
+        .element-container:has(.kp-side-nav-clickrow) + .element-container div.stButton {{
+            height: 41px !important;
+            min-height: 41px !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }}
+        .element-container:has(.kp-side-nav-clickrow) + .element-container div.stButton > button {{
+            height: 38px !important;
+            min-height: 38px !important;
+            margin: 3px 0 0 0 !important;
+            padding: 0 !important;
+            opacity: 0 !important;
+            color: transparent !important;
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            cursor: pointer !important;
         }}
 
         [data-testid="stSidebar"] div.stButton > button {{
@@ -1265,6 +1320,14 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
             font-family: var(--kp-font-serif);
             font-size: 2rem;
             margin-bottom: 16px;
+            overflow: hidden;
+        }}
+        .kp-content-visual-icon-asset .kp-icon-img {{
+            width: 100%;
+            height: 100%;
+            display: block;
+            object-fit: cover;
+            border-radius: 22px;
         }}
         .kp-content-visual-title {{
             position: relative;
@@ -1654,8 +1717,10 @@ def render_drawn_cards(cards: list[str], element: str = "fire") -> None:
 
 def render_content_visual(content_type: str) -> None:
     is_meditation = content_type == "meditation"
+    module_key = "meditation" if is_meditation else "rituals"
     klass = "meditation" if is_meditation else "ritual"
     icon = "☽" if is_meditation else "✺"
+    icon_html = module_icon_html(module_key, icon)
     title = "Kalp Meditasyonları" if is_meditation else "Aşk Ritüelleri"
     text = (
         "Nefesini yavaşlat, kalbinin sesini duy. Aşağıdan bir meditasyon seçtiğinde metin burada açılacak."
@@ -1665,7 +1730,7 @@ def render_content_visual(content_type: str) -> None:
     st.markdown(
         f"""
         <div class="kp-content-visual {klass}">
-            <div class="kp-content-visual-icon">{icon}</div>
+            <div class="kp-content-visual-icon kp-content-visual-icon-asset">{icon_html}</div>
             <div class="kp-content-visual-title">{escape(title)}</div>
             <div class="kp-content-visual-text">{escape(text)}</div>
         </div>
