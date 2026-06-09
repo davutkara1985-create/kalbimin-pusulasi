@@ -2828,34 +2828,135 @@ def render_request_payload(payload: Dict[str, Any]) -> None:
             show_data_image(img)
 
 
+def _manual_request_time_text(value: Any) -> str:
+    if not value:
+        return ""
+    if hasattr(value, "strftime"):
+        try:
+            return value.strftime("%d.%m.%Y %H:%M")
+        except Exception:
+            pass
+    text = str(value)
+    if len(text) > 19:
+        return text[:19]
+    return text
+
+
+def _manual_request_preview(req: Dict[str, Any]) -> str:
+    payload = req.get("payload", {}) or {}
+    for key in ["soru", "niyet", "rüya", "not", "admin_notu", "odak_alanı"]:
+        value = str(payload.get(key, "") or "").strip()
+        if value:
+            return value[:90] + ("..." if len(value) > 90 else "")
+    questions = payload.get("sorular") or []
+    if questions:
+        text = str(questions[0]).strip()
+        return text[:90] + ("..." if len(text) > 90 else "")
+    cards = payload.get("çekilen_kartlar") or []
+    if cards:
+        return "Kartlar: " + format_card_spread(cards)[:90]
+    return "Detayı görmek için aç."
+
+
 def admin_requests(user: Dict[str, Any]) -> None:
     st.markdown("### Manuel Talepler")
-    status = st.selectbox("Durum", ["pending", "completed", "all"], format_func=lambda x: {"pending": "Bekleyen", "completed": "Tamamlanan", "all": "Tümü"}[x])
-    requests = list_manual_requests(status)
+    status = st.selectbox(
+        "Durum",
+        ["pending", "completed", "all"],
+        format_func=lambda x: {"pending": "Bekleyen", "completed": "Tamamlanan", "all": "Tümü"}[x],
+        key="admin_manual_request_status",
+    )
+    requests = list_manual_requests(status, limit=120)
     if not requests:
         st.info("Bu durumda talep yok.")
+        st.session_state.pop("admin_selected_manual_request_id", None)
         return
-    labels = [f"{MANUAL_REQUEST_TYPES.get(r.get('request_type'), r.get('request_type'))} · {r.get('user_email')} · {r.get('id')}" for r in requests]
-    selected_label = st.selectbox("Talep seç", labels)
-    request_id = selected_label.split(" · ")[-1]
-    req = next(r for r in requests if r["id"] == request_id)
-    st.markdown(f"#### {MANUAL_REQUEST_TYPES.get(req.get('request_type'), req.get('request_type'))}")
-    st.caption(f"Kullanıcı: {req.get('user_email')} | Durum: {req.get('status')}")
-    render_request_payload(req.get("payload", {}))
-    if req.get("response", {}).get("text"):
-        st.success("Bu talep daha önce yanıtlandı.")
-        st.write(req["response"]["text"])
-        show_data_image(req.get("response", {}).get("image"))
+
+    selected_key = "admin_selected_manual_request_id"
+    current_selected = str(st.session_state.get(selected_key, "") or "")
+    available_ids = {str(r.get("id", "")) for r in requests}
+    if current_selected not in available_ids:
+        st.session_state.pop(selected_key, None)
+        current_selected = ""
+
+    st.caption("Talepler liste halinde gösterilir. Detayı ve yanıt alanını açmak için Detay butonuna bas.")
+    st.markdown('<div class="kp-admin-request-list">', unsafe_allow_html=True)
+    for idx, req_item in enumerate(requests, start=1):
+        request_id = str(req_item.get("id", ""))
+        request_type = str(req_item.get("request_type", "") or "")
+        request_title = MANUAL_REQUEST_TYPES.get(request_type, request_type or "Talep")
+        request_status = str(req_item.get("status", "pending") or "pending")
+        status_label = "Bekliyor" if request_status == "pending" else "Tamamlandı" if request_status == "completed" else request_status
+        status_class = "pending" if request_status == "pending" else "completed" if request_status == "completed" else "neutral"
+        email = str(req_item.get("user_email", "") or "")
+        when = _manual_request_time_text(req_item.get("created_at") or req_item.get("updated_at"))
+        preview = _manual_request_preview(req_item)
+
+        row_cols = st.columns([0.16, 0.72, 0.12])
+        with row_cols[0]:
+            st.markdown(
+                f"""
+                <div class="kp-admin-request-mini-meta">
+                    <span class="kp-admin-request-number">#{idx}</span>
+                    <span class="kp-admin-request-status {html_escape(status_class)}">{html_escape(status_label)}</span>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+        with row_cols[1]:
+            st.markdown(
+                f"""
+                <div class="kp-admin-request-row{' active' if current_selected == request_id else ''}">
+                    <div class="kp-admin-request-title">{html_escape(str(request_title))}</div>
+                    <div class="kp-admin-request-sub">{html_escape(email)} · {html_escape(when)}</div>
+                    <div class="kp-admin-request-preview">{html_escape(preview)}</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+        with row_cols[2]:
+            if st.button("Detay", key=f"manual_request_detail_{request_id}", use_container_width=True):
+                st.session_state[selected_key] = request_id
+                st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    selected_id = str(st.session_state.get(selected_key, "") or "")
+    if not selected_id:
+        st.info("Bir talep seçtiğinde detay ve yanıt alanı burada açılacak.")
+        return
+
+    matched_requests = [r for r in requests if str(r.get("id", "")) == selected_id]
+    if not matched_requests:
+        st.session_state.pop(selected_key, None)
+        st.warning("Seçilen talep bulunamadı. Listeyi yenileyip tekrar seç.")
+        return
+
+    req = matched_requests[0]
+    request_type = str(req.get("request_type", "") or "")
+    request_title = MANUAL_REQUEST_TYPES.get(request_type, request_type or "Talep")
 
     st.divider()
-    response_text = st.text_area("Kullanıcıya gönderilecek yorum", height=240, key=f"response_{request_id}")
-    response_image_file = st.file_uploader("Opsiyonel yanıt görseli", type=["png", "jpg", "jpeg", "webp"], key=f"response_image_{request_id}")
-    if st.button("Yanıtı kullanıcının gelen kutusuna gönder", key=f"send_response_{request_id}"):
+    st.markdown(f"#### Talep Detayı: {request_title}")
+    st.caption(f"Kullanıcı: {req.get('user_email')} | Durum: {req.get('status')} | Talep ID: {selected_id}")
+    render_request_payload(req.get("payload", {}) or {})
+
+    response = req.get("response", {}) or {}
+    if response.get("text"):
+        st.success("Bu talep daha önce yanıtlandı.")
+        with st.expander("Gönderilen yanıtı görüntüle", expanded=False):
+            st.write(response.get("text", ""))
+            show_data_image(response.get("image"))
+
+    st.divider()
+    response_text = st.text_area("Kullanıcıya gönderilecek yorum", height=240, key=f"response_{selected_id}")
+    response_image_file = st.file_uploader("Opsiyonel yanıt görseli", type=["png", "jpg", "jpeg", "webp"], key=f"response_image_{selected_id}")
+    if st.button("Yanıtı kullanıcının gelen kutusuna gönder", key=f"send_response_{selected_id}", use_container_width=True):
         if not response_text.strip():
             st.warning("Yanıt metni boş olamaz.")
             return
         response_image = image_to_data_url(response_image_file, max_side=900, quality=72) if response_image_file else None
-        send_manual_response(request_id, response_text, user, response_image=response_image)
+        send_manual_response(selected_id, response_text, user, response_image=response_image)
+        st.session_state.pop(selected_key, None)
         st.success("Yanıt gönderildi ve talep tamamlandı.")
         st.rerun()
 
