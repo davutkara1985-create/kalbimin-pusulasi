@@ -50,6 +50,7 @@ from services.db import (
     get_or_create_user,
     get_public_settings,
     get_usage,
+    get_unread_inbox_count,
     list_inbox,
     list_manual_requests,
     list_users,
@@ -504,22 +505,57 @@ def render_top_account(user: Dict[str, Any]) -> None:
     if not user or user.get("is_guest"):
         return
     display_name = str(user.get("display_name") or user.get("email", "Kullanıcı").split("@")[0]).strip()
-    token = _query_get(AUTH_QUERY_KEY)
-    if not read_auth_token(token):
-        token = create_auth_token(user.get("email", "")) if user.get("email") else ""
+    token = _auth_token_for_user(user)
     params = {PAGE_QUERY_KEY: "account"}
     if token:
         params[AUTH_QUERY_KEY] = token
     account_href = "?" + urlencode(params)
+    unread = unread_inbox_count(user)
+    badge_html = f'<span class="kp-top-account-badge">{unread}</span>' if unread > 0 else ""
     st.markdown(
         f"""
         <div class="kp-top-account-floating">
             <span class="kp-top-account-name">{html_escape(display_name)}</span>
-            <a class="kp-top-account-link" href="{html_escape(account_href, quote=True)}" target="_self">Hesabım</a>
+            <a class="kp-top-account-link" href="{html_escape(account_href, quote=True)}" target="_self">Hesabım{badge_html}</a>
         </div>
         """,
         unsafe_allow_html=True,
     )
+
+
+def unread_inbox_count(user: Optional[Dict[str, Any]]) -> int:
+    if not user or user.get("is_guest"):
+        return 0
+    try:
+        return int(get_unread_inbox_count(user, limit=20))
+    except Exception:
+        return 0
+
+
+def render_user_message_notification(user: Dict[str, Any], current_page: str) -> None:
+    count = unread_inbox_count(user)
+    if count <= 0 or current_page in {"account", "inbox", "admin"}:
+        return
+
+    toast_key = f"kp_unread_toast_seen_{count}"
+    if not st.session_state.get(toast_key):
+        st.session_state[toast_key] = True
+        try:
+            st.toast(f"Yeni admin mesajın var: {count}", icon="🔔")
+        except Exception:
+            pass
+
+    inbox_href = html_escape(_nav_href("inbox", user), quote=True)
+    st.markdown(
+        f"""
+        <a class="kp-message-notice" href="{inbox_href}" target="_self">
+            <span class="kp-message-notice-dot">🔔</span>
+            <span><strong>{count} yeni admin mesajın var.</strong> Görmek için dokun.</span>
+        </a>
+        """,
+        unsafe_allow_html=True,
+    )
+
 
 
 def module_meta(module_key: str, module_settings: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
@@ -2354,6 +2390,43 @@ def page_content(content_type: str, module_key: str, module_settings: Dict[str, 
     item = options[selected_label]
     render_styled_content_item(item)
 
+def render_inbox_message_list(user: Dict[str, Any], context_key: str = "inbox") -> None:
+    items = list_inbox(user)
+    if not items:
+        st.info("Henüz gelen kutunda mesaj yok.")
+        return
+
+    for idx, item in enumerate(items, start=1):
+        title = str(item.get("title") or "Admin mesajı")
+        message = str(item.get("message") or "")
+        status = "Okunmadı" if not item.get("read") else "Okundu"
+        preview = message.strip().replace("\n", " ")[:90]
+        label = f"{'🔔' if not item.get('read') else '✓'} {title} · {status}"
+        with st.expander(label, expanded=False):
+            st.caption(f"Mesaj #{idx} · {status}")
+            if preview:
+                suffix = "..." if len(message) > 90 else ""
+                st.markdown(
+                    f"<div class='kp-inbox-preview'>{html_escape(preview)}{suffix}</div>",
+                    unsafe_allow_html=True,
+                )
+            st.markdown(
+                f"""
+                <div class="kp-inbox-card kp-inbox-card-detail">
+                    <span class="kp-tag">{html_escape(status)}</span>
+                    <h3>{html_escape(title)}</h3>
+                    <p>{html_escape(message)}</p>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+            show_data_image(item.get("image"))
+            if not item.get("read") and st.button("Okundu olarak işaretle", key=f"{context_key}_read_{item['id']}"):
+                mark_inbox_read(user, item["id"])
+                st.rerun()
+
+
+
 def page_account(user: Dict[str, Any]) -> None:
     if not require_account(user):
         return
@@ -2392,26 +2465,7 @@ def page_account(user: Dict[str, Any]) -> None:
 
     st.divider()
     st.markdown("### Gelen Kutusu")
-    items = list_inbox(user)
-    if not items:
-        st.info("Henüz gelen kutunda mesaj yok.")
-    else:
-        for item in items:
-            status = "Okunmadı" if not item.get("read") else "Okundu"
-            st.markdown(
-                f"""
-                <div class="kp-inbox-card">
-                    <span class="kp-tag">{status}</span>
-                    <h3>{item.get('title', 'Yanıt')}</h3>
-                    <p>{item.get('message', '')}</p>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-            show_data_image(item.get("image"))
-            if not item.get("read") and st.button("Okundu olarak işaretle", key=f"account_read_{item['id']}"):
-                mark_inbox_read(user, item["id"])
-                st.rerun()
+    render_inbox_message_list(user, context_key="account")
 
     st.divider()
     if st.button("Çıkış yap", key="account_logout_btn", use_container_width=True):
@@ -2422,27 +2476,8 @@ def page_account(user: Dict[str, Any]) -> None:
 def page_inbox(user: Dict[str, Any]) -> None:
     if not require_account(user):
         return
-    render_section_header("Gelen Kutusu", "Kalbinizin sesi ve kaderinizin pusulası size buradan sesleniyor", kicker="Hesabım")
-    items = list_inbox(user)
-    if not items:
-        st.info("Henüz gelen kutunda mesaj yok.")
-        return
-    for item in items:
-        status = "Okunmadı" if not item.get("read") else "Okundu"
-        st.markdown(
-            f"""
-            <div class="kp-inbox-card">
-                <span class="kp-tag">{status}</span>
-                <h3>{item.get('title', 'Yanıt')}</h3>
-                <p>{item.get('message', '')}</p>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-        show_data_image(item.get("image"))
-        if not item.get("read") and st.button("Okundu olarak işaretle", key=f"read_{item['id']}"):
-            mark_inbox_read(user, item["id"])
-            st.rerun()
+    render_section_header("Gelen Kutusu", "Admin yanıtları ve özel mesajlar burada listelenir.", kicker="Hesabım")
+    render_inbox_message_list(user, context_key="inbox")
 
 
 def admin_overview() -> None:
@@ -2835,18 +2870,25 @@ def admin_users() -> None:
     if not users:
         st.info("Kullanıcı bulunamadı.")
         return
+
+    st.caption(f"Toplam gösterilen kullanıcı: {len(users)}")
+    st.markdown('<div class="kp-admin-user-list">', unsafe_allow_html=True)
     for u in users:
+        role = html_escape(str(u.get('role', 'user')))
+        name = html_escape(str(u.get('display_name', '') or u.get('email', '').split('@')[0]))
+        email = html_escape(str(u.get('email', '')))
+        plan = html_escape(str(u.get('plan', 'free')))
         st.markdown(
             f"""
-            <div class="kp-admin-card">
-                <span class="kp-tag">{u.get('role', 'user')}</span>
-                <h3>{u.get('display_name', '')}</h3>
-                <p>{u.get('email', '')}</p>
-                <p>Plan: {u.get('plan', 'free')}</p>
+            <div class="kp-admin-user-row">
+                <span class="kp-admin-user-role">{role}</span>
+                <span class="kp-admin-user-main"><strong>{name}</strong><small>{email}</small></span>
+                <span class="kp-admin-user-plan">{plan}</span>
             </div>
             """,
             unsafe_allow_html=True,
         )
+    st.markdown('</div>', unsafe_allow_html=True)
 
 
 def page_admin(user: Dict[str, Any], prompts: Dict[str, str], module_settings: Dict[str, Dict[str, Any]]) -> None:
@@ -2949,6 +2991,7 @@ def main() -> None:
     page = navigation(user, module_settings)
     persist_auth_query(user, page)
     apply_page_background(page)
+    render_user_message_notification(user, page)
     render_page(page, user, prompts, module_settings)
     render_footer()
 
