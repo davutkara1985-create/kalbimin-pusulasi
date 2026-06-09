@@ -1561,12 +1561,166 @@ def _content_bool(item: Dict[str, Any], key: str, default: bool = False) -> bool
     return bool(value)
 
 
+def _safe_css_font_family(value: str) -> str:
+    # Admin panelindeki yazı tipi seçimi CSS içine güvenli şekilde yerleşsin.
+    # Bu alan artık kullanıcı ekranında da aynen uygulanır.
+    safe = re.sub(r"[^A-Za-z0-9ığüşöçİĞÜŞÖÇ ,_\-\'\"]", "", str(value or "")).strip()
+    return safe[:140] or "Inter, system-ui, sans-serif"
+
+
+def _estimate_content_html_height(item: Dict[str, Any], has_image: bool = False) -> int:
+    body = str(item.get("body", "") or "")
+    # components.html iframe yüksekliği sabit ister. İçerik uzunluğuna göre yeterli alan bırakıyoruz.
+    line_count = max(1, body.count("\n") + 1)
+    char_height = int(len(body) / 3.1)
+    line_height = line_count * 18
+    image_height = 210 if has_image else 0
+    return max(360, min(2600, 290 + char_height + line_height + image_height))
+
+
+def _render_content_html_document(content_html: str, height: int) -> None:
+    # Streamlit Markdown bazen HTML'i düz metin gibi gösterebildiği için içerik kartlarını
+    # iframe içinde gerçek HTML olarak render ediyoruz. Böylece <div class=...> kullanıcıya görünmez.
+    html_doc = f"""
+    <!doctype html>
+    <html lang="tr">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;500;600;700&family=Cormorant+Garamond:wght@500;600;700&family=Dancing+Script:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800;900&family=Patrick+Hand&display=swap" rel="stylesheet">
+        <style>
+            :root {{
+                --kp-gold: #d9b76e;
+                --kp-gold-2: #fff1b8;
+                --kp-text: #fff8e8;
+                --kp-muted: rgba(242, 226, 202, 0.72);
+            }}
+            html, body {{
+                margin: 0;
+                padding: 0;
+                background: transparent;
+                color: var(--kp-text);
+                overflow: hidden;
+                font-family: Inter, system-ui, sans-serif;
+            }}
+            .kp-written-template {{
+                box-sizing: border-box;
+                width: 100%;
+                padding: 22px;
+                border-radius: 26px;
+                border: 1px solid rgba(255,241,184,0.24);
+                background: linear-gradient(145deg, rgba(255,255,255,0.12), rgba(255,255,255,0.04)), rgba(12,15,44,0.74);
+                box-shadow: 0 22px 52px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.11);
+                margin: 0;
+                color: var(--kp-text);
+                line-height: 1.72;
+                overflow: hidden;
+                position: relative;
+                isolation: isolate;
+            }}
+            .kp-written-template::before {{
+                content: "";
+                position: absolute;
+                inset: 0;
+                pointer-events: none;
+                background:
+                    radial-gradient(circle at 14% 12%, rgba(255,241,184,0.13), transparent 30%),
+                    radial-gradient(circle at 86% 88%, rgba(123,75,214,0.14), transparent 32%);
+                z-index: -1;
+            }}
+            .kp-written-text {{ position: relative; z-index: 1; }}
+            .kp-tag {{
+                display: inline-flex;
+                align-items: center;
+                margin: 0 0 10px;
+                padding: 5px 10px;
+                border-radius: 999px;
+                color: var(--kp-gold-2);
+                background: rgba(217,183,110,0.12);
+                border: 1px solid rgba(255,241,184,0.18);
+                font-size: 0.76rem;
+                font-weight: 900;
+            }}
+            .kp-written-title {{
+                color: var(--kp-gold-2);
+                line-height: 1.05;
+                margin: 8px 0 14px;
+                text-shadow: 0 12px 28px rgba(0,0,0,0.32), 0 0 20px rgba(217,183,110,0.10);
+            }}
+            .kp-written-body {{
+                color: rgba(255,248,232,0.93);
+                line-height: 1.72;
+            }}
+            .kp-written-body p {{
+                margin: 0 0 0.88rem;
+                color: inherit;
+                line-height: inherit;
+                font: inherit;
+            }}
+            .kp-written-subhead {{
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                margin: 0.82rem 0 0.32rem;
+                padding: 4px 9px;
+                border-radius: 999px;
+                color: var(--kp-gold-2);
+                background: rgba(217,183,110,0.12);
+                border: 1px solid rgba(255,241,184,0.18);
+                font-size: 0.74em;
+                font-weight: 900;
+                letter-spacing: 0.12em;
+                text-transform: uppercase;
+                clear: none;
+            }}
+            .kp-written-image {{
+                width: min(var(--kp-written-image-width, 220px), 44vw);
+                margin: 0;
+                padding: 0;
+            }}
+            .kp-written-image img {{
+                display: block;
+                width: 100%;
+                height: auto;
+                border-radius: 18px;
+                border: 1px solid rgba(255,241,184,0.24);
+                box-shadow: 0 18px 40px rgba(0,0,0,0.34), inset 0 1px 0 rgba(255,255,255,0.12);
+                background: rgba(255,255,255,0.04);
+            }}
+            .kp-image-float-left {{ float: left; margin: 0.22rem 1.08rem 0.72rem 0; }}
+            .kp-image-float-right {{ float: right; margin: 0.22rem 0 0.72rem 1.08rem; }}
+            .kp-image-center {{
+                width: min(var(--kp-written-image-width, 260px), 88%);
+                margin: 0.35rem auto 1rem;
+            }}
+            .kp-written-clear {{ clear: both; }}
+            @media (max-width: 620px) {{
+                .kp-written-template {{ padding: 18px; }}
+                .kp-written-image,
+                .kp-image-float-left,
+                .kp-image-float-right,
+                .kp-image-center {{
+                    float: none !important;
+                    width: min(var(--kp-written-image-width, 240px), 94%) !important;
+                    margin: 0 auto 1rem !important;
+                }}
+            }}
+        </style>
+    </head>
+    <body>{content_html}</body>
+    </html>
+    """
+    components.html(html_doc, height=int(height), scrolling=False)
+
+
 def render_styled_content_item(item: Dict[str, Any]) -> None:
     from html import escape as html_escape
 
     template = str(item.get("template", "mistik_kart") or "mistik_kart")
     layout = str(item.get("image_layout", "image_left_wrap") or "image_left_wrap")
-    font_family = str(item.get("font_family", "Inter, system-ui, sans-serif") or "Inter, system-ui, sans-serif")
+    font_family = _safe_css_font_family(str(item.get("font_family", "Inter, system-ui, sans-serif") or "Inter, system-ui, sans-serif"))
     font_size = int(item.get("font_size", 16) or 16)
     title_size = int(item.get("title_size", 28) or 28)
     image_width = int(item.get("image_width", 220) or 220)
@@ -1616,29 +1770,27 @@ def render_styled_content_item(item: Dict[str, Any]) -> None:
             image_class = " image-top"
             after_header = image_html.replace('class="kp-written-image"', 'class="kp-written-image kp-image-center"')
 
-    st.markdown(
-        f'''
-        <div class="kp-written-template kp-template-{html_escape(template, quote=True)}{image_class}"
-             style="font-family:{font_family}; font-size:{font_size}px;">
-            {before_header}
-            <div class="kp-written-text">
-                {category_html}
-                <div class="kp-written-title"
-                     style="font-family:{font_family}; font-size:{title_size}px; font-weight:{title_weight}; font-style:{title_style}; text-decoration:{title_decoration};">
-                    {title}
-                </div>
-                {after_header}
-                <div class="kp-written-body"
-                     style="font-family:{font_family}; font-size:{font_size}px; font-weight:{body_weight}; font-style:{body_style}; text-decoration:{body_decoration};">
-                    {body_html}
-                </div>
-                {after_body}
+    content_html = f"""
+    <div class="kp-written-template kp-template-{html_escape(template, quote=True)}{image_class}"
+         style="font-family:{font_family}; font-size:{font_size}px;">
+        {before_header}
+        <div class="kp-written-text">
+            {category_html}
+            <div class="kp-written-title"
+                 style="font-family:{font_family}; font-size:{title_size}px; font-weight:{title_weight}; font-style:{title_style}; text-decoration:{title_decoration};">
+                {title}
             </div>
-            <div class="kp-written-clear"></div>
+            {after_header}
+            <div class="kp-written-body"
+                 style="font-family:{font_family}; font-size:{font_size}px; font-weight:{body_weight}; font-style:{body_style}; text-decoration:{body_decoration};">
+                {body_html}
+            </div>
+            {after_body}
         </div>
-        ''',
-        unsafe_allow_html=True,
-    )
+        <div class="kp-written-clear"></div>
+    </div>
+    """
+    _render_content_html_document(content_html, _estimate_content_html_height(item, has_image=bool(image_html)))
 
 
 def _svg_data_uri(svg: str) -> str:
