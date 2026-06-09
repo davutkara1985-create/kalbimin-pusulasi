@@ -456,15 +456,29 @@ def _default_items(content_type: str) -> List[Dict[str, Any]]:
 def get_content_items(content_type: str, include_inactive: bool = False) -> List[Dict[str, Any]]:
     db = get_firestore_client()
     docs = list(db.collection("content_items").where("type", "==", content_type).stream())
-    items: List[Dict[str, Any]] = []
+
+    stored_items: List[Dict[str, Any]] = []
+    active_items: List[Dict[str, Any]] = []
     for doc in docs:
         data = doc.to_dict() or {}
         data["id"] = doc.id
-        if include_inactive or data.get("active", True):
-            items.append(data)
-    if not items and not include_inactive:
+        stored_items.append(data)
+        if data.get("active", True):
+            active_items.append(data)
+
+    # Kullanıcı tarafında Firestore'da aktif içerik yoksa katalogdaki varsayılan
+    # meditasyon/ritüel içerikleri gösterilir. Admin paneli include_inactive=True
+    # ile çağırdığı için bu varsayılan içerikleri de listede göstermeliyiz; aksi halde
+    # kullanıcıda görünen 2 varsayılan meditasyon admin panelinde kayıp görünür.
+    if include_inactive:
+        items = list(stored_items)
+        if not active_items:
+            items = _default_items(content_type) + items
+        return sorted(items, key=lambda x: str(x.get("created_at", "")), reverse=True)
+
+    if not active_items:
         return _default_items(content_type)
-    return sorted(items, key=lambda x: str(x.get("created_at", "")), reverse=True)
+    return sorted(active_items, key=lambda x: str(x.get("created_at", "")), reverse=True)
 
 
 CONTENT_ITEM_ALLOWED_FIELDS = {
