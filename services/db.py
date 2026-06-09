@@ -474,6 +474,7 @@ CONTENT_ITEM_ALLOWED_FIELDS = {
     "active",
     "image",
     "template",
+    "image_layout",
     "font_family",
     "font_size",
     "title_size",
