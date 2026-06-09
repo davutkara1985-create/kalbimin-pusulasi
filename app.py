@@ -353,16 +353,33 @@ def read_auth_token(token: str) -> Optional[str]:
         return None
 
 
-def persist_auth_query(user: Dict[str, Any], page: str = "home") -> None:
-    remember_me = bool(st.session_state.get("remember_me", False))
-    existing_token_email = read_auth_token(_query_get(AUTH_QUERY_KEY))
+def _auth_token_days_for_session() -> int:
+    # HTML menü bağlantıları sayfayı URL ile yenilediği için, menü geçişlerinde
+    # oturumun düşmemesi adına giriş yapan kullanıcıya her zaman imzalı kısa token verilir.
+    # Beni hatırla açıksa uzun süreli, kapalıysa yalnızca kısa süreli gezinme tokenı kullanılır.
+    return 30 if bool(st.session_state.get("remember_me", False)) else 1
 
-    if user and not user.get("is_guest") and user.get("email") and (remember_me or existing_token_email):
-        token = _query_get(AUTH_QUERY_KEY)
-        if not read_auth_token(token):
-            token = create_auth_token(user["email"])
-        _query_set(AUTH_QUERY_KEY, token)
-    elif not remember_me:
+
+def _token_email(token: str) -> str:
+    return normalize_email(read_auth_token(token) or "")
+
+
+def _auth_token_for_user(user: Optional[Dict[str, Any]]) -> str:
+    if not user or user.get("is_guest") or not user.get("email"):
+        return ""
+    email = normalize_email(str(user.get("email", "")))
+    current_token = _query_get(AUTH_QUERY_KEY)
+    if _token_email(current_token) == email:
+        return current_token
+    return create_auth_token(email, days=_auth_token_days_for_session())
+
+
+def persist_auth_query(user: Dict[str, Any], page: str = "home") -> None:
+    if user and not user.get("is_guest") and user.get("email"):
+        token = _auth_token_for_user(user)
+        if token:
+            _query_set(AUTH_QUERY_KEY, token)
+    else:
         _query_delete(AUTH_QUERY_KEY)
 
     if page:
@@ -376,7 +393,8 @@ def restore_auth_from_query() -> Optional[Dict[str, Any]]:
     try:
         user = get_or_create_user(email)
         st.session_state["auth_user"] = user
-        st.session_state["remember_me"] = True
+        # Token üzerinden geri dönüşte mevcut seçim korunur; yoksa güvenli şekilde aktif kabul edilir.
+        st.session_state.setdefault("remember_me", True)
         return user
     except Exception:
         return None
@@ -577,9 +595,9 @@ def sidebar_group_icon_html(group_title: str, fallback_icon: str) -> str:
 
 
 
-def _nav_href(page_key: str) -> str:
+def _nav_href(page_key: str, user: Optional[Dict[str, Any]] = None) -> str:
     params = {PAGE_QUERY_KEY: page_key}
-    token = _query_get(AUTH_QUERY_KEY)
+    token = _auth_token_for_user(user) or _query_get(AUTH_QUERY_KEY)
     if read_auth_token(token):
         params[AUTH_QUERY_KEY] = token
     return "?" + urlencode(params)
@@ -597,7 +615,7 @@ def render_mobile_navigation(user: Dict[str, Any], module_settings: Dict[str, Di
     for page_key, label, icon in items:
         icon_rendered = sidebar_icon_html(page_key, icon)
         active_class = " active" if current_page == page_key else ""
-        href = html_escape(_nav_href(page_key), quote=True)
+        href = html_escape(_nav_href(page_key, user), quote=True)
         links.append(
             f'<a class="kp-mobile-menu-link{active_class}" href="{href}" target="_self">'
             f'<span class="kp-mobile-menu-icon">{icon_rendered}</span><span>{html_escape(label)}</span></a>'
@@ -645,7 +663,7 @@ def navigation(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]])
                     unsafe_allow_html=True,
                 )
             else:
-                href = html_escape(_nav_href(page_key), quote=True)
+                href = html_escape(_nav_href(page_key, user), quote=True)
                 st.sidebar.markdown(
                     f"""
                     <a class="kp-side-nav-item kp-side-nav-link" href="{href}" target="_self">
