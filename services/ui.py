@@ -790,6 +790,99 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
             line-height: 1.52;
             text-shadow: 0 8px 22px rgba(0,0,0,0.30);
         }}
+        .kp-auth-head {{
+            margin: 12px auto 18px;
+            padding: 0;
+            max-width: 430px;
+            text-align: center;
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            backdrop-filter: none !important;
+            animation: kpFadeUp 0.55s ease both;
+        }}
+        .kp-auth-moon {{
+            width: 46px;
+            height: 46px;
+            margin: 0 auto 8px;
+            border-radius: 50%;
+            display: grid;
+            place-items: center;
+            color: var(--kp-gold-2);
+            font-family: var(--kp-font-serif);
+            font-size: 1.55rem;
+            background: radial-gradient(circle at 35% 28%, rgba(255,241,184,0.44), rgba(123,75,214,0.30) 48%, rgba(9,15,47,0.18));
+            border: 1px solid rgba(255,241,184,0.28);
+            box-shadow: 0 0 24px rgba(217,183,110,0.18), inset 0 1px 0 rgba(255,255,255,0.16);
+        }}
+        .kp-auth-title {{
+            font-family: var(--kp-font-serif);
+            color: var(--kp-text);
+            font-size: 1.84rem;
+            font-weight: 800;
+            line-height: 1.02;
+            text-align: center;
+            text-shadow: 0 12px 30px rgba(0,0,0,0.34), 0 0 22px rgba(217,183,110,0.12);
+            margin: 0;
+        }}
+        .kp-auth-subtitle {{
+            margin-top: 5px;
+            color: var(--kp-gold-2);
+            font-size: 0.92rem;
+            line-height: 1.35;
+            font-weight: 850;
+            letter-spacing: 0.02em;
+            text-align: center;
+            text-shadow: 0 10px 24px rgba(0,0,0,0.28);
+        }}
+        .kp-auth-note {{
+            margin: 5px auto 0;
+            max-width: 360px;
+            color: rgba(242,226,202,0.74);
+            font-size: 0.76rem;
+            line-height: 1.45;
+            text-align: center;
+            text-shadow: 0 10px 24px rgba(0,0,0,0.28);
+        }}
+        body:has(.kp-auth-head) [data-testid="stAppViewContainer"] .block-container {{
+            max-width: 620px !important;
+        }}
+        body:has(.kp-auth-head) .stTextInput,
+        body:has(.kp-auth-head) .stTextArea,
+        body:has(.kp-auth-head) .stButton,
+        body:has(.kp-auth-head) .streamlit-expanderHeader,
+        body:has(.kp-auth-head) [data-testid="stExpander"] {{
+            max-width: 360px !important;
+            margin-left: auto !important;
+            margin-right: auto !important;
+        }}
+        body:has(.kp-auth-head) .stTextInput label {{
+            font-size: 0.72rem !important;
+            margin-bottom: 0.18rem !important;
+        }}
+        body:has(.kp-auth-head) .stTextInput input {{
+            min-height: 34px !important;
+            height: 34px !important;
+            border-radius: 14px !important;
+            padding: 0.34rem 0.78rem !important;
+            font-size: 0.76rem !important;
+        }}
+        body:has(.kp-auth-head) .stTextInput div[data-baseweb="input"] {{
+            min-height: 34px !important;
+        }}
+        body:has(.kp-auth-head) div.stButton > button {{
+            min-height: 32px !important;
+            max-width: 170px !important;
+            margin-left: auto !important;
+            margin-right: auto !important;
+            padding: 0.34rem 0.82rem !important;
+            font-size: 0.74rem !important;
+            display: flex !important;
+            justify-content: center !important;
+        }}
+        body:has(.kp-auth-head) [data-testid="stExpander"] {{
+            font-size: 0.74rem !important;
+        }}
         .kp-page-top-spacer {{ height: 10px; }}
         .kp-bottom-back-home {{ margin: 24px 0 8px; }}
         .kp-bottom-back-home div.stButton > button {{ max-width: 220px !important; }}
@@ -1607,10 +1700,9 @@ def render_footer() -> None:
         """
         <div class="kp-footer">
             <div class="kp-footer-disclaimer">
-                Bu uygulama eğlence, kişisel farkındalık ve duygusal paylaşım amacı taşır.
-                Terapi, psikolojik danışmanlık, tıbbi teşhis veya kesin gelecek tahmini sunmaz.
+                Bu uygulama eğlence, kişisel farkındalık ve duygusal paylaşım amacı taşır. Terapi, psikolojik danışmanlık,
+                tıbbi teşhis veya kesin gelecek tahmini sunmaz.
             </div>
-            <div>· Kalbimin Pusulası · Eğlence ve farkındalık amaçlıdır ·</div>
         </div>
         """,
         unsafe_allow_html=True,
