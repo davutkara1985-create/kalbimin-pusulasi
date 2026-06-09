@@ -83,6 +83,7 @@ from services.ui import (
     render_upgrade_prompt,
     render_sidebar_brand,
     render_content_visual,
+    module_icon_html,
 )
 
 
@@ -562,6 +563,29 @@ def reset_navigation_to_home() -> None:
     _query_set(PAGE_QUERY_KEY, "home")
 
 
+
+MENU_GROUP_ICON_MODULES = {
+    "Romantik Fal": "tarot",
+    "Astroloji": "zodiac",
+    "Aşk & İlişki": "relationship",
+    "Ruhsal Çözümler": "meditation",
+    "Yönetim": "admin",
+}
+
+
+def sidebar_icon_html(page_key: str, fallback_icon: str) -> str:
+    if page_key in MODULES:
+        return module_icon_html(page_key, fallback_icon)
+    return html_escape(str(fallback_icon))
+
+
+def sidebar_group_icon_html(group_title: str, fallback_icon: str) -> str:
+    module_key = MENU_GROUP_ICON_MODULES.get(group_title, "")
+    if module_key in MODULES:
+        return module_icon_html(module_key, fallback_icon)
+    return html_escape(str(fallback_icon))
+
+
 def navigation(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]]) -> str:
     valid_pages = valid_pages_for(user, module_settings)
     if "current_page" not in st.session_state:
@@ -574,26 +598,37 @@ def navigation(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]])
     st.sidebar.markdown("<div class='kp-sidebar-menu-title'>Menü</div>", unsafe_allow_html=True)
     current_page = st.session_state.get("current_page", "home")
     for group_title, group_icon, items in build_menu_groups(user, module_settings):
+        group_icon_rendered = sidebar_group_icon_html(group_title, group_icon)
         st.sidebar.markdown(
             f"""
             <div class="kp-sidebar-section-title">
-                <span>{group_icon}</span><span>{group_title}</span>
+                <span class="kp-sidebar-section-icon">{group_icon_rendered}</span><span>{html_escape(group_title)}</span>
             </div>
             """,
             unsafe_allow_html=True,
         )
         for page_key, label, icon in items:
+            icon_rendered = sidebar_icon_html(page_key, icon)
+            label_html = html_escape(label)
             if current_page == page_key:
                 st.sidebar.markdown(
                     f"""
                     <div class="kp-side-nav-item active">
-                        <span class="kp-side-nav-icon">{icon}</span><span>{label}</span>
+                        <span class="kp-side-nav-icon">{icon_rendered}</span><span>{label_html}</span>
                     </div>
                     """,
                     unsafe_allow_html=True,
                 )
             else:
-                if st.sidebar.button(f"{icon}  {label}", key=f"nav_btn_{page_key}", use_container_width=True):
+                st.sidebar.markdown(
+                    f"""
+                    <div class="kp-side-nav-clickrow">
+                        <span class="kp-side-nav-icon">{icon_rendered}</span><span>{label_html}</span>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+                if st.sidebar.button(label, key=f"nav_btn_{page_key}", use_container_width=True):
                     go_to_page(page_key, user, module_settings)
                     st.rerun()
     return st.session_state.get("current_page", "home")
