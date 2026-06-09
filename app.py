@@ -91,7 +91,7 @@ st.set_page_config(
     page_title=APP_NAME,
     page_icon="🔮",
     layout="centered",
-    initial_sidebar_state="auto",
+    initial_sidebar_state="expanded",
     menu_items={"Get help": None, "Report a bug": None, "About": None},
 )
 
@@ -371,11 +371,17 @@ def read_auth_token(token: str) -> Optional[str]:
 
 
 def persist_auth_query(user: Dict[str, Any], page: str = "home") -> None:
-    if user and not user.get("is_guest") and user.get("email"):
+    remember_me = bool(st.session_state.get("remember_me", False))
+    existing_token_email = read_auth_token(_query_get(AUTH_QUERY_KEY))
+
+    if user and not user.get("is_guest") and user.get("email") and (remember_me or existing_token_email):
         token = _query_get(AUTH_QUERY_KEY)
         if not read_auth_token(token):
             token = create_auth_token(user["email"])
         _query_set(AUTH_QUERY_KEY, token)
+    elif not remember_me:
+        _query_delete(AUTH_QUERY_KEY)
+
     if page:
         _query_set(PAGE_QUERY_KEY, page)
 
@@ -387,13 +393,14 @@ def restore_auth_from_query() -> Optional[Dict[str, Any]]:
     try:
         user = get_or_create_user(email)
         st.session_state["auth_user"] = user
+        st.session_state["remember_me"] = True
         return user
     except Exception:
         return None
 
 
 def logout() -> None:
-    for key in ["auth_user", "current_page", "active_email"]:
+    for key in ["auth_user", "current_page", "active_email", "remember_me"]:
         st.session_state.pop(key, None)
     _query_delete(AUTH_QUERY_KEY)
     _query_delete(PAGE_QUERY_KEY)
@@ -455,6 +462,7 @@ def render_landing_auth() -> None:
 
     login_email = normalize_email(st.text_input("E-posta", key="login_email", placeholder="ornek@mail.com"))
     login_password = st.text_input("Şifre", type="password", key="login_password")
+    remember_me = st.checkbox("Beni hatırla", value=False, key="login_remember_me")
 
     if st.button("Giriş yap", key="login_btn", use_container_width=True):
         try:
@@ -462,6 +470,7 @@ def render_landing_auth() -> None:
             if ok and auth_user:
                 st.session_state["auth_user"] = auth_user
                 st.session_state["current_page"] = "home"
+                st.session_state["remember_me"] = bool(remember_me)
                 persist_auth_query(auth_user, "home")
                 st.success(msg)
                 st.rerun()
@@ -480,6 +489,7 @@ def render_landing_auth() -> None:
                 if ok and auth_user:
                     st.session_state["auth_user"] = auth_user
                     st.session_state["current_page"] = "home"
+                    st.session_state["remember_me"] = False
                     persist_auth_query(auth_user, "home")
                     st.success(msg)
                     st.rerun()
@@ -523,20 +533,17 @@ def module_active(module_key: str, module_settings: Dict[str, Dict[str, Any]]) -
 
 
 def build_menu_groups(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]]) -> List[tuple]:
-    groups = []
-    for group_title, group_icon, items in BASE_MENU_GROUPS:
-        visible_items = []
+    # Menü grupları görsel olarak kaldırıldı; sıra korunarak tek liste halinde gösterilir.
+    visible_items = []
+    for _group_title, _group_icon, items in BASE_MENU_GROUPS:
         for page_key, default_label, icon in items:
             if page_key in MODULES and not module_active(page_key, module_settings):
                 continue
-            # Menüde istenen sabit isim ve sıra korunur; sayfa içi başlıklar admin ayarlarından gelmeye devam eder.
             visible_items.append((page_key, default_label, icon))
-        if visible_items:
-            groups.append((group_title, group_icon, visible_items))
 
     if is_admin(user):
-        groups.append(("Yönetim", "⚙", [("admin", "Admin Paneli", "⚙")]))
-    return groups
+        visible_items.append(("admin", "Admin Paneli", "⚙"))
+    return [("", "", visible_items)]
 
 
 def valid_pages_for(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]]) -> set[str]:
@@ -586,6 +593,45 @@ def sidebar_group_icon_html(group_title: str, fallback_icon: str) -> str:
     return html_escape(str(fallback_icon))
 
 
+
+def _nav_href(page_key: str) -> str:
+    params = {PAGE_QUERY_KEY: page_key}
+    token = _query_get(AUTH_QUERY_KEY)
+    if read_auth_token(token):
+        params[AUTH_QUERY_KEY] = token
+    return "?" + urlencode(params)
+
+
+def render_mobile_navigation(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]], current_page: str) -> None:
+    # Mobilde Streamlit sidebar bazı cihazlarda gizli kaldığı için aynı menü ana içerikte de görünür.
+    items = []
+    for _group_title, _group_icon, group_items in build_menu_groups(user, module_settings):
+        items.extend(group_items)
+    if not items:
+        return
+
+    links = []
+    for page_key, label, icon in items:
+        icon_rendered = sidebar_icon_html(page_key, icon)
+        active_class = " active" if current_page == page_key else ""
+        href = html_escape(_nav_href(page_key), quote=True)
+        links.append(
+            f'<a class="kp-mobile-menu-link{active_class}" href="{href}" target="_self">'
+            f'<span class="kp-mobile-menu-icon">{icon_rendered}</span><span>{html_escape(label)}</span></a>'
+        )
+
+    links_html = "".join(links)
+    st.markdown(
+        f"""
+        <div class="kp-mobile-menu-panel">
+            <div class="kp-mobile-menu-title">☰ Menü</div>
+            <div class="kp-mobile-menu-list">{links_html}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def navigation(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]]) -> str:
     valid_pages = valid_pages_for(user, module_settings)
     if "current_page" not in st.session_state:
@@ -598,15 +644,16 @@ def navigation(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]])
     st.sidebar.markdown("<div class='kp-sidebar-menu-title'>Menü</div>", unsafe_allow_html=True)
     current_page = st.session_state.get("current_page", "home")
     for group_title, group_icon, items in build_menu_groups(user, module_settings):
-        group_icon_rendered = sidebar_group_icon_html(group_title, group_icon)
-        st.sidebar.markdown(
-            f"""
-            <div class="kp-sidebar-section-title">
-                <span class="kp-sidebar-section-icon">{group_icon_rendered}</span><span>{html_escape(group_title)}</span>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+        if group_title:
+            group_icon_rendered = sidebar_group_icon_html(group_title, group_icon)
+            st.sidebar.markdown(
+                f"""
+                <div class="kp-sidebar-section-title">
+                    <span class="kp-sidebar-section-icon">{group_icon_rendered}</span><span>{html_escape(group_title)}</span>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
         for page_key, label, icon in items:
             icon_rendered = sidebar_icon_html(page_key, icon)
             label_html = html_escape(label)
@@ -631,6 +678,8 @@ def navigation(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]])
                 if st.sidebar.button(label, key=f"nav_btn_{page_key}", use_container_width=True):
                     go_to_page(page_key, user, module_settings)
                     st.rerun()
+
+    render_mobile_navigation(user, module_settings, current_page)
     return st.session_state.get("current_page", "home")
 
 
@@ -672,6 +721,10 @@ def render_email_lead_form(source: str = "landing") -> None:
 
 
 def module_plan_allowed(user: Dict[str, Any], module_key: str, module_settings: Dict[str, Dict[str, Any]]) -> bool:
+    # Kayıtlı kullanıcılara menüdeki her sayfa için günlük 1 kullanım hakkı tanımlandığı için
+    # sayfa açılışı planla engellenmez. Kullanım sınırı sayfa gönderiminde modül bazlı kontrol edilir.
+    if is_logged_in(user):
+        return True
     if is_admin(user):
         return True
     if module_key not in MODULES:
@@ -829,7 +882,7 @@ def run_ai_free(user: Dict[str, Any], module_key: str, payload: Dict[str, Any], 
         st.caption("Admin yetkisi aktif: premium sayfalar ve kullanım limitleri sana kapalı değildir.")
     else:
         try:
-            ok, msg, meta = can_generate(user["email"])
+            ok, msg, meta = can_generate(user["email"], module_key)
         except Exception as exc:
             st.error(f"Kullanım hakkı kontrol edilemedi: {exc}")
             return
@@ -880,7 +933,7 @@ def page_home(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]]) 
         for col, key in zip(cols, visible_keys[start : start + 2]):
             meta = module_meta(key, module_settings)
             required_plan = str(meta.get("min_plan", "free"))
-            locked = (not is_admin(user)) and ((not bool(meta.get("guest_allowed", True)) and user.get("is_guest")) or not plan_allows(user.get("plan", "free"), required_plan))
+            locked = False if is_logged_in(user) else ((not bool(meta.get("guest_allowed", True)) and user.get("is_guest")) or not plan_allows(user.get("plan", "free"), required_plan))
             with col:
                 render_module_card(key, meta, locked=locked)
                 if st.button("Bu bölüme git →", key=f"home_open_{key}", use_container_width=True):
@@ -925,40 +978,11 @@ def birth_time_input(prefix: str, label: str = "Doğum saati") -> str:
 
 
 def birth_place_input(prefix: str) -> str:
-    query_key = f"{prefix}_birth_place_query"
-    selected_key = f"{prefix}_birth_place_selected"
-
-    birth_place_query = st.text_input(
-        "Doğum yeri",
-        key=query_key,
-        placeholder="Şehrin en az 3 harfini yaz...",
-    )
-    clean_query = birth_place_query.strip()
-
-    selected_city = str(st.session_state.get(selected_key, "") or "").strip()
-    if selected_city:
-        st.caption(f"Seçilen şehir: {selected_city}")
-        return selected_city
-
-    if len(clean_query) < 3:
-        st.caption("Şehir listesini görmek için en az 3 harf yaz.")
-        return clean_query
-
-    matches = city_matches(clean_query)
-    if matches:
-        st.caption("Eşleşen şehirler")
-        visible_matches = matches[:12]
-        for row_start in range(0, len(visible_matches), 3):
-            cols = st.columns(3)
-            for col, city in zip(cols, visible_matches[row_start : row_start + 3]):
-                with col:
-                    if st.button(city, key=f"{prefix}_city_match_{normalize_city_text(clean_query)}_{normalize_city_text(city)}", use_container_width=True):
-                        st.session_state[selected_key] = city
-                        st.rerun()
-        return clean_query
-
-    st.caption("Listede eşleşme yoksa şehir adını yazdığın şekilde kullanabilirsin.")
-    return clean_query
+    return st.text_input(
+        "Doğum yeri / şehir",
+        key=f"{prefix}_birth_place_manual",
+        placeholder="Şehrinizi yazınız...",
+    ).strip()
 
 
 def birth_details_form(prefix: str, include_birth_date: bool = False, include_zodiac: bool = True) -> Dict[str, Any]:
@@ -1443,7 +1467,10 @@ def page_birth_chart(user: Dict[str, Any], prompts: Dict[str, str], module_setti
                 "Gezegen konumları, evler, açılar, Ay Düğümleri ve Şiron bilgileri admin tarafından hazırlanıp yorumlanmalıdır."
             ),
         }
+        if not _manual_module_usage_allowed(user, "birth_chart"):
+            return
         request_id = submit_manual_request(user, "birth_chart", payload)
+        _record_manual_module_usage(user, "birth_chart")
         st.success(f"Talebin admin paneline düştü. Talep no: {request_id}")
 
 
@@ -2093,12 +2120,60 @@ def closed_card_deck_selector(deck_key: str, card_pool: List[str], required_coun
     return [deck[i] for i in final_selected]
 
 
+def _reset_deck_selection(deck_key: str) -> None:
+    for suffix in ["closed_deck", "selected_indices", "deck_page"]:
+        st.session_state.pop(f"{deck_key}_{suffix}", None)
+    _clear_old_deck_query_params(deck_key)
+
+
+def _manual_module_usage_allowed(user: Dict[str, Any], module_key: str) -> bool:
+    if is_admin(user):
+        return True
+    try:
+        ok, msg, _meta = can_generate(user["email"], module_key)
+    except Exception as exc:
+        st.error(f"Kullanım hakkı kontrol edilemedi: {exc}")
+        return False
+    if not ok:
+        st.warning(msg)
+        return False
+    return True
+
+
+def _record_manual_module_usage(user: Dict[str, Any], module_key: str) -> None:
+    if not is_admin(user):
+        record_usage(user["email"], module_key)
+
+
+def _manual_cards_ready(deck_key: str, info: Dict[str, Any]) -> bool:
+    ready_key = f"{deck_key}_ready_for_cards"
+    if not bool(st.session_state.get(ready_key, False)):
+        st.info("Önce bilgileri doldurup onayla. Kart seçimi daha sonra açılacak.")
+        if st.button("Bilgileri onayla ve kart seçimine geç", key=f"{deck_key}_start_cards", use_container_width=True):
+            if not validate_personal_info(info):
+                return False
+            st.session_state[ready_key] = True
+            _reset_deck_selection(deck_key)
+            st.rerun()
+        return False
+
+    if st.button("Bilgileri düzenle", key=f"{deck_key}_edit_info", use_container_width=True):
+        st.session_state[ready_key] = False
+        _reset_deck_selection(deck_key)
+        st.rerun()
+    return True
+
+
 def page_manual_tarot(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]]) -> None:
     render_module_intro("tarot", "free", module_meta("tarot", module_settings))
     if not require_account(user):
         return
     info = personal_info_form("tarot", include_zodiac=True)
     question = st.text_area("Tarot için niyetin veya sorun", height=120, key="tarot_question")
+
+    if not _manual_cards_ready("tarot", info):
+        return
+
     cards = closed_card_deck_selector("tarot", TAROT_CARDS, 7, "fire")
     if st.button("Talebimi admin paneline gönder", key="submit_tarot"):
         if not validate_personal_info(info):
@@ -2106,8 +2181,11 @@ def page_manual_tarot(user: Dict[str, Any], module_settings: Dict[str, Dict[str,
         if len(cards) != 7:
             st.warning("Lütfen kapalı desteden 7 tarot kartı seç.")
             return
+        if not _manual_module_usage_allowed(user, "tarot"):
+            return
         payload = {"title": "Tarot Falı", "kişisel_bilgiler": info, "soru": question, "çekilen_kartlar": cards}
         request_id = submit_manual_request(user, "tarot", payload)
+        _record_manual_module_usage(user, "tarot")
         st.success(f"Talebin admin paneline düştü. Talep no: {request_id}")
 
 
@@ -2117,6 +2195,10 @@ def page_manual_katina(user: Dict[str, Any], module_settings: Dict[str, Dict[str
         return
     info = personal_info_form("katina", include_zodiac=True)
     question = st.text_area("Katina için niyetin veya sorun", height=120, key="katina_question")
+
+    if not _manual_cards_ready("katina", info):
+        return
+
     cards = closed_card_deck_selector("katina", KATINA_CARDS, 7, "earth")
     if st.button("Talebimi admin paneline gönder", key="submit_katina"):
         if not validate_personal_info(info):
@@ -2124,8 +2206,11 @@ def page_manual_katina(user: Dict[str, Any], module_settings: Dict[str, Dict[str
         if len(cards) != 7:
             st.warning("Lütfen kapalı desteden 7 katina kartı seç.")
             return
+        if not _manual_module_usage_allowed(user, "katina"):
+            return
         payload = {"title": "Katina Falı", "kişisel_bilgiler": info, "soru": question, "çekilen_kartlar": cards}
         request_id = submit_manual_request(user, "katina", payload)
+        _record_manual_module_usage(user, "katina")
         st.success(f"Talebin admin paneline düştü. Talep no: {request_id}")
 
 
@@ -2211,7 +2296,10 @@ def page_coffee_image(user: Dict[str, Any], module_settings: Dict[str, Dict[str,
             return
         images = [image_to_data_url(file) for file in uploaded_files]
         payload = {"title": "Kahve Falı (Resim Yüklemeli)", "kişisel_bilgiler": info, "niyet": note, "görseller": images}
+        if not _manual_module_usage_allowed(user, "coffee_image"):
+            return
         request_id = submit_manual_request(user, "coffee_image", payload)
+        _record_manual_module_usage(user, "coffee_image")
         st.success(f"Talebin admin paneline düştü. Talep no: {request_id}")
 
 
@@ -2228,7 +2316,10 @@ def page_dream(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]])
             st.warning("Rüyanı metin olarak yazmalısın.")
             return
         payload = {"title": "Rüya Tabirleri", "kişisel_bilgiler": info, "rüya": dream_text}
+        if not _manual_module_usage_allowed(user, "dream"):
+            return
         request_id = submit_manual_request(user, "dream", payload)
+        _record_manual_module_usage(user, "dream")
         st.success(f"Talebin admin paneline düştü. Talep no: {request_id}")
 
 
@@ -2242,7 +2333,10 @@ def page_soulmate(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any
         if not validate_personal_info(info):
             return
         payload = {"title": "Ruh Eşi Çizimi", "kişisel_bilgiler": info, "not": note}
+        if not _manual_module_usage_allowed(user, "soulmate"):
+            return
         request_id = submit_manual_request(user, "soulmate", payload)
+        _record_manual_module_usage(user, "soulmate")
         st.success(f"Talebin admin paneline düştü. Talep no: {request_id}")
 
 
@@ -2278,14 +2372,15 @@ def page_account(user: Dict[str, Any]) -> None:
         used = get_usage(user["email"])
     except Exception:
         used = 0
-    limit = int(plan_info.get("daily_limit", 0) or 0)
+    active_modules = [key for key in MODULES if module_active(key, get_all_module_settings())]
+    limit = max(len(active_modules), 1)
     remaining = max(limit - used, 0)
 
     col1, col2, col3 = st.columns(3)
     with col1:
         render_metric_card("Plan", str(plan_info.get("name", plan)), "Mevcut üyelik")
     with col2:
-        render_metric_card("Bugünkü kullanım", f"{used}/{limit}", "AI yorum hakkı")
+        render_metric_card("Bugünkü kullanım", f"{used}/{limit}", "Her sayfada günlük 1 hak")
     with col3:
         render_metric_card("Kalan hak", str(remaining), "Bugün için")
 
