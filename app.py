@@ -431,15 +431,10 @@ def hide_sidebar_for_landing() -> None:
 def render_landing_auth() -> None:
     st.markdown(
         """
-        <div class="kp-auth-card">
-            <div class="kp-auth-brand">
-                <div class="kp-auth-orb">☽</div>
-                <div>
-                    <div class="kp-auth-brand-title">Kalbimin Pusulası</div>
-                    <div class="kp-auth-brand-subtitle">Kalbin Seni Çağırıyor</div>
-                </div>
-            </div>
+        <div class="kp-auth-head">
+            <div class="kp-auth-moon">☽</div>
             <div class="kp-auth-title">Giriş</div>
+            <div class="kp-auth-subtitle">Kalbin Seni Çağırıyor</div>
             <div class="kp-auth-note">Kalbinizdeki işaretleri görmek için üye girişi yapınız</div>
         </div>
         """,
