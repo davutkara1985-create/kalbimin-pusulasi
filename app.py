@@ -1584,7 +1584,7 @@ def render_styled_content_item(item: Dict[str, Any]) -> None:
     body_html = _render_content_body_html(str(item.get("body", "") or ""))
     category_html = f"<span class='kp-tag'>{category}</span>" if category else ""
 
-    image_url = "" if layout == "text_only" else _content_image_data_url(item.get("image"))
+    image_url = _content_image_data_url(item.get("image"))
     image_alt = html_escape(_content_image_alt(item.get("image"), str(item.get("title", "İçerik görseli"))), quote=True)
     image_html = ""
     if image_url:
@@ -2012,7 +2012,8 @@ def page_soulmate(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any
 
 def page_content(content_type: str, module_key: str, module_settings: Dict[str, Dict[str, Any]]) -> None:
     render_module_intro(module_key, "free", module_meta(module_key, module_settings))
-    render_content_visual(content_type)
+    # Meditasyon/Rituel sayfalarinda ikinci tanitim kutusu gosterilmez.
+    # Sadece modul karti (Meditasyonlar / Ritueller) kalir.
     items = get_content_items(content_type)
     if not items:
         st.info("Henüz içerik eklenmemiş.")
