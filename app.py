@@ -122,8 +122,19 @@ def prevent_browser_translate() -> None:
                 if (meta.getAttribute('content') !== 'notranslate') {
                     meta.setAttribute('content', 'notranslate');
                 }
-            };
+                
+let viewport = doc.querySelector('meta[name="viewport"]');
+if (!viewport) {
+    viewport = doc.createElement('meta');
+    viewport.setAttribute('name', 'viewport');
+    doc.head.appendChild(viewport);
+}
+viewport.setAttribute('content', 'width=device-width, initial-scale=1, viewport-fit=cover');
 
+doc.documentElement.style.setProperty('-webkit-text-size-adjust', '100%');
+if (doc.body) {
+    doc.body.style.setProperty('-webkit-text-size-adjust', '100%');
+}
             applyNoTranslate();
             setTimeout(applyNoTranslate, 500);
             setTimeout(applyNoTranslate, 1500);
