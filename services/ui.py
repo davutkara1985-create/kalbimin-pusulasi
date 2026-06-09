@@ -138,6 +138,34 @@ DECK_WIDGET_CSS = """
     font-size: 0 !important;
     line-height: 0 !important;
 }
+
+/* Mobilde Streamlit kolonlarının kartları alt alta dizmesini engelle. */
+div[data-testid="stHorizontalBlock"]:has(.kp-card-slot-wrap) {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    gap: 4px !important;
+    padding-bottom: 4px !important;
+    -webkit-overflow-scrolling: touch !important;
+}
+div[data-testid="stHorizontalBlock"]:has(.kp-card-slot-wrap) > div[data-testid="column"] {
+    flex: 0 0 40px !important;
+    width: 40px !important;
+    min-width: 40px !important;
+    max-width: 40px !important;
+}
+@media (max-width: 760px) {
+    div[data-testid="stHorizontalBlock"]:has(.kp-card-slot-wrap) {
+        max-width: 100vw !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(.kp-card-slot-wrap) > div[data-testid="column"] {
+        flex: 0 0 38px !important;
+        width: 38px !important;
+        min-width: 38px !important;
+        max-width: 38px !important;
+    }
+}
 </style>
 """
 
@@ -666,6 +694,40 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
             object-fit: cover;
             border-radius: 9px;
         }}
+        .element-container:has(.kp-side-nav-clickrow) {{
+            margin: 0 0 -41px 0 !important;
+            padding: 0 !important;
+            position: relative !important;
+            z-index: 1 !important;
+            pointer-events: none !important;
+        }}
+        .element-container:has(.kp-side-nav-clickrow) + .element-container {{
+            height: 41px !important;
+            min-height: 41px !important;
+            margin: 0 0 3px 0 !important;
+            padding: 0 !important;
+            position: relative !important;
+            z-index: 3 !important;
+        }}
+        .element-container:has(.kp-side-nav-clickrow) + .element-container div.stButton {{
+            height: 41px !important;
+            min-height: 41px !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }}
+        .element-container:has(.kp-side-nav-clickrow) + .element-container div.stButton > button {{
+            height: 38px !important;
+            min-height: 38px !important;
+            margin: 3px 0 0 0 !important;
+            padding: 0 !important;
+            opacity: 0 !important;
+            color: transparent !important;
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            cursor: pointer !important;
+        }}
+
         [data-testid="stSidebar"] div.stButton > button {{
             justify-content: flex-start !important;
             width: 100% !important;
@@ -819,6 +881,107 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
                 object-fit: cover;
                 border-radius: 8px;
             }}
+        }}
+
+        .kp-top-account-badge {{
+            display: inline-grid;
+            place-items: center;
+            min-width: 17px;
+            height: 17px;
+            margin-left: 6px;
+            padding: 0 5px;
+            border-radius: 999px;
+            background: #d84242;
+            color: #fff !important;
+            font-size: 0.62rem;
+            font-weight: 900;
+            line-height: 1;
+        }}
+        .kp-message-notice {{
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 6px 0 12px;
+            padding: 10px 12px;
+            border-radius: 16px;
+            background: linear-gradient(135deg, rgba(217,183,110,0.18), rgba(123,75,214,0.13));
+            border: 1px solid rgba(255,241,184,0.28);
+            color: var(--kp-gold-2) !important;
+            text-decoration: none !important;
+            box-shadow: 0 14px 30px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.10);
+            font-size: 0.82rem;
+            font-weight: 750;
+        }}
+        .kp-message-notice:hover {{ text-decoration: none !important; filter: brightness(1.05); }}
+        .kp-message-notice-dot {{
+            display: inline-grid;
+            place-items: center;
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            background: rgba(255,241,184,0.12);
+            border: 1px solid rgba(255,241,184,0.22);
+            flex: 0 0 auto;
+        }}
+        .kp-inbox-preview {{
+            margin: 4px 0 10px;
+            padding: 8px 10px;
+            border-radius: 12px;
+            background: rgba(255,255,255,0.055);
+            border: 1px solid rgba(255,241,184,0.10);
+            color: var(--kp-muted) !important;
+            font-size: 0.78rem;
+            line-height: 1.45;
+        }}
+        .kp-inbox-card-detail {{ margin-top: 8px; }}
+        .kp-admin-user-list {{
+            display: grid;
+            gap: 6px;
+            margin-top: 8px;
+        }}
+        .kp-admin-user-row {{
+            display: grid;
+            grid-template-columns: 58px minmax(0, 1fr) 78px;
+            align-items: center;
+            gap: 8px;
+            padding: 7px 9px;
+            border-radius: 13px;
+            background: rgba(255,255,255,0.045);
+            border: 1px solid rgba(255,241,184,0.10);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+        }}
+        .kp-admin-user-role, .kp-admin-user-plan {{
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 22px;
+            padding: 0 7px;
+            border-radius: 999px;
+            background: rgba(217,183,110,0.10);
+            border: 1px solid rgba(217,183,110,0.18);
+            color: var(--kp-gold-2) !important;
+            font-size: 0.64rem;
+            font-weight: 900;
+            white-space: nowrap;
+        }}
+        .kp-admin-user-main {{ min-width: 0; }}
+        .kp-admin-user-main strong {{
+            display: block;
+            color: var(--kp-text) !important;
+            font-size: 0.78rem;
+            line-height: 1.15;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }}
+        .kp-admin-user-main small {{
+            display: block;
+            color: var(--kp-muted) !important;
+            font-size: 0.67rem;
+            line-height: 1.2;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }}
 
         h1, h2, h3, h4, h5 {{ font-family: var(--kp-font-serif); color: var(--kp-text); letter-spacing: -0.018em; }}
@@ -1700,6 +1863,7 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
         @keyframes kpFadeUp {{ from {{ opacity: 0; transform: translateY(12px); }} to {{ opacity: 1; transform: translateY(0); }} }}
 
         @media (max-width: 760px) {{
+            [data-testid="stSidebar"], [data-testid="stSidebar"] > div {{ width: 260px !important; min-width: 260px !important; max-width: 260px !important; }}
             [data-testid="stAppViewContainer"] .block-container {{ max-width: 100%; padding-left: 0.85rem; padding-right: 0.85rem; padding-top: 0.45rem; }}
             .kp-hero {{ min-height: 285px; border-radius: 26px; padding: 18px 15px 17px; }}
             .kp-hero-top {{ gap: 10px; margin-bottom: 10px; }}
@@ -1712,6 +1876,22 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
             .kp-card, .kp-plan, .kp-result-card, .kp-share-card, .kp-lead-card, .kp-upgrade-card {{ border-radius: 20px; }}
             div.stButton > button, button[kind="primary"], button[kind="secondary"] {{ width: 100% !important; min-height: 46px !important; }}
             [data-testid="column"] {{ width: 100% !important; flex: 1 1 100% !important; }}
+            div[data-testid="stHorizontalBlock"]:has(.kp-card-slot-wrap) {{
+                display: flex !important;
+                flex-wrap: nowrap !important;
+                overflow-x: auto !important;
+                gap: 4px !important;
+                padding-bottom: 4px !important;
+                -webkit-overflow-scrolling: touch !important;
+            }}
+            div[data-testid="stHorizontalBlock"]:has(.kp-card-slot-wrap) > div[data-testid="column"] {{
+                flex: 0 0 38px !important;
+                width: 38px !important;
+                min-width: 38px !important;
+                max-width: 38px !important;
+            }}
+            .kp-open-card-grid {{ grid-template-columns: repeat(4, minmax(0, 1fr)); }}
+            .kp-admin-user-row {{ grid-template-columns: 52px minmax(0, 1fr) 66px; padding: 6px 7px; }}
         }}
         </style>
         """,
