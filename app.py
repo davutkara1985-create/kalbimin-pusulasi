@@ -1489,15 +1489,25 @@ def image_to_data_url(uploaded_file, max_side: int = 720, quality: int = 68) -> 
 def show_data_image(image_item: Optional[Dict[str, Any]]) -> None:
     if not image_item:
         return
-    data_url = image_item.get("data_url", "")
+
+    filename = "Görsel"
+    if isinstance(image_item, dict):
+        data_url = str(image_item.get("data_url", "") or "")
+        filename = str(image_item.get("filename", "Görsel") or "Görsel")
+    else:
+        data_url = str(image_item or "")
+
     if not data_url:
         return
+
     try:
-        encoded = data_url.split(",", 1)[1]
-        st.image(base64.b64decode(encoded), caption=image_item.get("filename", "Görsel"), use_container_width=True)
+        if data_url.startswith("data:") and "," in data_url:
+            encoded = data_url.split(",", 1)[1]
+            st.image(base64.b64decode(encoded), caption=filename, use_container_width=True)
+        else:
+            st.image(data_url, caption=filename, use_container_width=True)
     except Exception:
         st.caption("Görsel önizlenemedi.")
-
 
 def _content_image_data_url(value: Any) -> str:
     if isinstance(value, dict):
@@ -1506,56 +1516,61 @@ def _content_image_data_url(value: Any) -> str:
 
 
 def render_styled_content_item(item: Dict[str, Any]) -> None:
-    from html import escape as html_escape
+    """Meditasyon/ritüel içeriğini kullanıcı tarafında güvenli Streamlit bileşenleriyle gösterir.
 
-    image_url = _content_image_data_url(item.get("image"))
-    template = str(item.get("template", "mistik_kart") or "mistik_kart")
+    Önceki sürümde içerik kartı tamamen HTML olarak üretiliyordu. Bazı sayfalarda bu HTML,
+    güvenli HTML olarak işlenmek yerine düz metin gibi görünebiliyordu. Bu sürümde metin ve
+    görsel Streamlit'in kendi bileşenleriyle basılır; böylece kullanıcı <div ...> kodu görmek
+    yerine ritüel/metin tarifini ve resmi görür.
+    """
+
     image_layout = str(item.get("image_layout", "image_center_top") or "image_center_top")
     allowed_layouts = {"image_center_top", "image_center_bottom", "image_left", "image_right", "text_only"}
     if image_layout not in allowed_layouts:
         image_layout = "image_center_top"
 
-    font_family = str(item.get("font_family", "Inter, system-ui, sans-serif"))
-    font_size = int(item.get("font_size", 16) or 16)
-    title_size = int(item.get("title_size", 28) or 28)
-    title = html_escape(str(item.get("title", "")))
-    category = html_escape(str(item.get("category", "")))
-    body_html = html_escape(str(item.get("body", ""))).replace("\n", "<br>")
+    title = str(item.get("title", "") or "").strip()
+    category = str(item.get("category", "") or "").strip()
+    body = str(item.get("body", "") or "").strip()
+    image_item = item.get("image")
 
-    category_html = f"<span class='kp-tag'>{category}</span>" if category else ""
-    text_html = f'''
-        <div class="kp-written-text">
-            {category_html}
-            <div class="kp-written-title" style="font-size:{title_size}px;">{title}</div>
-            <div class="kp-written-body">{body_html}</div>
-        </div>
-    '''
-    image_html = ""
-    if image_url and image_layout != "text_only":
-        image_alt = html_escape(str(item.get("title", "İçerik görseli")))
-        image_html = f'''
-            <div class="kp-written-image-wrap">
-                <img src="{image_url}" alt="{image_alt}" class="kp-written-image" />
-            </div>
-        '''
+    def render_text_block() -> None:
+        if category:
+            st.caption(category)
+        if title:
+            st.markdown(f"### {title}")
+        if body:
+            # Markdown line-breaks: her satır kullanıcıya temiz metin olarak görünür, HTML etiketi basılmaz.
+            safe_body = body.replace("\r\n", "\n").replace("\r", "\n").replace("\n", "  \n")
+            st.markdown(safe_body)
 
-    if image_layout == "image_center_bottom":
-        inner_html = text_html + image_html
-    elif image_layout == "image_left":
-        inner_html = image_html + text_html
-    elif image_layout == "image_right":
-        inner_html = text_html + image_html
-    else:
-        inner_html = image_html + text_html
+    def render_image_block() -> None:
+        if image_layout != "text_only":
+            show_data_image(image_item)
 
-    st.markdown(
-        f'''
-        <div class="kp-written-template kp-template-{template} kp-layout-{image_layout}" style="font-family:{font_family}; font-size:{font_size}px;">
-            <div class="kp-written-inner">{inner_html}</div>
-        </div>
-        ''',
-        unsafe_allow_html=True,
-    )
+    # Kart hissini korumak için Streamlit'in native border'lı container'ı kullanılır.
+    with st.container(border=True):
+        if image_layout == "text_only":
+            render_text_block()
+        elif image_layout == "image_center_bottom":
+            render_text_block()
+            render_image_block()
+        elif image_layout == "image_left":
+            left, right = st.columns([0.9, 1.1])
+            with left:
+                render_image_block()
+            with right:
+                render_text_block()
+        elif image_layout == "image_right":
+            left, right = st.columns([1.1, 0.9])
+            with left:
+                render_text_block()
+            with right:
+                render_image_block()
+        else:
+            render_image_block()
+            render_text_block()
+
 
 def _svg_data_uri(svg: str) -> str:
     encoded = base64.b64encode(svg.encode("utf-8")).decode("utf-8")
