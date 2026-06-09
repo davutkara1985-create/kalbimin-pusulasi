@@ -91,7 +91,7 @@ st.set_page_config(
     page_title=APP_NAME,
     page_icon="🔮",
     layout="centered",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="auto",
     menu_items={"Get help": None, "Report a bug": None, "About": None},
 )
 
@@ -103,65 +103,52 @@ def prevent_browser_translate() -> None:
         try {
             const doc = window.parent.document;
 
-            const applyNoTranslate = () => {
+            function applyNoTranslate() {
                 if (!doc || !doc.documentElement) return;
-                if (doc.documentElement.lang !== 'tr') {
-                    doc.documentElement.lang = 'tr';
-                }
+                doc.documentElement.lang = 'tr';
                 doc.documentElement.setAttribute('translate', 'no');
                 doc.documentElement.classList.add('notranslate');
+
                 if (doc.body) {
                     doc.body.setAttribute('translate', 'no');
                     doc.body.classList.add('notranslate');
+                    doc.body.style.setProperty('-webkit-text-size-adjust', '100%');
                 }
+
                 let meta = doc.querySelector('meta[name="google"]');
-                if (!meta) {
+                if (!meta && doc.head) {
                     meta = doc.createElement('meta');
                     meta.setAttribute('name', 'google');
                     doc.head.appendChild(meta);
                 }
-                if (meta.getAttribute('content') !== 'notranslate') {
-                    meta.setAttribute('content', 'notranslate');
+                if (meta) meta.setAttribute('content', 'notranslate');
+
+                let viewport = doc.querySelector('meta[name="viewport"]');
+                if (!viewport && doc.head) {
+                    viewport = doc.createElement('meta');
+                    viewport.setAttribute('name', 'viewport');
+                    doc.head.appendChild(viewport);
                 }
-                
-let viewport = doc.querySelector('meta[name="viewport"]');
-if (!viewport) {
-    viewport = doc.createElement('meta');
-    viewport.setAttribute('name', 'viewport');
-    doc.head.appendChild(viewport);
-}
-viewport.setAttribute('content', 'width=device-width, initial-scale=1, viewport-fit=cover');
+                if (viewport) {
+                    viewport.setAttribute('content', 'width=device-width, initial-scale=1, viewport-fit=cover');
+                }
+                doc.documentElement.style.setProperty('-webkit-text-size-adjust', '100%');
+            }
 
-doc.documentElement.style.setProperty('-webkit-text-size-adjust', '100%');
-if (doc.body) {
-    doc.body.style.setProperty('-webkit-text-size-adjust', '100%');
-}
             applyNoTranslate();
-            setTimeout(applyNoTranslate, 500);
-            setTimeout(applyNoTranslate, 1500);
+            setTimeout(applyNoTranslate, 700);
 
-            // Streamlit'in tek harfli "c" kısayolu Clear caches penceresini açabiliyor.
-            // Kullanıcının normal Ctrl/Cmd+C kopyalaması serbest bırakılır; sadece düz "c" kısayolu engellenir.
-            if (!window.parent.__kpDisableClearCacheShortcutV2) {
-                window.parent.__kpDisableClearCacheShortcutV2 = true;
-
+            if (!window.parent.__kpDisableClearCacheShortcutV3) {
+                window.parent.__kpDisableClearCacheShortcutV3 = true;
                 const blockClearCacheShortcut = function(event) {
                     const key = (event.key || '').toLowerCase();
                     const code = (event.code || '').toLowerCase();
                     const target = event.target;
                     const tag = target && target.tagName ? target.tagName.toUpperCase() : '';
                     const editable = target && (
-                        tag === 'INPUT' ||
-                        tag === 'TEXTAREA' ||
-                        tag === 'SELECT' ||
-                        target.isContentEditable
+                        tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target.isContentEditable
                     );
-
-                    // Ctrl+C / Cmd+C gerçek kopyalama işlemini bozma.
-                    if (event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) {
-                        return;
-                    }
-
+                    if (event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return;
                     if (!editable && (key === 'c' || code === 'keyc')) {
                         event.preventDefault();
                         event.stopPropagation();
@@ -169,10 +156,7 @@ if (doc.body) {
                         return false;
                     }
                 };
-
                 doc.addEventListener('keydown', blockClearCacheShortcut, true);
-                doc.addEventListener('keypress', blockClearCacheShortcut, true);
-                doc.addEventListener('keyup', blockClearCacheShortcut, true);
             }
         } catch (e) {}
         </script>
@@ -180,7 +164,6 @@ if (doc.body) {
         height=0,
         width=0,
     )
-
 
 prevent_browser_translate()
 
@@ -603,7 +586,7 @@ def _nav_href(page_key: str) -> str:
 
 
 def render_mobile_navigation(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]], current_page: str) -> None:
-    # Mobilde Streamlit sidebar bazı cihazlarda gizli kaldığı için aynı menü ana içerikte de görünür.
+    # Mobilde native Streamlit sidebar yerine hafif, açılıp kapanabilen HTML menü kullanılır.
     items = []
     for _group_title, _group_icon, group_items in build_menu_groups(user, module_settings):
         items.extend(group_items)
@@ -623,10 +606,10 @@ def render_mobile_navigation(user: Dict[str, Any], module_settings: Dict[str, Di
     links_html = "".join(links)
     st.markdown(
         f"""
-        <div class="kp-mobile-menu-panel">
-            <div class="kp-mobile-menu-title">☰ Menü</div>
+        <details class="kp-mobile-menu-panel" open>
+            <summary class="kp-mobile-menu-summary">☰ Menü</summary>
             <div class="kp-mobile-menu-list">{links_html}</div>
-        </div>
+        </details>
         """,
         unsafe_allow_html=True,
     )
@@ -634,8 +617,13 @@ def render_mobile_navigation(user: Dict[str, Any], module_settings: Dict[str, Di
 
 def navigation(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]]) -> str:
     valid_pages = valid_pages_for(user, module_settings)
+    requested_page = _query_get(PAGE_QUERY_KEY, "home")
+
+    # HTML bağlantılarıyla sayfa değişince URL değişir; oturumda eski sayfa kalmasın diye her rerun'da okunur.
+    if requested_page in valid_pages and requested_page != st.session_state.get("current_page"):
+        st.session_state["current_page"] = requested_page
+
     if "current_page" not in st.session_state:
-        requested_page = _query_get(PAGE_QUERY_KEY, "home")
         st.session_state["current_page"] = requested_page if requested_page in valid_pages else "home"
 
     if st.session_state.get("current_page") not in valid_pages:
@@ -643,17 +631,7 @@ def navigation(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]])
 
     st.sidebar.markdown("<div class='kp-sidebar-menu-title'>Menü</div>", unsafe_allow_html=True)
     current_page = st.session_state.get("current_page", "home")
-    for group_title, group_icon, items in build_menu_groups(user, module_settings):
-        if group_title:
-            group_icon_rendered = sidebar_group_icon_html(group_title, group_icon)
-            st.sidebar.markdown(
-                f"""
-                <div class="kp-sidebar-section-title">
-                    <span class="kp-sidebar-section-icon">{group_icon_rendered}</span><span>{html_escape(group_title)}</span>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
+    for _group_title, _group_icon, items in build_menu_groups(user, module_settings):
         for page_key, label, icon in items:
             icon_rendered = sidebar_icon_html(page_key, icon)
             label_html = html_escape(label)
@@ -667,17 +645,15 @@ def navigation(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]])
                     unsafe_allow_html=True,
                 )
             else:
+                href = html_escape(_nav_href(page_key), quote=True)
                 st.sidebar.markdown(
                     f"""
-                    <div class="kp-side-nav-clickrow">
+                    <a class="kp-side-nav-item kp-side-nav-link" href="{href}" target="_self">
                         <span class="kp-side-nav-icon">{icon_rendered}</span><span>{label_html}</span>
-                    </div>
+                    </a>
                     """,
                     unsafe_allow_html=True,
                 )
-                if st.sidebar.button(label, key=f"nav_btn_{page_key}", use_container_width=True):
-                    go_to_page(page_key, user, module_settings)
-                    st.rerun()
 
     render_mobile_navigation(user, module_settings, current_page)
     return st.session_state.get("current_page", "home")
