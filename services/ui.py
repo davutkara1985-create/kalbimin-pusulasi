@@ -307,7 +307,7 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
     st.markdown(
         f"""
         <style>
-        @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Caveat:wght@400;500;600;700&family=Cormorant+Garamond:wght@500;600;700&family=Dancing+Script:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&family=Patrick+Hand&display=swap');
 
         :root {{
             --kp-bg: #060817;
@@ -1284,6 +1284,66 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
         }}
         .kp-template-ritual {{
             background: radial-gradient(circle at 18% 12%, rgba(217,183,110,0.18), transparent 32%), linear-gradient(145deg, rgba(123,75,214,0.18), rgba(255,255,255,0.04)), rgba(12,15,44,0.78);
+        }}
+        .kp-written-inner {{
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }}
+        .kp-written-text {{
+            min-width: 0;
+        }}
+        .kp-written-image-wrap {{
+            width: 100%;
+            max-width: 440px;
+            margin-left: auto;
+            margin-right: auto;
+        }}
+        .kp-written-image {{
+            display: block;
+            width: 100%;
+            max-height: 360px;
+            object-fit: cover;
+            border-radius: 22px;
+            border: 1px solid rgba(255,241,184,0.24);
+            box-shadow: 0 18px 42px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.10);
+        }}
+        .kp-layout-image_center_top .kp-written-inner,
+        .kp-layout-image_center_bottom .kp-written-inner {{
+            align-items: stretch;
+        }}
+        .kp-layout-image_left .kp-written-inner,
+        .kp-layout-image_right .kp-written-inner {{
+            display: grid;
+            grid-template-columns: minmax(180px, 0.86fr) minmax(0, 1.14fr);
+            gap: 20px;
+            align-items: center;
+        }}
+        .kp-layout-image_right .kp-written-inner {{
+            grid-template-columns: minmax(0, 1.14fr) minmax(180px, 0.86fr);
+        }}
+        .kp-layout-image_left .kp-written-image-wrap,
+        .kp-layout-image_right .kp-written-image-wrap {{
+            max-width: none;
+        }}
+        .kp-layout-image_center_bottom .kp-written-image-wrap {{
+            margin-top: 4px;
+        }}
+        .kp-layout-text_only .kp-written-image-wrap {{
+            display: none;
+        }}
+        @media (max-width: 760px) {{
+            .kp-layout-image_left .kp-written-inner,
+            .kp-layout-image_right .kp-written-inner {{
+                display: flex;
+                flex-direction: column;
+            }}
+            .kp-written-image-wrap {{
+                max-width: 100%;
+            }}
+            .kp-written-image {{
+                max-height: 300px;
+            }}
         }}
 
 
