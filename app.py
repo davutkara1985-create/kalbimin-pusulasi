@@ -1509,28 +1509,53 @@ def render_styled_content_item(item: Dict[str, Any]) -> None:
     from html import escape as html_escape
 
     image_url = _content_image_data_url(item.get("image"))
-    if image_url:
-        st.image(image_url, caption=item.get("title", ""), use_container_width=True)
+    template = str(item.get("template", "mistik_kart") or "mistik_kart")
+    image_layout = str(item.get("image_layout", "image_center_top") or "image_center_top")
+    allowed_layouts = {"image_center_top", "image_center_bottom", "image_left", "image_right", "text_only"}
+    if image_layout not in allowed_layouts:
+        image_layout = "image_center_top"
 
-    template = str(item.get("template", "mistik_kart"))
     font_family = str(item.get("font_family", "Inter, system-ui, sans-serif"))
     font_size = int(item.get("font_size", 16) or 16)
     title_size = int(item.get("title_size", 28) or 28)
     title = html_escape(str(item.get("title", "")))
     category = html_escape(str(item.get("category", "")))
     body_html = html_escape(str(item.get("body", ""))).replace("\n", "<br>")
+
     category_html = f"<span class='kp-tag'>{category}</span>" if category else ""
-    st.markdown(
-        f'''
-        <div class="kp-written-template kp-template-{template}" style="font-family:{font_family}; font-size:{font_size}px;">
+    text_html = f'''
+        <div class="kp-written-text">
             {category_html}
             <div class="kp-written-title" style="font-size:{title_size}px;">{title}</div>
             <div class="kp-written-body">{body_html}</div>
         </div>
+    '''
+    image_html = ""
+    if image_url and image_layout != "text_only":
+        image_alt = html_escape(str(item.get("title", "İçerik görseli")))
+        image_html = f'''
+            <div class="kp-written-image-wrap">
+                <img src="{image_url}" alt="{image_alt}" class="kp-written-image" />
+            </div>
+        '''
+
+    if image_layout == "image_center_bottom":
+        inner_html = text_html + image_html
+    elif image_layout == "image_left":
+        inner_html = image_html + text_html
+    elif image_layout == "image_right":
+        inner_html = text_html + image_html
+    else:
+        inner_html = image_html + text_html
+
+    st.markdown(
+        f'''
+        <div class="kp-written-template kp-template-{template} kp-layout-{image_layout}" style="font-family:{font_family}; font-size:{font_size}px;">
+            <div class="kp-written-inner">{inner_html}</div>
+        </div>
         ''',
         unsafe_allow_html=True,
     )
-
 
 def _svg_data_uri(svg: str) -> str:
     encoded = base64.b64encode(svg.encode("utf-8")).decode("utf-8")
@@ -2057,11 +2082,21 @@ def admin_content() -> None:
         "calm": "Sade ve sakin",
         "ritual": "Ritüel adımları",
     }
+    image_layout_options = {
+        "image_center_top": "Resim ortada, metin altta",
+        "image_center_bottom": "Metin üstte, resim ortada",
+        "image_left": "Resim solda, metin sağda",
+        "image_right": "Metin solda, resim sağda",
+        "text_only": "Sadece metin",
+    }
     font_options = {
         "Inter, system-ui, sans-serif": "Modern / Inter",
         "'Cormorant Garamond', Georgia, serif": "Mistik başlık / Cormorant",
         "Georgia, serif": "Klasik / Georgia",
         "Arial, sans-serif": "Sade / Arial",
+        "'Caveat', cursive": "El yazısı / Caveat",
+        "'Dancing Script', cursive": "Romantik el yazısı / Dancing Script",
+        "'Patrick Hand', cursive": "Doğal el yazısı / Patrick Hand",
     }
 
     st.markdown("#### Yeni içerik ekle")
@@ -2071,12 +2106,32 @@ def admin_content() -> None:
     image_file = st.file_uploader("İçerik görseli", type=["png", "jpg", "jpeg", "webp"], key=f"new_{content_type}_image")
     col1, col2 = st.columns(2)
     with col1:
-        template = st.selectbox("Yazım şablonu", list(template_options.keys()), format_func=lambda k: template_options[k], key=f"new_{content_type}_template")
+        template = st.selectbox("Kart tasarımı", list(template_options.keys()), format_func=lambda k: template_options[k], key=f"new_{content_type}_template")
+        image_layout = st.selectbox("Görsel / metin yerleşimi", list(image_layout_options.keys()), format_func=lambda k: image_layout_options[k], key=f"new_{content_type}_image_layout")
         font_family = st.selectbox("Yazı tipi", list(font_options.keys()), format_func=lambda k: font_options[k], key=f"new_{content_type}_font")
     with col2:
         title_size = st.slider("Başlık büyüklüğü", 22, 42, 30, key=f"new_{content_type}_title_size")
-        font_size = st.slider("Metin büyüklüğü", 14, 24, 17, key=f"new_{content_type}_font_size")
-    active = st.checkbox("Aktif", value=True, key=f"new_{content_type}_active")
+        font_size = st.slider("Metin büyüklüğü", 14, 28, 17, key=f"new_{content_type}_font_size")
+        active = st.checkbox("Aktif", value=True, key=f"new_{content_type}_active")
+
+    st.caption("Seçtiğin yerleşim kullanıcı tarafındaki meditasyon/ritüel kartında ve aşağıdaki önizlemede aynı şekilde görünür.")
+    if title.strip() or body.strip() or image_file:
+        preview_image = image_to_data_url(image_file, max_side=900, quality=72) if image_file else None
+        st.markdown("#### Yeni içerik önizlemesi")
+        render_styled_content_item(
+            {
+                "title": title or "Başlık önizlemesi",
+                "category": category,
+                "body": body or "İçerik metni burada görünecek.",
+                "image": preview_image,
+                "template": template,
+                "image_layout": image_layout,
+                "font_family": font_family,
+                "font_size": font_size,
+                "title_size": title_size,
+            }
+        )
+
     if st.button("İçerik ekle", key=f"add_{content_type}"):
         if not title.strip() or not body.strip():
             st.warning("Başlık ve metin zorunlu.")
@@ -2091,6 +2146,7 @@ def admin_content() -> None:
                 extra={
                     "image": image_payload,
                     "template": template,
+                    "image_layout": image_layout,
                     "font_family": font_family,
                     "font_size": font_size,
                     "title_size": title_size,
@@ -2122,15 +2178,21 @@ def admin_content() -> None:
     remove_image = st.checkbox("Mevcut görseli kaldır", value=False, key=f"remove_image_{selected_id}")
 
     current_template = item.get("template", "mistik_kart")
+    current_layout = item.get("image_layout", "image_center_top")
     current_font = item.get("font_family", "Inter, system-ui, sans-serif")
     col1, col2 = st.columns(2)
     with col1:
-        edit_template = st.selectbox("Yazım şablonu", list(template_options.keys()), index=list(template_options.keys()).index(current_template) if current_template in template_options else 0, format_func=lambda k: template_options[k], key=f"edit_template_{selected_id}")
+        edit_template = st.selectbox("Kart tasarımı", list(template_options.keys()), index=list(template_options.keys()).index(current_template) if current_template in template_options else 0, format_func=lambda k: template_options[k], key=f"edit_template_{selected_id}")
+        edit_image_layout = st.selectbox("Görsel / metin yerleşimi", list(image_layout_options.keys()), index=list(image_layout_options.keys()).index(current_layout) if current_layout in image_layout_options else 0, format_func=lambda k: image_layout_options[k], key=f"edit_image_layout_{selected_id}")
         edit_font = st.selectbox("Yazı tipi", list(font_options.keys()), index=list(font_options.keys()).index(current_font) if current_font in font_options else 0, format_func=lambda k: font_options[k], key=f"edit_font_{selected_id}")
     with col2:
         edit_title_size = st.slider("Başlık büyüklüğü", 22, 42, int(item.get("title_size", 30) or 30), key=f"edit_title_size_{selected_id}")
-        edit_font_size = st.slider("Metin büyüklüğü", 14, 24, int(item.get("font_size", 17) or 17), key=f"edit_font_size_{selected_id}")
-    edit_active = st.checkbox("Aktif", value=bool(item.get("active", True)), key=f"edit_active_{selected_id}")
+        edit_font_size = st.slider("Metin büyüklüğü", 14, 28, int(item.get("font_size", 17) or 17), key=f"edit_font_size_{selected_id}")
+        edit_active = st.checkbox("Aktif", value=bool(item.get("active", True)), key=f"edit_active_{selected_id}")
+
+    preview_image = None if remove_image else current_image
+    if edit_image_file:
+        preview_image = image_to_data_url(edit_image_file, max_side=900, quality=72)
 
     st.markdown("#### Önizleme")
     preview_item = {
@@ -2138,7 +2200,9 @@ def admin_content() -> None:
         "title": edit_title,
         "category": edit_category,
         "body": edit_body,
+        "image": preview_image,
         "template": edit_template,
+        "image_layout": edit_image_layout,
         "font_family": edit_font,
         "font_size": edit_font_size,
         "title_size": edit_title_size,
@@ -2154,6 +2218,7 @@ def admin_content() -> None:
                 "body": edit_body,
                 "active": edit_active,
                 "template": edit_template,
+                "image_layout": edit_image_layout,
                 "font_family": edit_font,
                 "font_size": edit_font_size,
                 "title_size": edit_title_size,
