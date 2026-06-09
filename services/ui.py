@@ -983,6 +983,88 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
             text-overflow: ellipsis;
             white-space: nowrap;
         }}
+        .kp-admin-request-list {
+            display: grid;
+            gap: 6px;
+            margin-top: 8px;
+        }
+        .kp-admin-request-row {
+            min-height: 54px;
+            padding: 8px 10px;
+            border-radius: 13px;
+            background: rgba(255,255,255,0.045);
+            border: 1px solid rgba(255,241,184,0.10);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+        }
+        .kp-admin-request-row.active {
+            border-color: rgba(255,241,184,0.36);
+            background: linear-gradient(135deg, rgba(217,183,110,0.13), rgba(123,75,214,0.10));
+            box-shadow: 0 0 18px rgba(217,183,110,0.10), inset 0 1px 0 rgba(255,255,255,0.08);
+        }
+        .kp-admin-request-title {
+            color: var(--kp-text) !important;
+            font-size: 0.82rem;
+            line-height: 1.15;
+            font-weight: 900;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .kp-admin-request-sub {
+            margin-top: 2px;
+            color: var(--kp-muted) !important;
+            font-size: 0.66rem;
+            line-height: 1.2;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .kp-admin-request-preview {
+            margin-top: 4px;
+            color: rgba(255,248,232,0.66) !important;
+            font-size: 0.69rem;
+            line-height: 1.28;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .kp-admin-request-mini-meta {
+            min-height: 54px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+        }
+        .kp-admin-request-number {
+            color: var(--kp-muted) !important;
+            font-size: 0.65rem;
+            font-weight: 900;
+        }
+        .kp-admin-request-status {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 20px;
+            padding: 0 6px;
+            border-radius: 999px;
+            background: rgba(255,255,255,0.055);
+            border: 1px solid rgba(255,241,184,0.12);
+            color: var(--kp-muted) !important;
+            font-size: 0.58rem;
+            font-weight: 900;
+            white-space: nowrap;
+        }
+        .kp-admin-request-status.pending {
+            color: #fff1b8 !important;
+            background: rgba(217,183,110,0.13);
+            border-color: rgba(217,183,110,0.25);
+        }
+        .kp-admin-request-status.completed {
+            color: rgba(201,255,218,0.92) !important;
+            background: rgba(92,190,126,0.12);
+            border-color: rgba(92,190,126,0.20);
+        }
 
         h1, h2, h3, h4, h5 {{ font-family: var(--kp-font-serif); color: var(--kp-text); letter-spacing: -0.018em; }}
         p, li, label, span, div {{ font-family: var(--kp-font-sans); }}
