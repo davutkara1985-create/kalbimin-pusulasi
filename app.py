@@ -50,7 +50,6 @@ from services.db import (
     get_or_create_user,
     get_public_settings,
     get_usage,
-    get_unread_inbox_count,
     list_inbox,
     list_manual_requests,
     list_users,
@@ -524,10 +523,19 @@ def render_top_account(user: Dict[str, Any]) -> None:
 
 
 def unread_inbox_count(user: Optional[Dict[str, Any]]) -> int:
+    """Return unread admin message count without requiring a new DB import.
+
+    The previous patch imported get_unread_inbox_count directly from
+    services.db. If app.py was deployed before services/db.py, Streamlit
+    crashed at startup with ImportError. This fallback uses the already
+    existing list_inbox function, so mobile and desktop can open safely even
+    if older db.py is still deployed.
+    """
     if not user or user.get("is_guest"):
         return 0
     try:
-        return int(get_unread_inbox_count(user, limit=20))
+        messages = list_inbox(user, limit=20)
+        return sum(1 for item in messages if not bool(item.get("read", False)))
     except Exception:
         return 0
 
