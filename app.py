@@ -1527,6 +1527,25 @@ def _is_content_subheading(line: str) -> bool:
     return 2 <= len(clean) <= 44 and bool(letters) and clean == clean.upper()
 
 
+def _render_inline_content_html(text: str) -> str:
+    """Admin metin alaninda parcali bicimlendirme icin guvenli mini markup.
+
+    Desteklenen isaretler:
+    - **kalin**
+    - *italik*
+    - [u]alti cizili[/u]
+    - ***kalin italik***
+    """
+    from html import escape as html_escape
+
+    safe = html_escape(str(text or ""))
+    safe = re.sub(r"\[u\](.+?)\[/u\]", r'<span class="kp-inline-underline">\1</span>', safe, flags=re.S)
+    safe = re.sub(r"\*\*\*(.+?)\*\*\*", r"<strong><em>\1</em></strong>", safe, flags=re.S)
+    safe = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", safe, flags=re.S)
+    safe = re.sub(r"(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)", r"<em>\1</em>", safe, flags=re.S)
+    return safe
+
+
 def _render_content_body_html(body: str) -> str:
     from html import escape as html_escape
 
@@ -1544,12 +1563,11 @@ def _render_content_body_html(body: str) -> str:
         if not line:
             flush_paragraph()
             continue
-        safe_line = html_escape(line)
         if _is_content_subheading(line):
             flush_paragraph()
-            parts.append(f'<div class="kp-written-subhead">{safe_line}</div>')
+            parts.append(f'<div class="kp-written-subhead">{html_escape(line)}</div>')
         else:
-            paragraph_lines.append(safe_line)
+            paragraph_lines.append(_render_inline_content_html(line))
     flush_paragraph()
     return "".join(parts) or "<p></p>"
 
@@ -1578,9 +1596,22 @@ def _estimate_content_html_height(item: Dict[str, Any], has_image: bool = False)
     return max(360, min(2600, 290 + char_height + line_height + image_height))
 
 
+def _estimate_content_html_height(item: Dict[str, Any], has_image: bool = False) -> int:
+    body = str(item.get("body", "") or "")
+    font_size = max(0, min(int(item.get("font_size", 17) or 17), 100))
+    title_size = max(0, min(int(item.get("title_size", 30) or 30), 100))
+    image_width = max(0, min(int(item.get("image_width", 220) or 0), 560)) if has_image else 0
+    line_count = max(1, body.count("\n") + 1)
+    # components.html iframe yuksekligi sabit ister. Metin buyuklugu, satir sayisi ve gorsel genisligine gore pay birakilir.
+    text_part = int((len(body) / 2.7) * max(font_size, 12) / 16)
+    line_part = int(line_count * max(font_size, 12) * 1.25)
+    image_part = int(image_width * 0.82) if image_width else 0
+    return max(360, min(6000, 260 + title_size + text_part + line_part + image_part))
+
+
 def _render_content_html_document(content_html: str, height: int) -> None:
-    # Streamlit Markdown bazen HTML'i düz metin gibi gösterebildiği için içerik kartlarını
-    # iframe içinde gerçek HTML olarak render ediyoruz. Böylece <div class=...> kullanıcıya görünmez.
+    # Streamlit Markdown bazen HTML'i duz metin gibi gosterebildigi icin icerik kartlarini
+    # iframe icinde gercek HTML olarak render ediyoruz. Boylece <div class=...> kullaniciya gorunmez.
     html_doc = f"""
     <!doctype html>
     <html lang="tr">
@@ -1645,7 +1676,7 @@ def _render_content_html_document(content_html: str, height: int) -> None:
             }}
             .kp-written-title {{
                 color: var(--kp-gold-2);
-                line-height: 1.05;
+                line-height: 1.08;
                 margin: 8px 0 14px;
                 text-shadow: 0 12px 28px rgba(0,0,0,0.32), 0 0 20px rgba(217,183,110,0.10);
             }}
@@ -1659,6 +1690,11 @@ def _render_content_html_document(content_html: str, height: int) -> None:
                 line-height: inherit;
                 font: inherit;
             }}
+            .kp-written-title strong,
+            .kp-written-body strong {{ font-weight: 900; }}
+            .kp-written-title em,
+            .kp-written-body em {{ font-style: italic; }}
+            .kp-inline-underline {{ text-decoration: underline; text-underline-offset: 0.16em; }}
             .kp-written-subhead {{
                 display: inline-flex;
                 align-items: center;
@@ -1676,7 +1712,8 @@ def _render_content_html_document(content_html: str, height: int) -> None:
                 clear: none;
             }}
             .kp-written-image {{
-                width: min(var(--kp-written-image-width, 220px), 44vw);
+                width: min(var(--kp-written-image-width, 220px), 96%);
+                max-width: 96%;
                 margin: 0;
                 padding: 0;
             }}
@@ -1689,10 +1726,18 @@ def _render_content_html_document(content_html: str, height: int) -> None:
                 box-shadow: 0 18px 40px rgba(0,0,0,0.34), inset 0 1px 0 rgba(255,255,255,0.12);
                 background: rgba(255,255,255,0.04);
             }}
-            .kp-image-float-left {{ float: left; margin: 0.22rem 1.08rem 0.72rem 0; }}
-            .kp-image-float-right {{ float: right; margin: 0.22rem 0 0.72rem 1.08rem; }}
+            .kp-image-float-left {{
+                float: left;
+                margin: 0.22rem 1.08rem 0.72rem 0;
+                shape-outside: inset(0 round 18px);
+            }}
+            .kp-image-float-right {{
+                float: right;
+                margin: 0.22rem 0 0.72rem 1.08rem;
+                shape-outside: inset(0 round 18px);
+            }}
             .kp-image-center {{
-                width: min(var(--kp-written-image-width, 260px), 88%);
+                width: min(var(--kp-written-image-width, 260px), 96%);
                 margin: 0.35rem auto 1rem;
             }}
             .kp-written-clear {{ clear: both; }}
@@ -1705,6 +1750,7 @@ def _render_content_html_document(content_html: str, height: int) -> None:
                     float: none !important;
                     width: min(var(--kp-written-image-width, 240px), 94%) !important;
                     margin: 0 auto 1rem !important;
+                    shape-outside: none !important;
                 }}
             }}
         </style>
@@ -1721,19 +1767,11 @@ def render_styled_content_item(item: Dict[str, Any]) -> None:
     template = str(item.get("template", "mistik_kart") or "mistik_kart")
     layout = str(item.get("image_layout", "image_left_wrap") or "image_left_wrap")
     font_family = _safe_css_font_family(str(item.get("font_family", "Inter, system-ui, sans-serif") or "Inter, system-ui, sans-serif"))
-    font_size = int(item.get("font_size", 16) or 16)
-    title_size = int(item.get("title_size", 28) or 28)
-    image_width = int(item.get("image_width", 220) or 220)
-    image_width = max(120, min(image_width, 360))
+    font_size = max(0, min(int(item.get("font_size", 16) or 0), 100))
+    title_size = max(0, min(int(item.get("title_size", 28) or 0), 100))
+    image_width = max(0, min(int(item.get("image_width", 220) or 0), 560))
 
-    title_weight = "900" if _content_bool(item, "title_bold", True) else "600"
-    title_style = "italic" if _content_bool(item, "title_italic", False) else "normal"
-    title_decoration = "underline" if _content_bool(item, "title_underline", False) else "none"
-    body_weight = "800" if _content_bool(item, "body_bold", False) else "500"
-    body_style = "italic" if _content_bool(item, "body_italic", False) else "normal"
-    body_decoration = "underline" if _content_bool(item, "body_underline", False) else "none"
-
-    title = html_escape(str(item.get("title", "") or ""))
+    title = _render_inline_content_html(str(item.get("title", "") or ""))
     category = html_escape(str(item.get("category", "") or ""))
     body_html = _render_content_body_html(str(item.get("body", "") or ""))
     category_html = f"<span class='kp-tag'>{category}</span>" if category else ""
@@ -1741,7 +1779,7 @@ def render_styled_content_item(item: Dict[str, Any]) -> None:
     image_url = _content_image_data_url(item.get("image"))
     image_alt = html_escape(_content_image_alt(item.get("image"), str(item.get("title", "İçerik görseli"))), quote=True)
     image_html = ""
-    if image_url:
+    if image_url and image_width > 0:
         safe_image = html_escape(image_url, quote=True)
         image_html = (
             f'<figure class="kp-written-image" style="--kp-written-image-width:{image_width}px;">'
@@ -1750,16 +1788,16 @@ def render_styled_content_item(item: Dict[str, Any]) -> None:
         )
 
     image_class = ""
-    before_header = ""
+    floating_image = ""
     after_header = ""
     after_body = ""
     if image_html:
         if layout in {"image_left_wrap", "text_right_image_left", "image_left"}:
             image_class = " has-float-image image-left-wrap"
-            before_header = image_html.replace('class="kp-written-image"', 'class="kp-written-image kp-image-float-left"')
+            floating_image = image_html.replace('class="kp-written-image"', 'class="kp-written-image kp-image-float-left"')
         elif layout in {"image_right_wrap", "text_left_image_right", "image_right"}:
             image_class = " has-float-image image-right-wrap"
-            before_header = image_html.replace('class="kp-written-image"', 'class="kp-written-image kp-image-float-right"')
+            floating_image = image_html.replace('class="kp-written-image"', 'class="kp-written-image kp-image-float-right"')
         elif layout in {"image_top", "image_center_top"}:
             image_class = " image-top"
             after_header = image_html.replace('class="kp-written-image"', 'class="kp-written-image kp-image-center"')
@@ -1773,16 +1811,16 @@ def render_styled_content_item(item: Dict[str, Any]) -> None:
     content_html = f"""
     <div class="kp-written-template kp-template-{html_escape(template, quote=True)}{image_class}"
          style="font-family:{font_family}; font-size:{font_size}px;">
-        {before_header}
         <div class="kp-written-text">
+            {floating_image}
             {category_html}
             <div class="kp-written-title"
-                 style="font-family:{font_family}; font-size:{title_size}px; font-weight:{title_weight}; font-style:{title_style}; text-decoration:{title_decoration};">
+                 style="font-family:{font_family}; font-size:{title_size}px; font-weight:700; font-style:normal; text-decoration:none;">
                 {title}
             </div>
             {after_header}
             <div class="kp-written-body"
-                 style="font-family:{font_family}; font-size:{font_size}px; font-weight:{body_weight}; font-style:{body_style}; text-decoration:{body_decoration};">
+                 style="font-family:{font_family}; font-size:{font_size}px; font-weight:500; font-style:normal; text-decoration:none;">
                 {body_html}
             </div>
             {after_body}
@@ -2342,83 +2380,40 @@ def admin_content() -> None:
         "text_only": "Sadece metin",
     }
 
-    st.markdown("#### Yeni içerik ekle")
-    title = st.text_input("Başlık", key=f"new_{content_type}_title")
-    category = st.text_input("Kategori", key=f"new_{content_type}_category")
-    body = st.text_area(
-        "Metin / tarif",
-        height=260,
-        key=f"new_{content_type}_body",
-        placeholder="AMAÇ\n...\n\nNİYET\n...\n\nUYGULAMA\n1- ...",
-    )
-    st.caption("Bölüm başlıklarını AMAÇ, NİYET, HAZIRLIK, UYGULAMA gibi ayrı satıra yazarsan kullanıcı tarafında özel başlık olarak görünür.")
-    image_file = st.file_uploader("İçerik görseli", type=["png", "jpg", "jpeg", "webp"], key=f"new_{content_type}_image")
-
-    col1, col2 = st.columns(2)
-    with col1:
-        template = st.selectbox("Yazım şablonu", list(template_options.keys()), format_func=lambda k: template_options[k], key=f"new_{content_type}_template")
-        font_family = st.selectbox("Yazı tipi", list(font_options.keys()), format_func=lambda k: font_options[k], key=f"new_{content_type}_font")
-        image_layout = st.selectbox("Görsel / metin yerleşimi", list(image_layout_options.keys()), format_func=lambda k: image_layout_options[k], key=f"new_{content_type}_image_layout")
-    with col2:
-        title_size = st.slider("Başlık büyüklüğü", 22, 42, 30, key=f"new_{content_type}_title_size")
-        font_size = st.slider("Metin büyüklüğü", 14, 26, 17, key=f"new_{content_type}_font_size")
-        image_width = st.slider("Resim genişliği", 120, 360, 220, step=10, key=f"new_{content_type}_image_width")
-
-    st.markdown("##### Başlık biçimi")
-    t_col1, t_col2, t_col3 = st.columns(3)
-    with t_col1:
-        title_bold = st.checkbox("Başlık kalın", value=True, key=f"new_{content_type}_title_bold")
-    with t_col2:
-        title_italic = st.checkbox("Başlık italik", value=False, key=f"new_{content_type}_title_italic")
-    with t_col3:
-        title_underline = st.checkbox("Başlık altı çizili", value=False, key=f"new_{content_type}_title_underline")
-
-    st.markdown("##### Metin biçimi")
-    b_col1, b_col2, b_col3 = st.columns(3)
-    with b_col1:
-        body_bold = st.checkbox("Metin kalın", value=False, key=f"new_{content_type}_body_bold")
-    with b_col2:
-        body_italic = st.checkbox("Metin italik", value=False, key=f"new_{content_type}_body_italic")
-    with b_col3:
-        body_underline = st.checkbox("Metin altı çizili", value=False, key=f"new_{content_type}_body_underline")
-
-    active = st.checkbox("Aktif", value=True, key=f"new_{content_type}_active")
-
-    new_image_payload = image_to_data_url(image_file, max_side=900, quality=72) if image_file else None
-    if title.strip() or body.strip() or new_image_payload:
-        st.markdown("#### Yeni içerik önizleme")
-        render_styled_content_item(
-            {
-                "title": title or "Başlık önizlemesi",
-                "category": category,
-                "body": body or "Metin önizlemesi",
-                "image": new_image_payload,
-                "template": template,
-                "font_family": font_family,
-                "font_size": font_size,
-                "title_size": title_size,
-                "image_layout": image_layout,
-                "image_width": image_width,
-                "title_bold": title_bold,
-                "title_italic": title_italic,
-                "title_underline": title_underline,
-                "body_bold": body_bold,
-                "body_italic": body_italic,
-                "body_underline": body_underline,
-            }
+    with st.expander("Yeni içerik ekle", expanded=True):
+        title = st.text_input("Başlık", key=f"new_{content_type}_title")
+        category = st.text_input("Kategori", key=f"new_{content_type}_category")
+        body = st.text_area(
+            "Metin / tarif",
+            height=260,
+            key=f"new_{content_type}_body",
+            placeholder="AMAÇ\n...\n\nNİYET\n...\n\nUYGULAMA\n1- ...",
         )
+        st.caption("Parçalı biçimlendirme: **kalın**, *italik*, [u]altı çizili[/u]. Bu işaretleri sadece biçimlendirmek istediğin kelime veya cümlenin etrafına koy.")
+        st.caption("Bölüm başlıklarını AMAÇ, NİYET, HAZIRLIK, UYGULAMA gibi ayrı satıra yazarsan kullanıcı tarafında özel başlık olarak görünür.")
+        image_file = st.file_uploader("İçerik görseli", type=["png", "jpg", "jpeg", "webp"], key=f"new_{content_type}_image")
 
-    if st.button("İçerik ekle", key=f"add_{content_type}"):
-        if not title.strip() or not body.strip():
-            st.warning("Başlık ve metin zorunlu.")
-        else:
-            create_content_item(
-                content_type,
-                title,
-                category,
-                body,
-                active,
-                extra={
+        col1, col2 = st.columns(2)
+        with col1:
+            template = st.selectbox("Yazım şablonu", list(template_options.keys()), format_func=lambda k: template_options[k], key=f"new_{content_type}_template")
+            font_family = st.selectbox("Yazı tipi", list(font_options.keys()), format_func=lambda k: font_options[k], key=f"new_{content_type}_font")
+            image_layout = st.selectbox("Görsel / metin yerleşimi", list(image_layout_options.keys()), format_func=lambda k: image_layout_options[k], key=f"new_{content_type}_image_layout")
+        with col2:
+            title_size = st.slider("Başlık büyüklüğü", 0, 100, 30, key=f"new_{content_type}_title_size")
+            font_size = st.slider("Metin büyüklüğü", 0, 100, 17, key=f"new_{content_type}_font_size")
+            image_width = st.slider("Resim genişliği", 0, 560, 220, step=10, key=f"new_{content_type}_image_width")
+
+        active = st.checkbox("Aktif", value=True, key=f"new_{content_type}_active")
+
+        new_image_payload = image_to_data_url(image_file, max_side=1200, quality=76) if image_file else None
+        show_new_preview = st.checkbox("Yeni içerik önizlemesini göster", value=False, key=f"new_{content_type}_preview_toggle")
+        if show_new_preview and (title.strip() or body.strip() or new_image_payload):
+            st.markdown("#### Yeni içerik önizleme")
+            render_styled_content_item(
+                {
+                    "title": title or "Başlık önizlemesi",
+                    "category": category,
+                    "body": body or "Metin önizlemesi",
                     "image": new_image_payload,
                     "template": template,
                     "font_family": font_family,
@@ -2426,16 +2421,43 @@ def admin_content() -> None:
                     "title_size": title_size,
                     "image_layout": image_layout,
                     "image_width": image_width,
-                    "title_bold": title_bold,
-                    "title_italic": title_italic,
-                    "title_underline": title_underline,
-                    "body_bold": body_bold,
-                    "body_italic": body_italic,
-                    "body_underline": body_underline,
-                },
+                    "title_bold": False,
+                    "title_italic": False,
+                    "title_underline": False,
+                    "body_bold": False,
+                    "body_italic": False,
+                    "body_underline": False,
+                }
             )
-            st.success("İçerik eklendi.")
-            st.rerun()
+
+        if st.button("İçerik ekle", key=f"add_{content_type}"):
+            if not title.strip() or not body.strip():
+                st.warning("Başlık ve metin zorunlu.")
+            else:
+                create_content_item(
+                    content_type,
+                    title,
+                    category,
+                    body,
+                    active,
+                    extra={
+                        "image": new_image_payload,
+                        "template": template,
+                        "font_family": font_family,
+                        "font_size": font_size,
+                        "title_size": title_size,
+                        "image_layout": image_layout,
+                        "image_width": image_width,
+                        "title_bold": False,
+                        "title_italic": False,
+                        "title_underline": False,
+                        "body_bold": False,
+                        "body_italic": False,
+                        "body_underline": False,
+                    },
+                )
+                st.success("İçerik eklendi.")
+                st.rerun()
 
     st.divider()
     st.markdown("#### Mevcut içerikler")
@@ -2443,16 +2465,54 @@ def admin_content() -> None:
         st.info("Kayıtlı içerik yok. Varsayılan içerikler kullanıcı tarafında gösterilir.")
         return
 
-    selected_label = st.selectbox("Düzenlenecek içerik", [f"{i.get('title')} · {i.get('id')}" for i in items])
-    selected_id = selected_label.split(" · ")[-1]
-    item = next(i for i in items if i["id"] == selected_id)
-    if selected_id.startswith("default_"):
+    selected_state_key = f"admin_selected_content_{content_type}"
+    st.caption("İçerikler liste halinde gösterilir. Düzenleme ve önizleme için Detay butonuna bas.")
+    for idx, list_item in enumerate(items, start=1):
+        item_id = str(list_item.get("id", ""))
+        item_title = str(list_item.get("title", "Başlıksız") or "Başlıksız")
+        item_category = str(list_item.get("category", "") or "")
+        is_default = item_id.startswith("default_")
+        is_active = bool(list_item.get("active", True))
+        row = st.columns([0.35, 3.4, 1.05, 0.95])
+        with row[0]:
+            st.markdown(f"**{idx}**")
+        with row[1]:
+            st.markdown(
+                f"**{html_escape(item_title)}**  \n"
+                f"<span style='color:rgba(242,226,202,0.62);font-size:0.78rem;'>{html_escape(item_category or 'Kategori yok')}</span>",
+                unsafe_allow_html=True,
+            )
+        with row[2]:
+            st.caption("Varsayılan" if is_default else ("Aktif" if is_active else "Pasif"))
+        with row[3]:
+            if st.button("Detay", key=f"content_detail_{content_type}_{item_id}", use_container_width=True):
+                st.session_state[selected_state_key] = item_id
+                st.rerun()
+
+    selected_id = st.session_state.get(selected_state_key, "")
+    if not selected_id:
+        st.info("Bir içerikte Detay'a bastığında düzenleme ve önizleme alanı burada açılacak.")
+        return
+
+    matched_items = [i for i in items if str(i.get("id", "")) == str(selected_id)]
+    if not matched_items:
+        st.session_state.pop(selected_state_key, None)
+        st.warning("Seçilen içerik bulunamadı. Listeyi yenileyip tekrar seç.")
+        return
+
+    item = matched_items[0]
+    st.divider()
+    st.markdown("#### İçerik detayı ve düzenleme")
+
+    if str(selected_id).startswith("default_"):
         st.info("Bu varsayılan içerik. Düzenlemek için aynı içerikten yeni kayıt oluşturabilirsin.")
+        render_styled_content_item(item)
         return
 
     edit_title = st.text_input("Başlık", value=item.get("title", ""), key=f"edit_title_{selected_id}")
     edit_category = st.text_input("Kategori", value=item.get("category", ""), key=f"edit_category_{selected_id}")
     edit_body = st.text_area("Metin / tarif", value=item.get("body", ""), height=260, key=f"edit_body_{selected_id}")
+    st.caption("Parçalı biçimlendirme: **kalın**, *italik*, [u]altı çizili[/u]. Sadece işaretlediğin kısımlar biçimlenir; tüm metin otomatik kalın/italik yapılmaz.")
 
     current_image = item.get("image")
     if _content_image_data_url(current_image):
@@ -2489,27 +2549,9 @@ def admin_content() -> None:
             key=f"edit_image_layout_{selected_id}",
         )
     with col2:
-        edit_title_size = st.slider("Başlık büyüklüğü", 22, 42, int(item.get("title_size", 30) or 30), key=f"edit_title_size_{selected_id}")
-        edit_font_size = st.slider("Metin büyüklüğü", 14, 26, int(item.get("font_size", 17) or 17), key=f"edit_font_size_{selected_id}")
-        edit_image_width = st.slider("Resim genişliği", 120, 360, int(item.get("image_width", 220) or 220), step=10, key=f"edit_image_width_{selected_id}")
-
-    st.markdown("##### Başlık biçimi")
-    et_col1, et_col2, et_col3 = st.columns(3)
-    with et_col1:
-        edit_title_bold = st.checkbox("Başlık kalın", value=bool(item.get("title_bold", True)), key=f"edit_title_bold_{selected_id}")
-    with et_col2:
-        edit_title_italic = st.checkbox("Başlık italik", value=bool(item.get("title_italic", False)), key=f"edit_title_italic_{selected_id}")
-    with et_col3:
-        edit_title_underline = st.checkbox("Başlık altı çizili", value=bool(item.get("title_underline", False)), key=f"edit_title_underline_{selected_id}")
-
-    st.markdown("##### Metin biçimi")
-    eb_col1, eb_col2, eb_col3 = st.columns(3)
-    with eb_col1:
-        edit_body_bold = st.checkbox("Metin kalın", value=bool(item.get("body_bold", False)), key=f"edit_body_bold_{selected_id}")
-    with eb_col2:
-        edit_body_italic = st.checkbox("Metin italik", value=bool(item.get("body_italic", False)), key=f"edit_body_italic_{selected_id}")
-    with eb_col3:
-        edit_body_underline = st.checkbox("Metin altı çizili", value=bool(item.get("body_underline", False)), key=f"edit_body_underline_{selected_id}")
+        edit_title_size = st.slider("Başlık büyüklüğü", 0, 100, max(0, min(int(item.get("title_size", 30) or 30), 100)), key=f"edit_title_size_{selected_id}")
+        edit_font_size = st.slider("Metin büyüklüğü", 0, 100, max(0, min(int(item.get("font_size", 17) or 17), 100)), key=f"edit_font_size_{selected_id}")
+        edit_image_width = st.slider("Resim genişliği", 0, 560, max(0, min(int(item.get("image_width", 220) or 220), 560)), step=10, key=f"edit_image_width_{selected_id}")
 
     edit_active = st.checkbox("Aktif", value=bool(item.get("active", True)), key=f"edit_active_{selected_id}")
 
@@ -2517,11 +2559,11 @@ def admin_content() -> None:
     if remove_image:
         edit_image_payload = None
     elif edit_image_file:
-        edit_image_payload = image_to_data_url(edit_image_file, max_side=900, quality=72)
+        edit_image_payload = image_to_data_url(edit_image_file, max_side=1200, quality=76)
     else:
         edit_image_payload = current_image
 
-    st.markdown("#### Önizleme")
+    show_detail_preview = st.checkbox("Detay önizlemesini göster", value=True, key=f"detail_preview_{selected_id}")
     preview_item = {
         **item,
         "title": edit_title,
@@ -2534,14 +2576,16 @@ def admin_content() -> None:
         "title_size": edit_title_size,
         "image_layout": edit_image_layout,
         "image_width": edit_image_width,
-        "title_bold": edit_title_bold,
-        "title_italic": edit_title_italic,
-        "title_underline": edit_title_underline,
-        "body_bold": edit_body_bold,
-        "body_italic": edit_body_italic,
-        "body_underline": edit_body_underline,
+        "title_bold": False,
+        "title_italic": False,
+        "title_underline": False,
+        "body_bold": False,
+        "body_italic": False,
+        "body_underline": False,
     }
-    render_styled_content_item(preview_item)
+    if show_detail_preview:
+        st.markdown("#### Önizleme")
+        render_styled_content_item(preview_item)
 
     col1, col2 = st.columns(2)
     with col1:
@@ -2558,12 +2602,12 @@ def admin_content() -> None:
                 "title_size": edit_title_size,
                 "image_layout": edit_image_layout,
                 "image_width": edit_image_width,
-                "title_bold": edit_title_bold,
-                "title_italic": edit_title_italic,
-                "title_underline": edit_title_underline,
-                "body_bold": edit_body_bold,
-                "body_italic": edit_body_italic,
-                "body_underline": edit_body_underline,
+                "title_bold": False,
+                "title_italic": False,
+                "title_underline": False,
+                "body_bold": False,
+                "body_italic": False,
+                "body_underline": False,
             }
             update_content_item(selected_id, values)
             st.success("İçerik güncellendi. Kullanıcı ekranındaki içerik de bu ayarlarla güncellendi.")
@@ -2571,8 +2615,10 @@ def admin_content() -> None:
     with col2:
         if st.button("Sil", key=f"delete_content_{selected_id}"):
             delete_content_item(selected_id)
+            st.session_state.pop(selected_state_key, None)
             st.success("İçerik silindi.")
             st.rerun()
+
 
 def render_request_payload(payload: Dict[str, Any]) -> None:
     info = payload.get("kişisel_bilgiler")
