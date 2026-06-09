@@ -215,14 +215,19 @@ def update_user_plan(email: str, plan: str, reason: str = "manual") -> None:
     )
 
 
-def get_usage(email: str) -> int:
+def get_usage(email: str, module_key: Optional[str] = None) -> int:
     db = get_firestore_client()
     user_id = user_id_from_email(email)
     ref = db.collection("users").document(user_id).collection("usage").document(today_key())
     snapshot = ref.get()
     if not snapshot.exists:
         return 0
-    return int((snapshot.to_dict() or {}).get("count", 0))
+    data = snapshot.to_dict() or {}
+    if module_key:
+        modules = data.get("modules", {}) or {}
+        module_data = modules.get(str(module_key), {}) or {}
+        return int(module_data.get("count", 0) or 0)
+    return int(data.get("count", 0) or 0)
 
 
 def get_plan(email: str) -> str:
@@ -234,27 +239,43 @@ def get_plan_limit(plan: str) -> int:
     return int(PLAN_CONFIG.get(plan, PLAN_CONFIG[DEFAULT_PLAN])["daily_limit"])
 
 
-def can_generate(email: str) -> Tuple[bool, str, Dict[str, Any]]:
+def can_generate(email: str, module_key: Optional[str] = None) -> Tuple[bool, str, Dict[str, Any]]:
     user = get_user(email)
     plan = user.get("plan", DEFAULT_PLAN)
-    used = get_usage(email)
-    limit = get_plan_limit(plan)
-    remaining = max(limit - used, 0)
+    if module_key:
+        used = get_usage(email, module_key)
+        limit = 1
+        remaining = max(limit - used, 0)
+        module_title = MODULES.get(module_key, {}).get("title", module_key)
+    else:
+        used = get_usage(email)
+        limit = get_plan_limit(plan)
+        remaining = max(limit - used, 0)
+        module_title = "AI yorum"
 
     meta = {
         "plan": plan,
+        "module": module_key,
         "used": used,
         "limit": limit,
         "remaining": remaining,
     }
 
     if remaining <= 0:
+        if module_key:
+            return (
+                False,
+                f"Bugünkü {module_title} hakkın doldu. Her bölüm için günlük 1 kullanım hakkın var.",
+                meta,
+            )
         return (
             False,
             f"Bugünkü {limit} yorum hakkın doldu. Yarın tekrar gelebilir veya planını yükseltebilirsin.",
             meta,
         )
 
+    if module_key:
+        return True, f"{module_title} için bugün kalan hakkın: {remaining}", meta
     return True, f"Bugün kalan yorum hakkın: {remaining}", meta
 
 
@@ -262,11 +283,14 @@ def record_usage(email: str, module_key: str) -> None:
     db = get_firestore_client()
     user_id = user_id_from_email(email)
     usage_ref = db.collection("users").document(user_id).collection("usage").document(today_key())
+    safe_module_key = str(module_key or "unknown").replace(".", "_").replace("/", "_")
     usage_ref.set(
         {
             "count": firestore.Increment(1),
             "date": today_key(),
-            "last_module": module_key,
+            "last_module": safe_module_key,
+            f"modules.{safe_module_key}.count": firestore.Increment(1),
+            f"modules.{safe_module_key}.updated_at": firestore.SERVER_TIMESTAMP,
             "updated_at": firestore.SERVER_TIMESTAMP,
         },
         merge=True,
