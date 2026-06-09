@@ -474,10 +474,17 @@ CONTENT_ITEM_ALLOWED_FIELDS = {
     "active",
     "image",
     "template",
-    "image_layout",
     "font_family",
     "font_size",
     "title_size",
+    "image_layout",
+    "image_width",
+    "title_bold",
+    "title_italic",
+    "title_underline",
+    "body_bold",
+    "body_italic",
+    "body_underline",
 }
 
 
