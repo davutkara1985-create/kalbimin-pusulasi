@@ -168,6 +168,47 @@ def module_visual(module_key: str) -> Tuple[str, str, str]:
     return MODULE_VISUALS.get(module_key, ("Kalbimin Pusulası", "✦", "water"))
 
 
+MODULE_ICON_ASSETS: Dict[str, str] = {
+    "relationship": "relationship.png",
+    "message_analysis": "message_analysis.png",
+    "love_fortune": "love_fortune.png",
+    "daily_energy": "daily_energy.png",
+    "emotion": "emotion.png",
+    "zodiac": "zodiac.png",
+    "birth_chart": "birth_chart.png",
+    "mini_tarot": "mini_tarot.png",
+    "tarot": "tarot.png",
+    "mini_katina": "mini_katina.png",
+    "katina": "katina.png",
+    "coffee_text": "coffee_fortune.png",
+    "coffee_image": "coffee_fortune.png",
+    "dream": "dream.png",
+    "soulmate": "soulmate.png",
+    "meditation": "meditation.png",
+    "rituals": "rituals.png",
+}
+
+
+@st.cache_data(show_spinner=False)
+def icon_asset_data_uri(filename: str) -> str:
+    path = Path(__file__).resolve().parent.parent / "assets" / "icons" / filename
+    if not path.exists() or not path.is_file():
+        return ""
+    raw = path.read_bytes()
+    mime = _asset_mime(path)
+    encoded = base64.b64encode(raw).decode("utf-8")
+    return f"data:{mime};base64,{encoded}"
+
+
+def module_icon_html(module_key: str, fallback_icon: str) -> str:
+    filename = MODULE_ICON_ASSETS.get(module_key, "")
+    uri = icon_asset_data_uri(filename) if filename else ""
+    if not uri:
+        return escape(str(fallback_icon))
+    alt = escape(str(fallback_icon), quote=True)
+    return f'<img class="kp-icon-img" src="{escape(uri, quote=True)}" alt="{alt}" loading="lazy" />'
+
+
 BACKGROUND_EXTENSIONS = (".png", ".jpg", ".jpeg", ".webp")
 
 
@@ -704,10 +745,25 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
         .kp-card.earth {{ --kp-element-glow: rgba(128,98,58,0.32); }}
         .kp-card-top {{ display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 14px; }}
         .kp-icon {{
-            width: 44px; height: 44px; border-radius: 16px; display: grid; place-items: center; color: var(--kp-gold-2);
+            width: 54px; height: 54px; border-radius: 18px; display: grid; place-items: center; color: var(--kp-gold-2);
             font-family: var(--kp-font-serif); font-size: 1.55rem;
             background: linear-gradient(145deg, rgba(217,183,110,0.24), rgba(123,75,214,0.16));
             border: 1px solid rgba(255,241,184,0.24); box-shadow: 0 0 20px rgba(217,183,110,0.16);
+            overflow: hidden;
+            flex: 0 0 auto;
+        }}
+        .kp-icon.kp-icon-asset {{
+            padding: 0;
+            background: rgba(8, 8, 24, 0.52);
+            border: 1px solid rgba(255,241,184,0.32);
+            box-shadow: 0 0 22px rgba(217,183,110,0.18), inset 0 1px 0 rgba(255,255,255,0.10);
+        }}
+        .kp-icon-img {{
+            width: 100%;
+            height: 100%;
+            display: block;
+            object-fit: cover;
+            border-radius: 18px;
         }}
         .kp-lock {{ padding: 5px 8px; border-radius: 999px; border: 1px solid rgba(255,241,184,0.16); background: rgba(217,183,110,0.09); color: var(--kp-gold-2); font-size: 0.68rem; font-weight: 800; }}
         .kp-card h3 {{ margin: 0 0 7px 0; color: var(--kp-text); font-family: var(--kp-font-serif); font-size: 1.22rem; line-height: 1.05; }}
@@ -1471,206 +1527,20 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
         @keyframes kpFadeUp {{ from {{ opacity: 0; transform: translateY(12px); }} to {{ opacity: 1; transform: translateY(0); }} }}
 
         @media (max-width: 760px) {{
-    html, body, .stApp, [data-testid="stAppViewContainer"] {{
-        width: 100% !important;
-        max-width: 100% !important;
-        overflow-x: hidden !important;
-        -webkit-text-size-adjust: 100%;
-    }}
-
-    .stApp {{
-        min-height: 100svh;
-        min-height: 100dvh;
-    }}
-
-    [data-testid="stAppViewContainer"] {{
-        width: 100% !important;
-        margin-left: 0 !important;
-    }}
-
-    [data-testid="stAppViewContainer"] .main {{
-        width: 100% !important;
-        max-width: 100% !important;
-    }}
-
-    [data-testid="stAppViewContainer"] .block-container {{
-        max-width: 100% !important;
-        width: 100% !important;
-        padding-left: max(0.85rem, env(safe-area-inset-left)) !important;
-        padding-right: max(0.85rem, env(safe-area-inset-right)) !important;
-        padding-top: 2.75rem !important;
-        padding-bottom: calc(6rem + env(safe-area-inset-bottom)) !important;
-        box-sizing: border-box !important;
-    }}
-
-    [data-testid="stSidebar"],
-    [data-testid="stSidebar"] > div {{
-        width: min(86vw, 280px) !important;
-        min-width: min(86vw, 280px) !important;
-        max-width: min(86vw, 280px) !important;
-    }}
-
-    [data-testid="stSidebar"] > div {{
-        height: 100svh !important;
-        height: 100dvh !important;
-        overflow-y: auto !important;
-        -webkit-overflow-scrolling: touch;
-    }}
-
-    .kp-top-account-floating {{
-        top: max(8px, env(safe-area-inset-top)) !important;
-        right: max(10px, env(safe-area-inset-right)) !important;
-        max-width: calc(100vw - 20px) !important;
-        padding: 5px 7px !important;
-    }}
-
-    .kp-top-account-name {{
-        max-width: 120px !important;
-        font-size: 0.70rem !important;
-    }}
-
-    .kp-top-account-link {{
-        min-height: 24px !important;
-        padding: 0 8px !important;
-        font-size: 0.68rem !important;
-    }}
-
-    .kp-hero {{
-        min-height: auto !important;
-        border-radius: 26px !important;
-        padding: 18px 15px 17px !important;
-    }}
-
-    .kp-hero::after {{
-        display: none !important;
-    }}
-
-    .kp-hero-top {{
-        gap: 10px !important;
-        margin-bottom: 10px !important;
-    }}
-
-    .kp-avatar-wrap {{
-        width: 54px !important;
-        height: 54px !important;
-    }}
-
-    .kp-avatar {{
-        font-size: 1.65rem !important;
-    }}
-
-    .kp-title {{
-        font-size: clamp(2.35rem, 14vw, 2.85rem) !important;
-        margin: 12px 0 12px !important;
-        line-height: 0.92 !important;
-    }}
-
-    .kp-subtitle {{
-        font-size: 0.90rem !important;
-        line-height: 1.52 !important;
-        margin-bottom: 12px !important;
-    }}
-
-    .kp-chip,
-    .kp-element-chip {{
-        padding: 7px 9px !important;
-        font-size: 0.72rem !important;
-    }}
-
-    .kp-section-title {{
-        font-size: 1.62rem !important;
-    }}
-
-    .kp-card,
-    .kp-plan,
-    .kp-result-card,
-    .kp-share-card,
-    .kp-lead-card,
-    .kp-upgrade-card,
-    .kp-admin-card,
-    .kp-inbox-card,
-    .kp-request-card {{
-        border-radius: 20px !important;
-        max-width: 100% !important;
-        box-sizing: border-box !important;
-    }}
-
-    .kp-result-body,
-    .kp-written-body,
-    .kp-card p,
-    .kp-notice,
-    .kp-safe {{
-        overflow-wrap: anywhere !important;
-        word-break: break-word !important;
-    }}
-
-    input,
-    textarea,
-    select,
-    [data-baseweb="input"] input,
-    [data-baseweb="textarea"] textarea,
-    [data-baseweb="select"] * {{
-        font-size: 16px !important;
-    }}
-
-    div.stButton > button,
-    button[kind="primary"],
-    button[kind="secondary"] {{
-        width: 100% !important;
-        min-height: 46px !important;
-        white-space: normal !important;
-    }}
-
-    [data-testid="stHorizontalBlock"] {{
-        flex-wrap: wrap !important;
-        gap: 0.75rem 0 !important;
-    }}
-
-    [data-testid="column"] {{
-        width: 100% !important;
-        min-width: 100% !important;
-        max-width: 100% !important;
-        flex: 1 1 100% !important;
-    }}
-
-    [data-testid="stHorizontalBlock"]:has(.kp-card-slot-wrap) {{
-        display: flex !important;
-        flex-wrap: wrap !important;
-        gap: 0 !important;
-        align-items: flex-start !important;
-    }}
-
-    [data-testid="stHorizontalBlock"]:has(.kp-card-slot-wrap) > [data-testid="column"] {{
-        width: 16.666% !important;
-        min-width: 16.666% !important;
-        max-width: 16.666% !important;
-        flex: 0 0 16.666% !important;
-        padding-left: 0 !important;
-        padding-right: 0 !important;
-    }}
-
-    .kp-open-card-grid {{
-        grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
-        gap: 6px !important;
-    }}
-
-    .kp-open-card-img {{
-        max-width: 52px !important;
-        border-radius: 7px !important;
-    }}
-
-    .kp-share-links {{
-        display: grid !important;
-        grid-template-columns: 1fr 1fr !important;
-        gap: 8px !important;
-    }}
-
-    .kp-share-links a {{
-        width: 100% !important;
-        justify-content: center !important;
-        box-sizing: border-box !important;
-    }}
-}}
+            [data-testid="stSidebar"], [data-testid="stSidebar"] > div {{ width: 260px !important; min-width: 260px !important; max-width: 260px !important; }}
+            [data-testid="stAppViewContainer"] .block-container {{ max-width: 100%; padding-left: 0.85rem; padding-right: 0.85rem; padding-top: 0.45rem; }}
+            .kp-hero {{ min-height: 285px; border-radius: 26px; padding: 18px 15px 17px; }}
+            .kp-hero-top {{ gap: 10px; margin-bottom: 10px; }}
+            .kp-avatar-wrap {{ width: 54px; height: 54px; }}
+            .kp-avatar {{ font-size: 1.65rem; }}
+            .kp-title {{ font-size: 2.72rem; margin: 12px 0 12px; }}
+            .kp-subtitle {{ font-size: 0.90rem; line-height: 1.52; margin-bottom: 12px; }}
+            .kp-chip, .kp-element-chip {{ padding: 7px 9px; font-size: 0.72rem; }}
+            .kp-section-title {{ font-size: 1.62rem; }}
+            .kp-card, .kp-plan, .kp-result-card, .kp-share-card, .kp-lead-card, .kp-upgrade-card {{ border-radius: 20px; }}
+            div.stButton > button, button[kind="primary"], button[kind="secondary"] {{ width: 100% !important; min-height: 46px !important; }}
+            [data-testid="column"] {{ width: 100% !important; flex: 1 1 100% !important; }}
+        }}
         </style>
         """,
         unsafe_allow_html=True,
@@ -1747,11 +1617,13 @@ def render_module_card(module_key: str, module: Dict[str, Any], locked: bool = F
     lock_html = '<span class="kp-lock">Hesap gerekli</span>' if locked else '<span class="kp-lock">Açık</span>'
     title = escape(str(module.get("title", "")))
     description = escape(str(module.get("description", "")))
+    icon_html = module_icon_html(module_key, icon)
+    icon_class = "kp-icon kp-icon-asset" if MODULE_ICON_ASSETS.get(module_key) else "kp-icon"
     st.markdown(
         f"""
         <div class="kp-card {element}">
           <div class="kp-card-top">
-            <div class="kp-icon">{escape(icon)}</div>
+            <div class="{icon_class}">{icon_html}</div>
             {lock_html}
           </div>
           <h3>{title}</h3>
