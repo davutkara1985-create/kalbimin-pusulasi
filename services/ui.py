@@ -743,59 +743,52 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
             font-size: 0.66rem;
             line-height: 1.45;
         }}
-        .kp-auth-card {{
-            margin: -2px 0 16px;
-            padding: 18px;
-            border-radius: 24px;
-            background: linear-gradient(145deg, rgba(255,255,255,0.105), rgba(255,255,255,0.035)), rgba(12,15,44,0.70);
-            border: 1px solid rgba(217,183,110,0.24);
-            box-shadow: 0 20px 48px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.10);
-            backdrop-filter: blur(22px);
+        .kp-auth-heading {{
+            max-width: 520px;
+            margin: 4px auto 22px;
+            padding: 4px 10px 8px;
+            text-align: center;
+            background: transparent;
+            border: none;
+            box-shadow: none;
+            backdrop-filter: none;
         }}
-        .kp-auth-brand {{
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            margin-bottom: 14px;
-        }}
-        .kp-auth-orb {{
-            width: 48px;
-            height: 48px;
-            border-radius: 50%;
-            display: grid;
-            place-items: center;
-            color: var(--kp-gold-2);
-            font-family: var(--kp-font-serif);
-            font-size: 1.55rem;
-            background: conic-gradient(from 0deg, #fff1b8, #d9b76e, #7b4bd6, #fff1b8);
-            box-shadow: 0 0 26px rgba(217,183,110,0.24);
-        }}
-        .kp-auth-brand-title {{
-            font-family: var(--kp-font-serif);
-            color: var(--kp-text);
-            font-size: 1.34rem;
-            font-weight: 800;
-            line-height: 1.0;
-        }}
-        .kp-auth-brand-subtitle {{
-            margin-top: 4px;
-            color: var(--kp-gold-2);
-            font-size: 0.78rem;
-            font-weight: 800;
-            letter-spacing: 0.02em;
+        .kp-auth-heading::after {{
+            content: "";
+            display: block;
+            width: 96px;
+            height: 1px;
+            margin: 14px auto 0;
+            background: linear-gradient(90deg, transparent, rgba(255,241,184,0.58), transparent);
         }}
         .kp-auth-title {{
             font-family: var(--kp-font-serif);
             color: var(--kp-text);
-            font-size: 1.75rem;
+            font-size: clamp(2.10rem, 7vw, 3.05rem);
             font-weight: 800;
-            line-height: 1;
+            line-height: 0.98;
+            margin: 0 0 8px;
+            letter-spacing: -0.035em;
+            text-shadow: 0 12px 34px rgba(0,0,0,0.34), 0 0 26px rgba(217,183,110,0.14);
+        }}
+        .kp-auth-subtitle {{
+            color: var(--kp-gold-2);
+            font-size: 0.92rem;
+            font-weight: 900;
+            line-height: 1.25;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            text-shadow: 0 8px 24px rgba(0,0,0,0.26);
             margin-bottom: 7px;
         }}
         .kp-auth-note {{
-            color: var(--kp-muted);
-            font-size: 0.90rem;
-            line-height: 1.55;
+            max-width: 430px;
+            margin: 0 auto;
+            color: rgba(242,226,202,0.72);
+            font-size: 0.88rem;
+            font-weight: 650;
+            line-height: 1.52;
+            text-shadow: 0 8px 22px rgba(0,0,0,0.30);
         }}
         .kp-page-top-spacer {{ height: 10px; }}
         .kp-bottom-back-home {{ margin: 24px 0 8px; }}
