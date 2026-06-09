@@ -731,7 +731,72 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
 
         .kp-notice, .kp-safe {{ padding: 14px 15px; border-radius: 18px; background: rgba(255,241,184,0.075); border: 1px solid rgba(255,241,184,0.16); color: rgba(255,248,232,0.82); margin: 14px 0 20px; line-height: 1.55; font-size: 0.86rem; backdrop-filter: blur(18px); }}
         .kp-safe {{ background: rgba(36,109,181,0.10); border-color: rgba(140,182,255,0.18); }}
-        .kp-footer {{ color: var(--kp-muted-2); text-align: center; font-size: 0.76rem; padding: 24px 0 8px; }}
+        .kp-footer {{ color: var(--kp-muted-2); text-align: center; font-size: 0.70rem; padding: 26px 0 10px; }}
+        .kp-footer-disclaimer {{
+            max-width: 520px;
+            margin: 0 auto 8px;
+            padding: 8px 10px;
+            border-radius: 14px;
+            color: rgba(242, 226, 202, 0.54);
+            background: rgba(255, 241, 184, 0.035);
+            border: 1px solid rgba(255, 241, 184, 0.08);
+            font-size: 0.66rem;
+            line-height: 1.45;
+        }}
+        .kp-auth-card {{
+            margin: -2px 0 16px;
+            padding: 18px;
+            border-radius: 24px;
+            background: linear-gradient(145deg, rgba(255,255,255,0.105), rgba(255,255,255,0.035)), rgba(12,15,44,0.70);
+            border: 1px solid rgba(217,183,110,0.24);
+            box-shadow: 0 20px 48px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.10);
+            backdrop-filter: blur(22px);
+        }}
+        .kp-auth-brand {{
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 14px;
+        }}
+        .kp-auth-orb {{
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            display: grid;
+            place-items: center;
+            color: var(--kp-gold-2);
+            font-family: var(--kp-font-serif);
+            font-size: 1.55rem;
+            background: conic-gradient(from 0deg, #fff1b8, #d9b76e, #7b4bd6, #fff1b8);
+            box-shadow: 0 0 26px rgba(217,183,110,0.24);
+        }}
+        .kp-auth-brand-title {{
+            font-family: var(--kp-font-serif);
+            color: var(--kp-text);
+            font-size: 1.34rem;
+            font-weight: 800;
+            line-height: 1.0;
+        }}
+        .kp-auth-brand-subtitle {{
+            margin-top: 4px;
+            color: var(--kp-gold-2);
+            font-size: 0.78rem;
+            font-weight: 800;
+            letter-spacing: 0.02em;
+        }}
+        .kp-auth-title {{
+            font-family: var(--kp-font-serif);
+            color: var(--kp-text);
+            font-size: 1.75rem;
+            font-weight: 800;
+            line-height: 1;
+            margin-bottom: 7px;
+        }}
+        .kp-auth-note {{
+            color: var(--kp-muted);
+            font-size: 0.90rem;
+            line-height: 1.55;
+        }}
         .kp-page-top-spacer {{ height: 10px; }}
         .kp-bottom-back-home {{ margin: 24px 0 8px; }}
         .kp-bottom-back-home div.stButton > button {{ max-width: 220px !important; }}
@@ -1380,7 +1445,7 @@ def render_content_visual(content_type: str) -> None:
 def render_safety_notice() -> None:
     st.markdown(
         """
-        <div class="kp-safe">
+        <div class="kp-footer-disclaimer">
             Bu uygulama eğlence, kişisel farkındalık ve duygusal paylaşım amacı taşır.
             Terapi, psikolojik danışmanlık, tıbbi teşhis veya kesin gelecek tahmini sunmaz.
         </div>
@@ -1548,7 +1613,11 @@ def render_footer() -> None:
     st.markdown(
         """
         <div class="kp-footer">
-            · Kalbimin Pusulası · Eğlence ve farkındalık amaçlıdır ·
+            <div class="kp-footer-disclaimer">
+                Bu uygulama eğlence, kişisel farkındalık ve duygusal paylaşım amacı taşır.
+                Terapi, psikolojik danışmanlık, tıbbi teşhis veya kesin gelecek tahmini sunmaz.
+            </div>
+            <div>· Kalbimin Pusulası · Eğlence ve farkındalık amaçlıdır ·</div>
         </div>
         """,
         unsafe_allow_html=True,
