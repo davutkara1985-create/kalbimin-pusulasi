@@ -1090,25 +1090,9 @@ def render_back_home_button(page: str) -> None:
 
 
 def page_home(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]]) -> None:
+    # Ana sayfa artık sadece hızlı açılan mistik karşılama alanını gösterir.
+    # Modül seçimleri sol/üst menüden yapılır; böylece ana sayfa gereksiz kart ve plan bloklarıyla yavaşlamaz.
     render_hero(user)
-
-    render_section_header("AŞK ODAĞIN", "Kalbimin Pusulası fısıldar, ruhun hatırlar", kicker="")
-    priority_keys = ["relationship", "message_analysis", "love_fortune", "daily_energy", "mini_tarot", "coffee_text"]
-    visible_keys = [key for key in priority_keys if key in MODULES and module_active(key, module_settings)]
-    for start in range(0, len(visible_keys), 2):
-        cols = st.columns(2)
-        for col, key in zip(cols, visible_keys[start : start + 2]):
-            meta = module_meta(key, module_settings)
-            required_plan = str(meta.get("min_plan", "free"))
-            locked = False
-            with col:
-                render_module_card(key, meta, locked=locked)
-                if st.button("Bu bölüme git →", key=f"home_open_{key}", use_container_width=True):
-                    go_to_page(key, user, module_settings)
-                    st.rerun()
-
-    render_section_header("Freemium plan", "Ücretsiz dene; detaylı ve özel yorumlar için Premium'a geç.", kicker="Plan")
-    render_plan_cards(user.get("plan", "free"))
 
 
 def page_subscription(user: Dict[str, Any]) -> None:
