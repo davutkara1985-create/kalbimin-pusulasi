@@ -2114,6 +2114,7 @@ def render_safety_notice() -> None:
         """
         <div class="kp-footer-disclaimer">
             Bu uygulama eğlence ve kişisel farkındalık amaçlıdır.
+        <div class="kp-footer-disclaimer">
             Terapi, tıbbi teşhis veya kesinlik sunmaz.
         </div>
         """,
