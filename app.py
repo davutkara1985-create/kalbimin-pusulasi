@@ -1615,7 +1615,7 @@ def page_birth_chart(user: Dict[str, Any], prompts: Dict[str, str], module_setti
             return
         request_id = submit_manual_request(user, "birth_chart", payload)
         _record_manual_module_usage(user, "birth_chart")
-        st.success(f"Talebin admin paneline düştü. Talep no: {request_id}")
+        show_manual_request_sent_notice(request_id)
 
 
 
@@ -2281,6 +2281,15 @@ def _record_manual_module_usage(user: Dict[str, Any], module_key: str) -> None:
     return None
 
 
+
+
+MANUAL_REQUEST_SENT_NOTICE = "Talebiniz yorumcularımıza gönderilmiş olup 60 dakika içerisinde yorumunuz gönderilecektir."
+
+
+def show_manual_request_sent_notice(request_id: str) -> None:
+    st.success(MANUAL_REQUEST_SENT_NOTICE)
+    st.caption(f"Talep no: {request_id}")
+
 def _manual_cards_ready(deck_key: str, info: Dict[str, Any]) -> bool:
     ready_key = f"{deck_key}_ready_for_cards"
     if not bool(st.session_state.get(ready_key, False)):
@@ -2322,7 +2331,7 @@ def page_manual_tarot(user: Dict[str, Any], module_settings: Dict[str, Dict[str,
         payload = {"title": "Tarot Falı", "kişisel_bilgiler": info, "soru": question, "çekilen_kartlar": cards}
         request_id = submit_manual_request(user, "tarot", payload)
         _record_manual_module_usage(user, "tarot")
-        st.success(f"Talebin admin paneline düştü. Talep no: {request_id}")
+        show_manual_request_sent_notice(request_id)
 
 
 def page_manual_katina(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]]) -> None:
@@ -2347,7 +2356,7 @@ def page_manual_katina(user: Dict[str, Any], module_settings: Dict[str, Dict[str
         payload = {"title": "Katina Falı", "kişisel_bilgiler": info, "soru": question, "çekilen_kartlar": cards}
         request_id = submit_manual_request(user, "katina", payload)
         _record_manual_module_usage(user, "katina")
-        st.success(f"Talebin admin paneline düştü. Talep no: {request_id}")
+        show_manual_request_sent_notice(request_id)
 
 
 def page_coffee_image(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]]) -> None:
@@ -2436,7 +2445,7 @@ def page_coffee_image(user: Dict[str, Any], module_settings: Dict[str, Dict[str,
             return
         request_id = submit_manual_request(user, "coffee_image", payload)
         _record_manual_module_usage(user, "coffee_image")
-        st.success(f"Talebin admin paneline düştü. Talep no: {request_id}")
+        show_manual_request_sent_notice(request_id)
 
 
 def page_dream(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]]) -> None:
@@ -2456,7 +2465,7 @@ def page_dream(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]])
             return
         request_id = submit_manual_request(user, "dream", payload)
         _record_manual_module_usage(user, "dream")
-        st.success(f"Talebin admin paneline düştü. Talep no: {request_id}")
+        show_manual_request_sent_notice(request_id)
 
 
 def page_soulmate(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]]) -> None:
@@ -2473,7 +2482,7 @@ def page_soulmate(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any
             return
         request_id = submit_manual_request(user, "soulmate", payload)
         _record_manual_module_usage(user, "soulmate")
-        st.success(f"Talebin admin paneline düştü. Talep no: {request_id}")
+        show_manual_request_sent_notice(request_id)
 
 
 def page_content(content_type: str, module_key: str, module_settings: Dict[str, Dict[str, Any]]) -> None:
