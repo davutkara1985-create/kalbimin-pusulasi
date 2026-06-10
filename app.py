@@ -1089,9 +1089,133 @@ def render_back_home_button(page: str) -> None:
     st.markdown('</div>', unsafe_allow_html=True)
 
 
+def render_home_star_field() -> None:
+    """Ana sayfanın tamamında hafif, performans dostu yıldız kaymaları gösterir."""
+    st.markdown(
+        """
+        <style>
+        .kp-home-star-field {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            overflow: hidden;
+            z-index: 2;
+        }
+        .kp-home-star-field .kp-home-wide-star {
+            position: absolute;
+            width: 118px;
+            height: 1px;
+            border-radius: 999px;
+            background: linear-gradient(90deg, transparent, rgba(255,241,184,0.86), rgba(255,255,255,0.62), transparent);
+            box-shadow: 0 0 14px rgba(255,241,184,0.24);
+            opacity: 0;
+            transform: translate3d(-180px, 0, 0) rotate(-18deg);
+            animation: kpHomeWideShootingStar 12s linear infinite;
+        }
+        .kp-home-wide-star::after {
+            content: "";
+            position: absolute;
+            right: 42%;
+            top: -1.5px;
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+            background: rgba(255,248,232,0.82);
+            box-shadow: 0 0 13px rgba(255,241,184,0.55);
+        }
+        .kp-home-wide-star.s1 { top: 10%; left: -12%; animation-delay: 0s; animation-duration: 11.5s; }
+        .kp-home-wide-star.s2 { top: 24%; left: -24%; animation-delay: 2.3s; animation-duration: 13.5s; }
+        .kp-home-wide-star.s3 { top: 39%; left: -16%; animation-delay: 4.9s; animation-duration: 12.8s; }
+        .kp-home-wide-star.s4 { top: 55%; left: -28%; animation-delay: 7.2s; animation-duration: 14.6s; }
+        .kp-home-wide-star.s5 { top: 72%; left: -18%; animation-delay: 9.6s; animation-duration: 13.8s; }
+        .kp-home-wide-star.s6 { top: 86%; left: -34%; animation-delay: 5.8s; animation-duration: 15.5s; }
+        @keyframes kpHomeWideShootingStar {
+            0% { opacity: 0; transform: translate3d(-180px, 0, 0) rotate(-18deg); }
+            6% { opacity: 0.82; }
+            17% { opacity: 0.78; }
+            28% { opacity: 0; transform: translate3d(130vw, 42vh, 0) rotate(-18deg); }
+            100% { opacity: 0; transform: translate3d(130vw, 42vh, 0) rotate(-18deg); }
+        }
+        @media (max-width: 760px) {
+            .kp-home-star-field .kp-home-wide-star { width: 82px; animation-duration: 14s; }
+            .kp-home-wide-star.s4, .kp-home-wide-star.s6 { display: none; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .kp-home-star-field .kp-home-wide-star { animation: none !important; opacity: 0.18; }
+        }
+        </style>
+        <div class="kp-home-star-field" aria-hidden="true">
+            <i class="kp-home-wide-star s1"></i>
+            <i class="kp-home-wide-star s2"></i>
+            <i class="kp-home-wide-star s3"></i>
+            <i class="kp-home-wide-star s4"></i>
+            <i class="kp-home-wide-star s5"></i>
+            <i class="kp-home-wide-star s6"></i>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_home_intro_text() -> None:
+    """Eski Aşk Odağın alanında görünen yeni mistik açılış metni."""
+    render_section_header("AŞK ODAĞIN", "Kalbinin işaretlerini dinle", kicker="")
+    st.markdown(
+        """
+        <div class="kp-home-story-card">
+            <p>Bazen içinden geçenleri açıklayamazsın… ama hissedersin.</p>
+            <p>Kalbinde kalan bir soru, yarım kalmış bir duygu ya da adını koyamadığın bir enerji…</p>
+            <p>İşte tam da bu yüzden buradasın.</p>
+            <p>Bu alan, sadece bir uygulama değil…</p>
+            <p>İç sesini duyduğun, hislerini anlamlandırdığın ve sana söylenmeyeni fark ettiğin bir yolculuk.</p>
+            <p>Belki bir mesaj seni bekliyordur,<br>belki geçmişten gelen bir bağ hâlâ çözülmemiştir,<br>belki de kalbin sana anlatmaya çalıştığı şeyi ilk kez net duyacaksın.</p>
+            <p>Şimdi dur…<br>Derin bir nefes al…</p>
+            <p>Ve kendine şunu sor:</p>
+            <p class="kp-home-story-question">“Bugün kalbim bana ne söylemek istiyor?”</p>
+            <p>Cevaplar burada… ve sandığından daha yakın.</p>
+        </div>
+        <style>
+        .kp-home-story-card {
+            position: relative;
+            z-index: 4;
+            margin: 8px 0 22px;
+            padding: 20px 19px;
+            border-radius: 24px;
+            background: linear-gradient(145deg, rgba(255,255,255,0.11), rgba(255,255,255,0.045));
+            border: 1px solid rgba(255,241,184,0.19);
+            box-shadow: 0 18px 42px rgba(0,0,0,0.22), inset 0 1px 0 rgba(255,255,255,0.08);
+        }
+        .kp-home-story-card p {
+            margin: 0 0 0.86rem;
+            color: rgba(255,248,232,0.90);
+            font-size: 1.01rem;
+            line-height: 1.72;
+            letter-spacing: -0.01em;
+        }
+        .kp-home-story-card p:last-child { margin-bottom: 0; }
+        .kp-home-story-question {
+            color: var(--kp-gold-2) !important;
+            font-family: var(--kp-font-serif);
+            font-size: 1.42rem !important;
+            line-height: 1.22 !important;
+            text-shadow: 0 0 22px rgba(217,183,110,0.16);
+        }
+        @media (max-width: 760px) {
+            .kp-home-story-card { padding: 17px 15px; border-radius: 21px; }
+            .kp-home-story-card p { font-size: 0.94rem; line-height: 1.63; }
+            .kp-home-story-question { font-size: 1.23rem !important; }
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def page_home(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]]) -> None:
-    # Ana sayfa sadece mistik açılış alanıdır. Modül geçişleri menüden yapılır.
+    # Ana sayfa: eski Kalbimin Pusulası kutusu korunur; modüllere geçiş sadece menüden yapılır.
+    render_home_star_field()
     render_hero(user)
+    render_home_intro_text()
 
 
 def page_subscription(user: Dict[str, Any]) -> None:
