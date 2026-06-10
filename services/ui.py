@@ -2136,42 +2136,19 @@ def render_sidebar_brand() -> None:
 
 def render_hero(user: Optional[Dict[str, Any]] = None) -> None:
     display_name = escape(_display_name(user))
-    messages = [
-        "✨ Kalbinde tamamlanmamış bir hikâye yeniden canlanıyor…",
-        "🔮 Uzak birinden gelecek bir haber enerjisi var…",
-        "🌙 Beklediğin bir mesaj sandığından daha yakın…",
-        "✨ İçinden geçen his seni doğru yöne çağırıyor…",
-        "🔮 Geçmişten biri zihninde değil… enerjinde duruyor…",
-        "🌙 Bugün kalbin sakladığın bir duyguyu açığa çıkarabilir…",
-        "✨ Sessiz bir düşüncen başkasının kalbine ulaşmış…",
-        "🔮 Beklenmedik bir söz her şeyi değiştirebilir…",
-        "🌙 Kalbinde küçük ama önemli bir farkındalık oluşuyor…",
-        "✨ Sana söylenmemiş bir şey var… hissediyorum…",
-    ]
-    messages_html = "".join(f"<span>{escape(item)}</span>" for item in messages)
     st.markdown(
         f"""
-        <div class="kp-hero kp-home-only-hero">
-            <div class="kp-home-stars" aria-hidden="true">
-                <i class="kp-home-star s1"></i>
-                <i class="kp-home-star s2"></i>
-                <i class="kp-home-star s3"></i>
-                <i class="kp-home-star s4"></i>
-            </div>
+        <div class="kp-hero">
             <div class="kp-hero-top">
                 <div class="kp-avatar-wrap"><div class="kp-avatar">☽</div></div>
                 <div>
-                    <div class="kp-eyebrow">✦ Sezgisel kalp pusulası</div>
+                    <div class="kp-eyebrow">✦ Aşk & ilişki pusulası</div>
                     <div class="kp-username">Hoş geldin, {display_name}</div>
                 </div>
             </div>
-            <div class="kp-home-opening">
-                <div class="kp-home-title">Kalbimin <span>Pusulası</span></div>
-                <div class="kp-home-subtitle">“Kader gürültüde değil… sükûtta konuşur.”</div>
-                <div class="kp-home-rotator" aria-label="Dönen mistik mesajlar">
-                    {messages_html}
-                </div>
-                <div class="kp-home-menu-hint">Falını seçmek için menüyü kullan; kalbin hangi kapıya yönelirse oradan başla.</div>
+            <div class="kp-title">Kalbimin <span>Pusulası</span></div>
+            <div class="kp-subtitle">
+                KADER GÜRÜLTÜDE DEĞİL, SÜKÛTTA KONUŞUR
             </div>
         </div>
         """,
