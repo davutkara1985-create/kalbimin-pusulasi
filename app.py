@@ -772,17 +772,8 @@ def render_email_lead_form(source: str = "landing") -> None:
 
 
 def module_plan_allowed(user: Dict[str, Any], module_key: str, module_settings: Dict[str, Dict[str, Any]]) -> bool:
-    # Kayıtlı kullanıcılara menüdeki her sayfa için günlük 1 kullanım hakkı tanımlandığı için
-    # sayfa açılışı planla engellenmez. Kullanım sınırı sayfa gönderiminde modül bazlı kontrol edilir.
-    if is_logged_in(user):
-        return True
-    if is_admin(user):
-        return True
-    if module_key not in MODULES:
-        return True
-    meta = module_meta(module_key, module_settings)
-    required_plan = str(meta.get("min_plan", "free"))
-    return plan_allows(user.get("plan", "free"), required_plan)
+    # Tum uygulamalar ucretsiz ve sinirsiz kullanimdadir; plan kilidi uygulanmaz.
+    return True
 
 
 def show_plan_gate(user: Dict[str, Any], module_key: str, module_settings: Dict[str, Dict[str, Any]]) -> None:
@@ -920,40 +911,16 @@ ZORUNLU GÜVENLİK SINIRLARI:
 
 
 def run_ai_free(user: Dict[str, Any], module_key: str, payload: Dict[str, Any], prompts: Dict[str, str]) -> None:
-    plan = "premium_plus" if is_admin(user) else user.get("plan", "free")
-
-    if user.get("is_guest"):
-        guest_key = f"guest_usage_{dt.date.today().isoformat()}"
-        used = int(st.session_state.get(guest_key, 0))
-        limit = int(PLAN_CONFIG["free"]["daily_limit"])
-        if used >= limit:
-            st.warning(f"Misafir modunda bugünkü {limit} ücretsiz yorum hakkın doldu. Devam etmek için hesap oluşturabilir veya planları inceleyebilirsin.")
-            return
-    elif is_admin(user):
-        st.caption("Admin yetkisi aktif: premium sayfalar ve kullanım limitleri sana kapalı değildir.")
-    else:
-        try:
-            ok, msg, meta = can_generate(user["email"], module_key)
-        except Exception as exc:
-            st.error(f"Kullanım hakkı kontrol edilemedi: {exc}")
-            return
-        if not ok:
-            st.warning(msg)
-            render_upgrade_prompt("premium", plan)
-            return
-        st.caption(msg)
+    # Tum AI yorum sayfalari ucretsiz ve sinirsiz kullanimdadir.
+    # Firestore kota kontrolu yapilmaz; boylece "Kullanim hakki kontrol edilemedi" hatasi olusmaz.
+    plan = "premium_plus" if is_admin(user) else "free"
 
     prompt = build_ai_prompt(module_key, payload, prompts)
     with st.spinner("Pusulan detaylı yorumunu hazırlıyor..."):
         try:
             result = generate_text(prompt, plan=plan)
-            if user.get("is_guest"):
-                guest_key = f"guest_usage_{dt.date.today().isoformat()}"
-                st.session_state[guest_key] = int(st.session_state.get(guest_key, 0)) + 1
-            elif not is_admin(user):
-                record_usage(user["email"], module_key)
-                if st.session_state.get("save_history", False):
-                    save_reading(user["email"], module_key, payload, result)
+            if (not user.get("is_guest")) and st.session_state.get("save_history", False):
+                save_reading(user["email"], module_key, payload, result)
             st.success("Yorum hazır.")
             render_result_panel(module_key, result, plan)
         except Exception as exc:
@@ -984,7 +951,7 @@ def page_home(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]]) 
         for col, key in zip(cols, visible_keys[start : start + 2]):
             meta = module_meta(key, module_settings)
             required_plan = str(meta.get("min_plan", "free"))
-            locked = False if is_logged_in(user) else ((not bool(meta.get("guest_allowed", True)) and user.get("is_guest")) or not plan_allows(user.get("plan", "free"), required_plan))
+            locked = False
             with col:
                 render_module_card(key, meta, locked=locked)
                 if st.button("Bu bölüme git →", key=f"home_open_{key}", use_container_width=True):
@@ -1434,33 +1401,18 @@ def render_birth_chart_html_result(result: str, plan: str) -> None:
 
 
 def run_birth_chart_ai(user: Dict[str, Any], payload: Dict[str, Any], prompts: Dict[str, str]) -> None:
-    plan = "premium_plus" if is_admin(user) else user.get("plan", "free")
+    plan = "premium_plus" if is_admin(user) else "free"
 
     if user.get("is_guest"):
         st.warning("Doğum Haritası Analizi için hesapla giriş yapmalısın.")
         return
-    elif is_admin(user):
-        st.caption("Admin yetkisi aktif: doğum haritası analizi için kullanım limiti uygulanmaz.")
-    else:
-        try:
-            ok, msg, _meta = can_generate(user["email"])
-        except Exception as exc:
-            st.error(f"Kullanım hakkı kontrol edilemedi: {exc}")
-            return
-        if not ok:
-            st.warning(msg)
-            render_upgrade_prompt("premium", plan)
-            return
-        st.caption(msg)
 
     prompt = build_birth_chart_prompt(payload, prompts)
     with st.spinner("Doğum haritası analizin hazırlanıyor... Bu bölüm uzun ve detaylı üretildiği için biraz zaman alabilir."):
         try:
             result = generate_text(prompt, plan="birth_chart", max_output_tokens=8500, temperature=0.72)
-            if not is_admin(user):
-                record_usage(user["email"], "birth_chart")
-                if st.session_state.get("save_history", False):
-                    save_reading(user["email"], "birth_chart", payload, result)
+            if st.session_state.get("save_history", False):
+                save_reading(user["email"], "birth_chart", payload, result)
             st.success("Doğum haritası analizin hazır.")
             render_birth_chart_html_result(result, plan)
         except Exception as exc:
@@ -2178,22 +2130,14 @@ def _reset_deck_selection(deck_key: str) -> None:
 
 
 def _manual_module_usage_allowed(user: Dict[str, Any], module_key: str) -> bool:
-    if is_admin(user):
-        return True
-    try:
-        ok, msg, _meta = can_generate(user["email"], module_key)
-    except Exception as exc:
-        st.error(f"Kullanım hakkı kontrol edilemedi: {exc}")
-        return False
-    if not ok:
-        st.warning(msg)
-        return False
+    # Admin talepli tum sayfalar ucretsiz ve sinirsizdir.
+    # Kahve fali gorsel yukleme dahil herhangi bir kota kontrolu yapilmaz.
     return True
 
 
 def _record_manual_module_usage(user: Dict[str, Any], module_key: str) -> None:
-    if not is_admin(user):
-        record_usage(user["email"], module_key)
+    # Sinirsiz kullanim modunda usage kaydi tutulmaz.
+    return None
 
 
 def _manual_cards_ready(deck_key: str, info: Dict[str, Any]) -> bool:
