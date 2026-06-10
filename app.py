@@ -1089,10 +1089,489 @@ def render_back_home_button(page: str) -> None:
     st.markdown('</div>', unsafe_allow_html=True)
 
 
-def page_home(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]]) -> None:
-    render_hero(user)
+HOME_STORY_PARAGRAPHS = [
+    "Bazen bazı duygular vardır…<br>Ne tam anlatabilirsin, ne de içinden atabilirsin.<br>Sanki kalbin bir şey söylemek ister ama kelimeler yetmez.<br>İçinde kalan bir soru, yarım kalmış bir hikâye ya da adını koyamadığın bir his…<br>İşte tam da bu yüzden buradasın.",
+    "Çünkü bazı cevaplar dışarıda değil…<br>Senin içinde, hislerinde ve enerjinde saklıdır.<br>Bu alan sadece bir uygulama değil.<br>Burası; hislerini anlamlandırdığın, iç sesini gerçekten duyduğun,<br>Ve sana söylenmeyeni fark ettiğin bir yolculuk.",
+    "Belki kalbinde kapanmamış bir konu var…<br>Belki aklından çıkmayan biri…<br>Belki de nedenini bilmeden hissettiğin bir ağırlık.<br>Bazen bir mesaj gecikir ama gelmesi kaçınılmazdır…<br>Bazen bir bağ kopmaz, sadece sessizce bekler…<br>Ve bazen…<br>Sen fark etmeden bir şeyler değişmeye başlar.",
+    "Şu an bulunduğun yer bir tesadüf değil.<br>Buraya gelişinin bir nedeni var.<br>Çünkü içinden geçen o küçük ses seni buraya getirdi.<br>Belki bugün duymaya hazır olduğun bir şey var.<br>Belki uzun zamandır beklediğin bir cevap…<br>Artık kendini göstermeye hazırlanıyor.",
+    "Acele etme…<br>Bir an dur…<br>Derin bir nefes al…<br>Ve gerçekten kendine şunu sor: “Kalbim bana ne anlatmak istiyor?”<br>Çünkü cevaplar burada… ve sandığından çok daha yakın.",
+]
 
-    render_section_header("AŞK ODAĞIN", "Kalbimin Pusulası fısıldar, ruhun hatırlar", kicker="")
+
+HOME_NIGHT_SKY_COMPONENT = r"""
+<div style="display:none"></div>
+<script>
+(function () {
+    const parentWindow = window.parent || window;
+    const doc = parentWindow.document;
+    if (!doc || !doc.body) return;
+
+    if (parentWindow.__kpNightSkyDestroy) {
+        try { parentWindow.__kpNightSkyDestroy(); } catch (e) {}
+    }
+
+    const previousStyle = doc.getElementById('kp-night-sky-style');
+    if (previousStyle) previousStyle.remove();
+    const previousLayer = doc.getElementById('kp-night-sky-layer');
+    if (previousLayer) previousLayer.remove();
+
+    const style = doc.createElement('style');
+    style.id = 'kp-night-sky-style';
+    style.textContent = `
+        #kp-night-sky-layer {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            overflow: hidden;
+            pointer-events: none;
+            background: #020511;
+        }
+        #kp-night-sky-canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+        body.kp-night-home-active .stApp,
+        body.kp-night-home-active [data-testid="stAppViewContainer"] {
+            background: transparent !important;
+        }
+        body.kp-night-home-active [data-testid="stAppViewContainer"],
+        body.kp-night-home-active [data-testid="stSidebar"],
+        body.kp-night-home-active [data-testid="collapsedControl"] {
+            position: relative;
+            z-index: 2;
+        }
+        body.kp-night-home-active .block-container {
+            position: relative;
+            z-index: 3;
+        }
+        @media (prefers-reduced-motion: reduce) {
+            #kp-night-sky-layer { opacity: .72; }
+        }
+    `;
+    doc.head.appendChild(style);
+
+    const layer = doc.createElement('div');
+    layer.id = 'kp-night-sky-layer';
+    layer.innerHTML = '<canvas id="kp-night-sky-canvas" aria-hidden="true"></canvas>';
+    doc.body.prepend(layer);
+    doc.body.classList.add('kp-night-home-active');
+
+    const canvas = layer.querySelector('#kp-night-sky-canvas');
+    const ctx = canvas.getContext('2d', { alpha: true });
+    const bgCanvas = doc.createElement('canvas');
+    const bg = bgCanvas.getContext('2d', { alpha: true });
+
+    const config = {
+        desktopStars: 230,
+        mobileStars: 125,
+        maxDpr: 1.45,
+        targetFps: 30,
+        meteorMinDelay: 5200,
+        meteorMaxDelay: 9800,
+        maxMeteors: 2
+    };
+
+    let width = 0;
+    let height = 0;
+    let dpr = 1;
+    let stars = [];
+    let meteors = [];
+    let raf = 0;
+    let lastFrame = 0;
+    let nextMeteorAt = 0;
+    let destroyed = false;
+
+    function rand(min, max) {
+        return min + Math.random() * (max - min);
+    }
+
+    function clamp(value, min, max) {
+        return Math.max(min, Math.min(max, value));
+    }
+
+    function resize() {
+        const vw = parentWindow.innerWidth || doc.documentElement.clientWidth || 1280;
+        const vh = parentWindow.innerHeight || doc.documentElement.clientHeight || 720;
+        dpr = Math.min(parentWindow.devicePixelRatio || 1, config.maxDpr);
+        width = Math.max(1, Math.floor(vw));
+        height = Math.max(1, Math.floor(vh));
+
+        canvas.width = Math.floor(width * dpr);
+        canvas.height = Math.floor(height * dpr);
+        canvas.style.width = width + 'px';
+        canvas.style.height = height + 'px';
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+        bgCanvas.width = Math.floor(width * dpr);
+        bgCanvas.height = Math.floor(height * dpr);
+        bg.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+        buildStaticSky();
+        buildStars();
+    }
+
+    function buildStaticSky() {
+        bg.clearRect(0, 0, width, height);
+
+        // Deep-space gradient: not pure black, with blue/purple depth.
+        const sky = bg.createLinearGradient(0, 0, width, height);
+        sky.addColorStop(0, '#030718');
+        sky.addColorStop(0.38, '#07133a');
+        sky.addColorStop(0.68, '#150a2d');
+        sky.addColorStop(1, '#02030b');
+        bg.fillStyle = sky;
+        bg.fillRect(0, 0, width, height);
+
+        // Subtle nebula/galaxy color depth.
+        const purple = bg.createRadialGradient(width * 0.28, height * 0.18, 0, width * 0.28, height * 0.18, width * 0.72);
+        purple.addColorStop(0, 'rgba(89, 93, 190, 0.20)');
+        purple.addColorStop(0.45, 'rgba(70, 32, 110, 0.10)');
+        purple.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        bg.fillStyle = purple;
+        bg.fillRect(0, 0, width, height);
+
+        const blue = bg.createRadialGradient(width * 0.82, height * 0.10, 0, width * 0.82, height * 0.10, width * 0.55);
+        blue.addColorStop(0, 'rgba(80, 130, 220, 0.13)');
+        blue.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        bg.fillStyle = blue;
+        bg.fillRect(0, 0, width, height);
+
+        drawMilkyWay();
+        drawMoon();
+        drawAtmosphereHaze();
+    }
+
+    function drawMilkyWay() {
+        bg.save();
+        bg.translate(width * 0.44, height * 0.48);
+        bg.rotate(-0.43);
+
+        const bandLength = width * 1.35;
+        const bandHeight = Math.max(120, height * 0.24);
+        const grad = bg.createRadialGradient(0, 0, 0, 0, 0, bandLength * 0.55);
+        grad.addColorStop(0, 'rgba(235, 240, 255, 0.13)');
+        grad.addColorStop(0.22, 'rgba(142, 124, 225, 0.105)');
+        grad.addColorStop(0.46, 'rgba(76, 136, 210, 0.075)');
+        grad.addColorStop(1, 'rgba(0,0,0,0)');
+
+        bg.globalCompositeOperation = 'screen';
+        for (let i = 0; i < 18; i++) {
+            const x = rand(-bandLength * 0.50, bandLength * 0.50);
+            const y = rand(-bandHeight * 0.28, bandHeight * 0.28);
+            const rx = rand(bandLength * 0.16, bandLength * 0.28);
+            const ry = rand(bandHeight * 0.22, bandHeight * 0.48);
+            const blob = bg.createRadialGradient(x, y, 0, x, y, Math.max(rx, ry));
+            blob.addColorStop(0, `rgba(245,246,255,${rand(0.035, 0.075)})`);
+            blob.addColorStop(0.42, `rgba(148,115,220,${rand(0.025, 0.055)})`);
+            blob.addColorStop(1, 'rgba(0,0,0,0)');
+            bg.fillStyle = blob;
+            bg.beginPath();
+            bg.ellipse(x, y, rx, ry, rand(-0.5, 0.5), 0, Math.PI * 2);
+            bg.fill();
+        }
+
+        // Grain-like star density difference inside the galaxy band.
+        for (let i = 0; i < 520; i++) {
+            const x = rand(-bandLength * 0.55, bandLength * 0.55);
+            const y = rand(-bandHeight * 0.34, bandHeight * 0.34) * (Math.random() < 0.72 ? 0.48 : 1);
+            const dist = Math.abs(y) / bandHeight;
+            const a = (1 - dist) * rand(0.035, 0.16);
+            const r = rand(0.28, 1.15);
+            bg.fillStyle = `rgba(240,244,255,${a})`;
+            bg.beginPath();
+            bg.arc(x, y, r, 0, Math.PI * 2);
+            bg.fill();
+        }
+        bg.restore();
+        bg.globalCompositeOperation = 'source-over';
+    }
+
+    function drawMoon() {
+        const radius = clamp(Math.min(width, height) * 0.065, 38, 78);
+        const x = width * 0.84;
+        const y = height * 0.16;
+
+        const glow = bg.createRadialGradient(x, y, radius * 0.7, x, y, radius * 3.8);
+        glow.addColorStop(0, 'rgba(226, 236, 255, 0.20)');
+        glow.addColorStop(0.42, 'rgba(150, 176, 255, 0.07)');
+        glow.addColorStop(1, 'rgba(0,0,0,0)');
+        bg.fillStyle = glow;
+        bg.beginPath();
+        bg.arc(x, y, radius * 3.8, 0, Math.PI * 2);
+        bg.fill();
+
+        const moon = bg.createRadialGradient(x - radius * 0.32, y - radius * 0.28, radius * 0.15, x, y, radius * 1.1);
+        moon.addColorStop(0, 'rgba(245, 247, 255, 0.96)');
+        moon.addColorStop(0.48, 'rgba(202, 214, 235, 0.90)');
+        moon.addColorStop(1, 'rgba(130, 145, 178, 0.76)');
+        bg.fillStyle = moon;
+        bg.beginPath();
+        bg.arc(x, y, radius, 0, Math.PI * 2);
+        bg.fill();
+
+        bg.globalCompositeOperation = 'multiply';
+        const craters = [
+            [-0.22, -0.10, 0.16, 0.11], [0.18, 0.18, 0.20, 0.08],
+            [0.05, -0.31, 0.13, 0.08], [-0.36, 0.28, 0.11, 0.06]
+        ];
+        craters.forEach(c => {
+            const cx = x + c[0] * radius;
+            const cy = y + c[1] * radius;
+            const rr = c[2] * radius;
+            const crater = bg.createRadialGradient(cx, cy, 0, cx, cy, rr * 1.4);
+            crater.addColorStop(0, `rgba(115,124,150,${c[3]})`);
+            crater.addColorStop(1, 'rgba(255,255,255,0)');
+            bg.fillStyle = crater;
+            bg.beginPath();
+            bg.arc(cx, cy, rr * 1.4, 0, Math.PI * 2);
+            bg.fill();
+        });
+        bg.globalCompositeOperation = 'source-over';
+    }
+
+    function drawAtmosphereHaze() {
+        const haze = bg.createLinearGradient(0, height * 0.58, 0, height);
+        haze.addColorStop(0, 'rgba(0,0,0,0)');
+        haze.addColorStop(0.62, 'rgba(45, 92, 150, 0.10)');
+        haze.addColorStop(1, 'rgba(88, 120, 160, 0.16)');
+        bg.fillStyle = haze;
+        bg.fillRect(0, 0, width, height);
+    }
+
+    function buildStars() {
+        const isMobile = width < 760;
+        const count = isMobile ? config.mobileStars : config.desktopStars;
+        stars = [];
+        for (let i = 0; i < count; i++) {
+            const near = Math.random() > 0.82;
+            stars.push({
+                x: Math.random() * width,
+                y: Math.random() * height * 0.92,
+                r: near ? rand(1.05, 1.95) : rand(0.32, 1.15),
+                base: near ? rand(0.52, 0.95) : rand(0.20, 0.70),
+                phase: rand(0, Math.PI * 2),
+                twinkle: rand(0.00055, 0.00185),
+                tint: Math.random() < 0.16 ? '190,210,255' : (Math.random() < 0.12 ? '255,236,205' : '240,246,255')
+            });
+        }
+    }
+
+    function scheduleMeteor(now) {
+        nextMeteorAt = now + rand(config.meteorMinDelay, config.meteorMaxDelay);
+    }
+
+    function spawnMeteor(now) {
+        if (meteors.length >= config.maxMeteors) return;
+        const fromTop = Math.random() < 0.72;
+        const startX = fromTop ? rand(width * 0.10, width * 0.88) : rand(-width * 0.08, width * 0.25);
+        const startY = fromTop ? rand(-height * 0.10, height * 0.25) : rand(height * 0.04, height * 0.34);
+        const angle = rand(0.62, 0.83); // natural down-right trajectory
+        const speed = rand(640, 920) * (width < 760 ? 0.78 : 1);
+        meteors.push({
+            x: startX,
+            y: startY,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed,
+            birth: now,
+            duration: rand(1050, 1650),
+            length: rand(150, 280) * (width < 760 ? 0.74 : 1),
+            size: rand(1.6, 2.8)
+        });
+    }
+
+    function drawStars(now) {
+        stars.forEach(star => {
+            const pulse = Math.sin(now * star.twinkle + star.phase) * 0.5 + 0.5;
+            const alpha = clamp(star.base * (0.72 + pulse * 0.38), 0.05, 1);
+            ctx.fillStyle = `rgba(${star.tint},${alpha})`;
+            ctx.beginPath();
+            ctx.arc(star.x, star.y, star.r, 0, Math.PI * 2);
+            ctx.fill();
+
+            if (star.r > 1.25 && alpha > 0.68) {
+                ctx.globalAlpha = alpha * 0.20;
+                ctx.strokeStyle = `rgba(${star.tint},1)`;
+                ctx.lineWidth = 0.55;
+                ctx.beginPath();
+                ctx.moveTo(star.x - star.r * 2.0, star.y);
+                ctx.lineTo(star.x + star.r * 2.0, star.y);
+                ctx.moveTo(star.x, star.y - star.r * 2.0);
+                ctx.lineTo(star.x, star.y + star.r * 2.0);
+                ctx.stroke();
+                ctx.globalAlpha = 1;
+            }
+        });
+    }
+
+    function drawMeteors(now, dt) {
+        if (now > nextMeteorAt) {
+            spawnMeteor(now);
+            scheduleMeteor(now);
+        }
+
+        meteors = meteors.filter(m => now - m.birth < m.duration);
+        meteors.forEach(m => {
+            const age = now - m.birth;
+            const t = clamp(age / m.duration, 0, 1);
+            const accel = 1 + t * 0.55;
+            m.x += (m.vx * accel * dt) / 1000;
+            m.y += (m.vy * accel * dt) / 1000;
+
+            const alpha = Math.sin(Math.PI * t) * 0.98;
+            const angle = Math.atan2(m.vy, m.vx);
+            const tx = m.x - Math.cos(angle) * m.length;
+            const ty = m.y - Math.sin(angle) * m.length;
+
+            const trail = ctx.createLinearGradient(tx, ty, m.x, m.y);
+            trail.addColorStop(0, 'rgba(160,185,255,0)');
+            trail.addColorStop(0.55, `rgba(205,220,255,${alpha * 0.24})`);
+            trail.addColorStop(1, `rgba(255,255,255,${alpha})`);
+
+            ctx.save();
+            ctx.globalCompositeOperation = 'screen';
+            ctx.lineCap = 'round';
+            ctx.strokeStyle = trail;
+            ctx.lineWidth = m.size;
+            ctx.beginPath();
+            ctx.moveTo(tx, ty);
+            ctx.lineTo(m.x, m.y);
+            ctx.stroke();
+
+            const head = ctx.createRadialGradient(m.x, m.y, 0, m.x, m.y, m.size * 5.5);
+            head.addColorStop(0, `rgba(255,255,255,${alpha})`);
+            head.addColorStop(0.35, `rgba(175,205,255,${alpha * 0.42})`);
+            head.addColorStop(1, 'rgba(175,205,255,0)');
+            ctx.fillStyle = head;
+            ctx.beginPath();
+            ctx.arc(m.x, m.y, m.size * 5.5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        });
+    }
+
+    function frame(now) {
+        if (destroyed) return;
+        raf = parentWindow.requestAnimationFrame(frame);
+        if (now - lastFrame < 1000 / config.targetFps) return;
+        const dt = Math.min(80, now - (lastFrame || now));
+        lastFrame = now;
+
+        ctx.clearRect(0, 0, width, height);
+        ctx.drawImage(bgCanvas, 0, 0, width, height);
+        drawStars(now);
+        drawMeteors(now, dt);
+    }
+
+    function destroy() {
+        destroyed = true;
+        try { parentWindow.cancelAnimationFrame(raf); } catch (e) {}
+        try { parentWindow.removeEventListener('resize', resize); } catch (e) {}
+        const l = doc.getElementById('kp-night-sky-layer');
+        const s = doc.getElementById('kp-night-sky-style');
+        if (l) l.remove();
+        if (s) s.remove();
+        doc.body.classList.remove('kp-night-home-active');
+    }
+
+    parentWindow.__kpNightSkyDestroy = destroy;
+    parentWindow.addEventListener('resize', resize, { passive: true });
+    resize();
+    scheduleMeteor(performance.now() - 2500);
+    raf = parentWindow.requestAnimationFrame(frame);
+})();
+</script>
+"""
+
+
+HOME_NIGHT_SKY_CLEANUP_COMPONENT = r"""
+<script>
+(function () {
+    try {
+        const parentWindow = window.parent || window;
+        const doc = parentWindow.document;
+        if (parentWindow.__kpNightSkyDestroy) {
+            parentWindow.__kpNightSkyDestroy();
+            parentWindow.__kpNightSkyDestroy = null;
+        }
+        const layer = doc.getElementById('kp-night-sky-layer');
+        const style = doc.getElementById('kp-night-sky-style');
+        if (layer) layer.remove();
+        if (style) style.remove();
+        if (doc && doc.body) doc.body.classList.remove('kp-night-home-active');
+    } catch (e) {}
+})();
+</script>
+"""
+
+
+def render_home_night_sky() -> None:
+    components.html(HOME_NIGHT_SKY_COMPONENT, height=0, width=0)
+
+
+def remove_home_night_sky() -> None:
+    components.html(HOME_NIGHT_SKY_CLEANUP_COMPONENT, height=0, width=0)
+
+
+def render_home_story_text() -> None:
+    story_html = "".join(f"<p>{paragraph}</p>" for paragraph in HOME_STORY_PARAGRAPHS)
+    st.markdown(
+        """
+        <style>
+        .kp-home-story-hand {
+            position: relative;
+            z-index: 4;
+            max-width: 760px;
+            margin: 1.15rem auto 2.1rem;
+            padding: 0 0.3rem;
+            color: rgba(255, 244, 219, 0.92);
+            font-family: "Monotype Corsiva", "Lucida Handwriting", "Segoe Script", "Bradley Hand", "Brush Script MT", cursive;
+            font-size: clamp(1.42rem, 3.7vw, 2.18rem);
+            line-height: 1.33;
+            font-weight: 400;
+            letter-spacing: 0.01em;
+            text-align: center;
+            text-shadow:
+                0 0 12px rgba(255, 236, 190, 0.15),
+                0 2px 12px rgba(0, 0, 0, 0.66),
+                0 0 24px rgba(100, 120, 255, 0.12);
+        }
+        .kp-home-story-hand p {
+            margin: 0 0 1.28rem;
+        }
+        .kp-home-story-hand p:last-child {
+            margin-bottom: 0;
+        }
+        @media (max-width: 760px) {
+            .kp-home-story-hand {
+                max-width: 94vw;
+                margin-top: 0.95rem;
+                font-size: clamp(1.18rem, 6.3vw, 1.58rem);
+                line-height: 1.34;
+                text-align: center;
+            }
+            .kp-home-story-hand p {
+                margin-bottom: 1.05rem;
+            }
+        }
+        </style>
+        <div class="kp-home-story-hand">
+        """
+        + story_html
+        + """
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def page_home(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]]) -> None:
+    render_home_night_sky()
+    render_hero(user)
+    render_home_story_text()
+
+    # Mevcut çalışan ana sayfa akışı korunur; yalnızca "AŞK ODAĞIN" başlığı kaldırıldı
+    # ve yerine arka plan üzerine gömülü, el yazısı hissi veren metin eklendi.
     priority_keys = ["relationship", "message_analysis", "love_fortune", "daily_energy", "mini_tarot", "coffee_text"]
     visible_keys = [key for key in priority_keys if key in MODULES and module_active(key, module_settings)]
     for start in range(0, len(visible_keys), 2):
@@ -3203,6 +3682,7 @@ def render_page(page: str, user: Dict[str, Any], prompts: Dict[str, str], module
 def main() -> None:
     user = auth_sidebar()
     if not user:
+        remove_home_night_sky()
         hide_sidebar_for_landing()
         # Arka plan geri getirildi; services/ui.py tarafında küçük ve cache'li veri URI olarak optimize edilir.
         apply_page_background("home")
@@ -3222,7 +3702,10 @@ def main() -> None:
     persist_auth_query(user, page)
 
     # Sayfa arka planları optimize edilmiş düşük boyutlu görsellerle uygulanır.
+    # Ana sayfada ise gerçekçi canvas gece gökyüzü kullanılır; diğer sayfalara geçince temizlenir.
     apply_page_background(page)
+    if page != "home":
+        remove_home_night_sky()
 
     prompts: Dict[str, str] = {}
     if page in AI_PROMPT_MODULES or page == "admin":
