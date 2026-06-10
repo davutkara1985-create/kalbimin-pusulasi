@@ -1090,8 +1090,7 @@ def render_back_home_button(page: str) -> None:
 
 
 def page_home(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]]) -> None:
-    # Ana sayfa artık sadece hızlı açılan mistik karşılama alanını gösterir.
-    # Modül seçimleri sol/üst menüden yapılır; böylece ana sayfa gereksiz kart ve plan bloklarıyla yavaşlamaz.
+    # Ana sayfa sadece mistik açılış alanıdır. Modül geçişleri menüden yapılır.
     render_hero(user)
 
 
