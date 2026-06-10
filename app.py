@@ -1090,164 +1090,194 @@ def render_back_home_button(page: str) -> None:
 
 
 def render_home_star_field() -> None:
-    """Ana sayfanın tamamına belirgin, sık ve performans dostu meteor animasyonu ekler."""
+    """Ana sayfanın tamamına doğal, gökyüzü hissi veren yıldız kayması ekler."""
     st.markdown(
         """
         <style>
-        .kp-home-meteor-field {
+        .kp-home-sky-field {
             position: fixed;
             inset: 0;
             pointer-events: none;
             overflow: hidden;
-            z-index: 5;
-            opacity: 1;
+            z-index: 4;
             mix-blend-mode: screen;
         }
-        .kp-home-meteor-field::before {
+        .kp-home-sky-field::before,
+        .kp-home-sky-field::after {
             content: "";
             position: absolute;
             inset: 0;
-            background-image:
-                radial-gradient(circle, rgba(255,255,255,0.72) 0 1px, transparent 1.7px),
-                radial-gradient(circle, rgba(91,139,255,0.52) 0 1px, transparent 1.8px),
-                radial-gradient(circle, rgba(255,241,184,0.44) 0 1px, transparent 1.7px);
-            background-size: 86px 86px, 137px 137px, 211px 211px;
-            background-position: 0 0, 31px 47px, 74px 19px;
-            opacity: 0.28;
-            filter: drop-shadow(0 0 4px rgba(97,137,255,0.26));
-            animation: kpHomeSkyTwinkle 5.8s ease-in-out infinite alternate;
+            background-repeat: repeat;
+            opacity: 0.34;
+            animation: kpHomeStarsBreathe 7.5s ease-in-out infinite alternate;
+            will-change: opacity;
         }
-        .kp-home-meteor {
+        .kp-home-sky-field::before {
+            background-image:
+                radial-gradient(circle, rgba(255,255,255,0.85) 0 0.9px, transparent 1.7px),
+                radial-gradient(circle, rgba(112,150,255,0.58) 0 1px, transparent 1.9px),
+                radial-gradient(circle, rgba(255,241,184,0.46) 0 0.9px, transparent 1.8px);
+            background-size: 78px 78px, 126px 126px, 184px 184px;
+            background-position: 0 0, 34px 49px, 91px 21px;
+            filter: drop-shadow(0 0 3px rgba(130,160,255,0.26));
+        }
+        .kp-home-sky-field::after {
+            opacity: 0.18;
+            background-image:
+                radial-gradient(circle, rgba(255,255,255,0.56) 0 0.7px, transparent 1.5px),
+                radial-gradient(circle, rgba(120,95,255,0.40) 0 0.8px, transparent 1.6px);
+            background-size: 52px 52px, 153px 153px;
+            background-position: 18px 12px, 76px 62px;
+            animation-duration: 10.5s;
+        }
+        .kp-shooting-star {
             position: absolute;
             display: block;
-            width: var(--meteor-w, 190px);
-            height: var(--meteor-h, 3px);
+            width: var(--shoot-w, 190px);
+            height: var(--shoot-h, 2px);
             border-radius: 999px;
+            opacity: 0;
+            transform: translate3d(0, 0, 0) rotate(135deg) scaleX(0.18);
+            transform-origin: right center;
             background: linear-gradient(90deg,
-                transparent 0%,
-                rgba(115,150,255,0.16) 15%,
-                rgba(210,225,255,0.70) 48%,
-                rgba(255,255,255,0.98) 72%,
-                rgba(255,241,184,0.88) 100%
+                rgba(255,255,255,0) 0%,
+                rgba(145,174,255,0.05) 18%,
+                rgba(155,184,255,0.28) 43%,
+                rgba(232,240,255,0.86) 76%,
+                rgba(255,255,255,1) 100%
             );
             box-shadow:
-                0 0 16px rgba(207,224,255,0.72),
-                0 0 34px rgba(91,139,255,0.34),
-                0 0 48px rgba(255,241,184,0.16);
-            opacity: 0;
-            transform: translate3d(0, 0, 0) rotate(-22deg);
-            animation: kpHomeMeteorSweep var(--meteor-d, 6.8s) linear infinite;
-            animation-delay: var(--meteor-delay, 0s);
+                0 0 10px rgba(230,240,255,0.78),
+                0 0 23px rgba(95,133,255,0.32);
+            animation: kpNaturalShootingStar var(--shoot-d, 10s) ease-out infinite;
+            animation-delay: var(--shoot-delay, 0s);
             will-change: transform, opacity;
         }
-        .kp-home-meteor::after {
+        .kp-shooting-star::after {
             content: "";
             position: absolute;
-            right: -1px;
+            right: -2px;
             top: 50%;
-            width: 7px;
-            height: 7px;
+            width: 5px;
+            height: 5px;
             transform: translateY(-50%);
-            border-radius: 50%;
-            background: rgba(255,255,255,0.98);
+            border-radius: 999px;
+            background: #fff;
             box-shadow:
-                0 0 14px rgba(255,255,255,0.90),
-                0 0 30px rgba(255,241,184,0.62),
-                0 0 44px rgba(91,139,255,0.35);
+                0 0 12px rgba(255,255,255,0.95),
+                0 0 28px rgba(255,241,184,0.46),
+                0 0 38px rgba(100,138,255,0.32);
         }
-        .kp-home-meteor.m1  { top: 6%;  left: 72%; --meteor-w: 240px; --meteor-d: 5.6s; --meteor-delay: -0.4s; }
-        .kp-home-meteor.m2  { top: 12%; left: 34%; --meteor-w: 170px; --meteor-d: 6.2s; --meteor-delay: -2.0s; }
-        .kp-home-meteor.m3  { top: 18%; left: 86%; --meteor-w: 230px; --meteor-d: 5.9s; --meteor-delay: -3.3s; }
-        .kp-home-meteor.m4  { top: 25%; left: 58%; --meteor-w: 280px; --meteor-d: 6.8s; --meteor-delay: -1.2s; }
-        .kp-home-meteor.m5  { top: 31%; left: 15%; --meteor-w: 150px; --meteor-d: 7.4s; --meteor-delay: -4.6s; }
-        .kp-home-meteor.m6  { top: 38%; left: 78%; --meteor-w: 250px; --meteor-d: 6.1s; --meteor-delay: -5.1s; }
-        .kp-home-meteor.m7  { top: 45%; left: 43%; --meteor-w: 200px; --meteor-d: 5.4s; --meteor-delay: -2.7s; }
-        .kp-home-meteor.m8  { top: 52%; left: 92%; --meteor-w: 300px; --meteor-d: 7.0s; --meteor-delay: -6.2s; }
-        .kp-home-meteor.m9  { top: 61%; left: 62%; --meteor-w: 210px; --meteor-d: 6.5s; --meteor-delay: -3.9s; }
-        .kp-home-meteor.m10 { top: 69%; left: 27%; --meteor-w: 165px; --meteor-d: 7.2s; --meteor-delay: -1.7s; }
-        .kp-home-meteor.m11 { top: 76%; left: 82%; --meteor-w: 245px; --meteor-d: 5.8s; --meteor-delay: -4.1s; }
-        .kp-home-meteor.m12 { top: 84%; left: 48%; --meteor-w: 190px; --meteor-d: 6.9s; --meteor-delay: -5.8s; }
-        .kp-home-meteor.m13 { top: 9%;  left: 8%;  --meteor-w: 130px; --meteor-h: 2px; --meteor-d: 8.1s; --meteor-delay: -6.9s; }
-        .kp-home-meteor.m14 { top: 33%; left: 101%; --meteor-w: 180px; --meteor-h: 2px; --meteor-d: 7.6s; --meteor-delay: -0.9s; }
-        .kp-home-meteor.m15 { top: 57%; left: 4%; --meteor-w: 145px; --meteor-h: 2px; --meteor-d: 8.4s; --meteor-delay: -7.4s; }
-        .kp-home-meteor.m16 { top: 88%; left: 106%; --meteor-w: 260px; --meteor-d: 6.4s; --meteor-delay: -2.4s; }
-        @keyframes kpHomeMeteorSweep {
-            0%   { opacity: 0; transform: translate3d(0, 0, 0) rotate(-22deg); }
-            4%   { opacity: 0; }
-            10%  { opacity: 0.98; }
-            24%  { opacity: 0.90; }
-            37%  { opacity: 0; transform: translate3d(-118vw, 48vh, 0) rotate(-22deg); }
-            100% { opacity: 0; transform: translate3d(-118vw, 48vh, 0) rotate(-22deg); }
+
+        /* Daha doğal görünüm için aynı anda hepsi değil, farklı aralıklarla tek tek akar. */
+        .kp-shooting-star.s1  { top: 7%;  left: 84%; --shoot-w: 235px; --shoot-d: 11.8s; --shoot-delay: -1.6s; }
+        .kp-shooting-star.s2  { top: 15%; left: 54%; --shoot-w: 155px; --shoot-d: 14.2s; --shoot-delay: -7.4s; --shoot-h: 1.7px; }
+        .kp-shooting-star.s3  { top: 22%; left: 96%; --shoot-w: 280px; --shoot-d: 13.4s; --shoot-delay: -4.1s; }
+        .kp-shooting-star.s4  { top: 34%; left: 72%; --shoot-w: 205px; --shoot-d: 15.6s; --shoot-delay: -10.2s; }
+        .kp-shooting-star.s5  { top: 47%; left: 89%; --shoot-w: 245px; --shoot-d: 12.7s; --shoot-delay: -8.5s; }
+        .kp-shooting-star.s6  { top: 58%; left: 60%; --shoot-w: 160px; --shoot-d: 16.4s; --shoot-delay: -2.8s; --shoot-h: 1.8px; }
+        .kp-shooting-star.s7  { top: 70%; left: 101%; --shoot-w: 265px; --shoot-d: 14.8s; --shoot-delay: -12.6s; }
+        .kp-shooting-star.s8  { top: 82%; left: 78%; --shoot-w: 185px; --shoot-d: 17.2s; --shoot-delay: -5.7s; --shoot-h: 1.7px; }
+        .kp-shooting-star.s9  { top: 28%; left: 38%; --shoot-w: 145px; --shoot-d: 19.0s; --shoot-delay: -14.1s; --shoot-h: 1.5px; }
+        .kp-shooting-star.s10 { top: 64%; left: 42%; --shoot-w: 175px; --shoot-d: 18.0s; --shoot-delay: -9.3s; --shoot-h: 1.6px; }
+
+        @keyframes kpNaturalShootingStar {
+            0%, 67% {
+                opacity: 0;
+                transform: translate3d(0, 0, 0) rotate(135deg) scaleX(0.18);
+            }
+            70% {
+                opacity: 0;
+                transform: translate3d(0, 0, 0) rotate(135deg) scaleX(0.18);
+            }
+            73% {
+                opacity: 0.88;
+                transform: translate3d(-9vw, 7vh, 0) rotate(135deg) scaleX(0.92);
+            }
+            79% {
+                opacity: 0.72;
+                transform: translate3d(-36vw, 28vh, 0) rotate(135deg) scaleX(1);
+            }
+            85% {
+                opacity: 0;
+                transform: translate3d(-62vw, 48vh, 0) rotate(135deg) scaleX(0.74);
+            }
+            100% {
+                opacity: 0;
+                transform: translate3d(-62vw, 48vh, 0) rotate(135deg) scaleX(0.74);
+            }
         }
-        @keyframes kpHomeSkyTwinkle {
+        @keyframes kpHomeStarsBreathe {
             from { opacity: 0.20; }
-            to   { opacity: 0.36; }
+            to   { opacity: 0.40; }
         }
         @media (max-width: 760px) {
-            .kp-home-meteor-field::before { opacity: 0.20; background-size: 76px 76px, 118px 118px, 170px 170px; }
-            .kp-home-meteor { width: calc(var(--meteor-w, 180px) * 0.72); height: 2px; animation-duration: calc(var(--meteor-d, 7s) * 1.18); }
-            .kp-home-meteor.m5, .kp-home-meteor.m10, .kp-home-meteor.m13, .kp-home-meteor.m15 { display: none; }
+            .kp-home-sky-field::before { opacity: 0.24; background-size: 88px 88px, 140px 140px, 210px 210px; }
+            .kp-home-sky-field::after { opacity: 0.13; }
+            .kp-shooting-star { width: calc(var(--shoot-w, 180px) * 0.64); height: 1.5px; animation-duration: calc(var(--shoot-d, 14s) * 1.15); }
+            .kp-shooting-star.s2, .kp-shooting-star.s6, .kp-shooting-star.s8, .kp-shooting-star.s9, .kp-shooting-star.s10 { display: none; }
         }
         @media (prefers-reduced-motion: reduce) {
-            .kp-home-meteor { animation: none !important; opacity: 0.16; }
-            .kp-home-meteor-field::before { animation: none !important; }
+            .kp-shooting-star { animation: none !important; opacity: 0 !important; }
+            .kp-home-sky-field::before, .kp-home-sky-field::after { animation: none !important; }
         }
         </style>
-        <div class="kp-home-meteor-field" aria-hidden="true">
-            <i class="kp-home-meteor m1"></i><i class="kp-home-meteor m2"></i>
-            <i class="kp-home-meteor m3"></i><i class="kp-home-meteor m4"></i>
-            <i class="kp-home-meteor m5"></i><i class="kp-home-meteor m6"></i>
-            <i class="kp-home-meteor m7"></i><i class="kp-home-meteor m8"></i>
-            <i class="kp-home-meteor m9"></i><i class="kp-home-meteor m10"></i>
-            <i class="kp-home-meteor m11"></i><i class="kp-home-meteor m12"></i>
-            <i class="kp-home-meteor m13"></i><i class="kp-home-meteor m14"></i>
-            <i class="kp-home-meteor m15"></i><i class="kp-home-meteor m16"></i>
+        <div class="kp-home-sky-field" aria-hidden="true">
+            <i class="kp-shooting-star s1"></i><i class="kp-shooting-star s2"></i>
+            <i class="kp-shooting-star s3"></i><i class="kp-shooting-star s4"></i>
+            <i class="kp-shooting-star s5"></i><i class="kp-shooting-star s6"></i>
+            <i class="kp-shooting-star s7"></i><i class="kp-shooting-star s8"></i>
+            <i class="kp-shooting-star s9"></i><i class="kp-shooting-star s10"></i>
         </div>
         """,
         unsafe_allow_html=True,
     )
-
 
 def render_home_intro_text() -> None:
     """Ana sayfa metnini başlıksız ve sayfanın atmosferine gömülü şekilde gösterir."""
     st.markdown(
         """
         <style>
-        /* Ana sayfada Kalbimin Pusulası kutusu daha kompakt; diğer sayfalar etkilenmez. */
-        .kp-home-shell .kp-hero {
-            max-width: 430px !important;
+        .kp-home-page-anchor { display: none !important; }
+        /* Ana sayfadaki Kalbimin Pusulası kartı gerçekten kompakt ve üstte dursun.
+           Streamlit her markdown'u ayrı konteynere aldığı için :has(anchor) ile sayfaya özel hedeflenir. */
+        .stApp:has(.kp-home-page-anchor) .kp-hero {
+            width: min(100%, 356px) !important;
+            max-width: 356px !important;
             min-height: auto !important;
-            margin: 0 auto 22px !important;
-            padding: 18px 18px 16px !important;
-            border-radius: 28px !important;
+            margin: -4px auto 16px !important;
+            padding: 14px 14px 13px !important;
+            border-radius: 22px !important;
         }
-        .kp-home-shell .kp-hero-top {
-            gap: 11px !important;
-            margin-bottom: 12px !important;
+        .stApp:has(.kp-home-page-anchor) .kp-hero-top {
+            gap: 9px !important;
+            margin-bottom: 8px !important;
         }
-        .kp-home-shell .kp-avatar-wrap {
-            width: 56px !important;
-            height: 56px !important;
+        .stApp:has(.kp-home-page-anchor) .kp-avatar-wrap {
+            width: 44px !important;
+            height: 44px !important;
         }
-        .kp-home-shell .kp-avatar {
-            font-size: 1.72rem !important;
+        .stApp:has(.kp-home-page-anchor) .kp-avatar {
+            font-size: 1.32rem !important;
         }
-        .kp-home-shell .kp-eyebrow {
-            padding: 6px 9px !important;
-            font-size: 0.64rem !important;
+        .stApp:has(.kp-home-page-anchor) .kp-eyebrow {
+            padding: 4px 7px !important;
+            font-size: 0.58rem !important;
+            letter-spacing: 0.12em !important;
         }
-        .kp-home-shell .kp-username {
-            margin-top: 5px !important;
-            font-size: 0.78rem !important;
+        .stApp:has(.kp-home-page-anchor) .kp-username {
+            margin-top: 4px !important;
+            font-size: 0.70rem !important;
         }
-        .kp-home-shell .kp-title {
-            font-size: clamp(2.45rem, 8.4vw, 3.42rem) !important;
-            line-height: 0.88 !important;
-            margin: 12px 0 12px !important;
+        .stApp:has(.kp-home-page-anchor) .kp-title {
+            font-size: clamp(1.92rem, 7vw, 2.46rem) !important;
+            line-height: 0.92 !important;
+            margin: 8px 0 8px !important;
         }
-        .kp-home-shell .kp-subtitle {
-            font-size: 0.76rem !important;
-            letter-spacing: 0.09em !important;
+        .stApp:has(.kp-home-page-anchor) .kp-subtitle {
+            font-size: 0.61rem !important;
+            letter-spacing: 0.055em !important;
+            line-height: 1.45 !important;
         }
         .kp-home-story-embedded {
             position: relative;
@@ -1288,16 +1318,17 @@ def render_home_intro_text() -> None:
             text-shadow: 0 0 24px rgba(217,183,110,0.30), 0 2px 18px rgba(0,0,0,0.74);
         }
         @media (max-width: 760px) {
-            .kp-home-shell .kp-hero {
-                max-width: 340px !important;
-                padding: 15px 14px 14px !important;
-                border-radius: 23px !important;
-                margin-bottom: 18px !important;
+            .stApp:has(.kp-home-page-anchor) .kp-hero {
+                width: min(100%, 292px) !important;
+                max-width: 292px !important;
+                padding: 12px 12px 11px !important;
+                border-radius: 19px !important;
+                margin: -2px auto 14px !important;
             }
-            .kp-home-shell .kp-avatar-wrap { width: 48px !important; height: 48px !important; }
-            .kp-home-shell .kp-avatar { font-size: 1.46rem !important; }
-            .kp-home-shell .kp-title { font-size: clamp(2.05rem, 12vw, 2.72rem) !important; }
-            .kp-home-shell .kp-subtitle { font-size: 0.66rem !important; letter-spacing: 0.06em !important; }
+            .stApp:has(.kp-home-page-anchor) .kp-avatar-wrap { width: 38px !important; height: 38px !important; }
+            .stApp:has(.kp-home-page-anchor) .kp-avatar { font-size: 1.14rem !important; }
+            .stApp:has(.kp-home-page-anchor) .kp-title { font-size: clamp(1.66rem, 10vw, 2.08rem) !important; }
+            .stApp:has(.kp-home-page-anchor) .kp-subtitle { font-size: 0.55rem !important; letter-spacing: 0.035em !important; }
             .kp-home-story-embedded { margin: 14px auto 28px; padding: 2px 3px 14px; }
             .kp-home-story-embedded p { font-size: 0.94rem; line-height: 1.68; margin-bottom: 0.96rem; }
             .kp-home-story-question { font-size: 1.20rem !important; }
@@ -1322,12 +1353,11 @@ def render_home_intro_text() -> None:
 
 
 def page_home(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]]) -> None:
-    # Ana sayfa: Kalbimin Pusulası kutusu kompakt tutulur; modüllere geçiş sadece menüden yapılır.
+    # Ana sayfa: modül kartları yok; Kalbimin Pusulası kartı kompakt, yıldız kaymaları tüm sayfada.
     render_home_star_field()
-    st.markdown('<div class="kp-home-shell">', unsafe_allow_html=True)
+    st.markdown('<span class="kp-home-page-anchor"></span>', unsafe_allow_html=True)
     render_hero(user)
     render_home_intro_text()
-    st.markdown('</div>', unsafe_allow_html=True)
 
 
 def page_subscription(user: Dict[str, Any]) -> None:
