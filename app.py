@@ -3185,8 +3185,8 @@ def main() -> None:
     user = auth_sidebar()
     if not user:
         hide_sidebar_for_landing()
-        # Performans: girişte ağır arka plan görseli yüklenmez.
-        # apply_page_background("home")
+        # Arka plan geri getirildi; services/ui.py tarafında küçük ve cache'li veri URI olarak optimize edilir.
+        apply_page_background("home")
         render_hero()
         render_landing_auth()
         render_footer()
@@ -3202,8 +3202,8 @@ def main() -> None:
     page = navigation(user, module_settings)
     persist_auth_query(user, page)
 
-    # Performans: arka plan görselleri base64 olarak her sayfaya basılmadığı için sayfa geçişleri hızlanır.
-    # apply_page_background(page)
+    # Sayfa arka planları optimize edilmiş düşük boyutlu görsellerle uygulanır.
+    apply_page_background(page)
 
     prompts: Dict[str, str] = {}
     if page in AI_PROMPT_MODULES or page == "admin":
