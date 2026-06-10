@@ -109,7 +109,7 @@ MODULES: Dict[str, dict] = {
     "relationship": {
         "title": "İlişki Yorumu",
         "icon": "♡",
-        "description": "Karmaşık ilişki durumlarını daha net ve sakin gör",
+        "description": "Bazı bağlar kopmaz… Sadece şekil değiştirir",
         "category": "Aşk & İlişki",
         "min_plan": "free",
         "mode": "ai",
@@ -118,7 +118,7 @@ MODULES: Dict[str, dict] = {
     "message_analysis": {
         "title": "Mesaj Analizi",
         "icon": "✉",
-        "description": "Mesajların alt metnini ve olası cevapları analiz et",
+        "description": "Yazılanı değil, olanı hissettmek için buradasın",
         "category": "Aşk & İlişki",
         "min_plan": "free",
         "mode": "ai",
@@ -127,7 +127,7 @@ MODULES: Dict[str, dict] = {
     "love_fortune": {
         "title": "Aşk Falı",
         "icon": "☽",
-        "description": "Adın ve niyetinle kişisel aşk yorumu al",
+        "description": "Kalbinin kaderi, satır aralarında gizli",
         "category": "Aşk & İlişki",
         "min_plan": "free",
         "mode": "ai",
@@ -136,7 +136,7 @@ MODULES: Dict[str, dict] = {
     "daily_energy": {
         "title": "Günlük Aşk Enerjisi",
         "icon": "✺",
-        "description": "Bugünün kalp ve sevgi enerjisini oku",
+        "description": "Bugün kalbinin pusulası seni nereye çekiyor?",
         "category": "Aşk & İlişki",
         "min_plan": "free",
         "mode": "ai",
@@ -145,7 +145,7 @@ MODULES: Dict[str, dict] = {
     "emotion": {
         "title": "Duygu Analizi",
         "icon": "◌",
-        "description": "Ne hissettiğini anlamlandırmanın en kısa yolu",
+        "description": "Hislerinin sesi, kelimelerden daha fazlasını anlatır",
         "category": "Duygusal & Kişisel Analiz",
         "min_plan": "free",
         "mode": "ai",
@@ -154,7 +154,7 @@ MODULES: Dict[str, dict] = {
     "zodiac": {
         "title": "Kişisel Burç & Uyum",
         "icon": "♓",
-        "description": "Burcunuzun söyledikleri ve ilişkinizin uyumu",
+        "description": "Burçlar konuşur, kalpler karar verir",
         "category": "Duygusal & Kişisel Analiz",
         "min_plan": "free",
         "mode": "ai",
@@ -163,7 +163,7 @@ MODULES: Dict[str, dict] = {
     "birth_chart": {
         "title": "Doğum Haritası Analizi",
         "icon": "♈",
-        "description": "Doğum bilgilerin ve özel sorularınla admin yorumlu kişisel analiz talebi oluştur",
+        "description": "Gökyüzü seni anlatır, sen sadece hatırlarsın",
         "category": "Astroloji",
         "min_plan": "premium",
         "mode": "manual_request",
@@ -172,7 +172,7 @@ MODULES: Dict[str, dict] = {
     "mini_tarot": {
         "title": "Mini Tarot Falı",
         "icon": "◇",
-        "description": "Tek kartla hızlı aşk ve farkındalık yorumu",
+        "description": "Her kart, görünmeyeni görünür kılar",
         "category": "Fal & Kehanet",
         "min_plan": "free",
         "mode": "ai",
@@ -181,7 +181,7 @@ MODULES: Dict[str, dict] = {
     "tarot": {
         "title": "Tarot Falı",
         "icon": "✧",
-        "description": "Premium üyeler için 7 kartlık yorum",
+        "description": "Sorularına değil… Ruhuna cevap vermek için buradasın",
         "category": "Fal & Kehanet",
         "min_plan": "premium",
         "mode": "manual_request",
@@ -190,7 +190,7 @@ MODULES: Dict[str, dict] = {
     "mini_katina": {
         "title": "Mini Katina Falı",
         "icon": "⚿",
-        "description": "Tek sembolle romantik enerji yorumu",
+        "description": "Kaderin işaretleri, sembollerde saklıdır",
         "category": "Fal & Kehanet",
         "min_plan": "free",
         "mode": "ai",
@@ -199,7 +199,7 @@ MODULES: Dict[str, dict] = {
     "katina": {
         "title": "Katina Falı",
         "icon": "🗝",
-        "description": "İlişki ve romantik bağ odaklı Katina yorumu",
+        "description": "Katina söyler… Kalbin anlar",
         "category": "Fal & Kehanet",
         "min_plan": "premium",
         "mode": "manual_request",
@@ -208,7 +208,7 @@ MODULES: Dict[str, dict] = {
     "coffee_text": {
         "title": "Mini Kahve Falı",
         "icon": "☕",
-        "description": "Fincanda gördüğün sembolleri yazarak yorumunu al",
+        "description": "Bir yudum kahve, çok fazla sır anlatır",
         "category": "Fal & Kehanet",
         "min_plan": "free",
         "mode": "ai",
@@ -217,7 +217,7 @@ MODULES: Dict[str, dict] = {
     "coffee_image": {
         "title": "Kahve Falı",
         "icon": "☕",
-        "description": "Premium üyeler için görsel yüklemeli aşk ve ilişki yorumu.",
+        "description": "“Fincanda görünenler, ruhunda saklananların yansımasıdır",
         "category": "Fal & Kehanet",
         "min_plan": "premium",
         "mode": "manual_request",
@@ -226,7 +226,7 @@ MODULES: Dict[str, dict] = {
     "dream": {
         "title": "Rüya Tabirleri",
         "icon": "☾",
-        "description": "Bilinçaltınız size ne anlatmak istiyor",
+        "description": "Rüyalar konuşur… Yeter ki sen dinlemeyi bil",
         "category": "Fal & Kehanet",
         "min_plan": "premium",
         "mode": "manual_request",
@@ -235,7 +235,7 @@ MODULES: Dict[str, dict] = {
     "soulmate": {
         "title": "Ruh Eşi Çizimi",
         "icon": "♁",
-        "description": "Size özel ruh eşi yorumunuz ve görseliniz",
+        "description": "Bazı insanlar rastlantı değil, kaderin ta kendisidir",
         "category": "Fal & Kehanet",
         "min_plan": "premium_plus",
         "mode": "manual_request",
@@ -244,7 +244,7 @@ MODULES: Dict[str, dict] = {
     "meditation": {
         "title": "Meditasyonlar",
         "icon": "☽",
-        "description": "Aşk ve ilişki odağında kalbinizi sakinleştirin",
+        "description": "Ruhunu arındır, enerjini yeniden yaz",
         "category": "Ruhsal & Zihinsel",
         "min_plan": "free",
         "mode": "content",
@@ -253,7 +253,7 @@ MODULES: Dict[str, dict] = {
     "rituals": {
         "title": "Ritüeller",
         "icon": "✺",
-        "description": "Romantik niyet, öz değer ve sakinleşme odaklı güvenli ritüeller",
+        "description": "Her ritüel, niyetin evrene attığı gizli bir imzadır",
         "category": "Ruhsal & Zihinsel",
         "min_plan": "free",
         "mode": "content",
