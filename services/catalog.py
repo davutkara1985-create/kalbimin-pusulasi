@@ -61,8 +61,8 @@ KATINA_CARDS = [
 PLAN_CONFIG: Dict[str, dict] = {
     "free": {
         "name": "Ücretsiz",
-        "price": "0 TL",
-        "daily_limit": 5,
+        "price": "Ücretsiz",
+        "daily_limit": 999999999,
         "badge": "Başlangıç",
         "description": "Aşk ve ilişki odağındaki temel AI yorumlarını denemek için ücretsiz plan.",
         "features": [
@@ -76,8 +76,8 @@ PLAN_CONFIG: Dict[str, dict] = {
     },
     "premium": {
         "name": "Premium",
-        "price": "Aylık plan",
-        "daily_limit": 75,
+        "price": "Ücretsiz",
+        "daily_limit": 999999999,
         "badge": "Popüler",
         "description": "Daha sık yorum almak ve admin yorumlu romantik fal taleplerini açmak için plan.",
         "features": [
@@ -91,8 +91,8 @@ PLAN_CONFIG: Dict[str, dict] = {
     },
     "premium_plus": {
         "name": "Premium+",
-        "price": "Aylık üst plan",
-        "daily_limit": 200,
+        "price": "Ücretsiz",
+        "daily_limit": 999999999,
         "badge": "Derin yorum",
         "description": "Ruh eşi çizimi ve daha yoğun kullanım için üst plan.",
         "features": [
@@ -165,9 +165,9 @@ MODULES: Dict[str, dict] = {
         "icon": "♈",
         "description": "Gökyüzü seni anlatır, sen sadece hatırlarsın",
         "category": "Astroloji",
-        "min_plan": "premium",
+        "min_plan": "free",
         "mode": "manual_request",
-        "guest_allowed": False,
+        "guest_allowed": True,
     },
     "mini_tarot": {
         "title": "Mini Tarot Falı",
@@ -183,9 +183,9 @@ MODULES: Dict[str, dict] = {
         "icon": "✧",
         "description": "Sorularına değil… Ruhuna cevap vermek için buradasın",
         "category": "Fal & Kehanet",
-        "min_plan": "premium",
+        "min_plan": "free",
         "mode": "manual_request",
-        "guest_allowed": False,
+        "guest_allowed": True,
     },
     "mini_katina": {
         "title": "Mini Katina Falı",
@@ -201,9 +201,9 @@ MODULES: Dict[str, dict] = {
         "icon": "🗝",
         "description": "Katina söyler… Kalbin anlar",
         "category": "Fal & Kehanet",
-        "min_plan": "premium",
+        "min_plan": "free",
         "mode": "manual_request",
-        "guest_allowed": False,
+        "guest_allowed": True,
     },
     "coffee_text": {
         "title": "Mini Kahve Falı",
@@ -219,27 +219,27 @@ MODULES: Dict[str, dict] = {
         "icon": "☕",
         "description": "Fincanda görünenler, ruhunda saklananların yansımasıdır",
         "category": "Fal & Kehanet",
-        "min_plan": "premium",
+        "min_plan": "free",
         "mode": "manual_request",
-        "guest_allowed": False,
+        "guest_allowed": True,
     },
     "dream": {
         "title": "Rüya Tabirleri",
         "icon": "☾",
         "description": "Rüyalar konuşur… Yeter ki sen dinlemeyi bil",
         "category": "Fal & Kehanet",
-        "min_plan": "premium",
+        "min_plan": "free",
         "mode": "manual_request",
-        "guest_allowed": False,
+        "guest_allowed": True,
     },
     "soulmate": {
         "title": "Ruh Eşi Çizimi",
         "icon": "♁",
         "description": "Bazı insanlar rastlantı değil, kaderin ta kendisidir",
         "category": "Fal & Kehanet",
-        "min_plan": "premium_plus",
+        "min_plan": "free",
         "mode": "manual_request",
-        "guest_allowed": False,
+        "guest_allowed": True,
     },
     "meditation": {
         "title": "Meditasyonlar",
