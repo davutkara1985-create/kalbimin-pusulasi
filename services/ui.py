@@ -2113,8 +2113,8 @@ def render_safety_notice() -> None:
     st.markdown(
         """
         <div class="kp-footer-disclaimer">
-            Bu uygulama eğlence, kişisel farkındalık ve duygusal paylaşım amacı taşır.
-            Terapi, psikolojik danışmanlık, tıbbi teşhis veya kesin gelecek tahmini sunmaz.
+            Bu uygulama eğlence ve kişisel farkındalık amaçlıdır.
+            Terapi, tıbbi teşhis veya kesinlik sunmaz.
         </div>
         """,
         unsafe_allow_html=True,
