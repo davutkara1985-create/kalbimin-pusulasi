@@ -217,7 +217,7 @@ MODULES: Dict[str, dict] = {
     "coffee_image": {
         "title": "Kahve Falı",
         "icon": "☕",
-        "description": "“Fincanda görünenler, ruhunda saklananların yansımasıdır",
+        "description": "Fincanda görünenler, ruhunda saklananların yansımasıdır",
         "category": "Fal & Kehanet",
         "min_plan": "premium",
         "mode": "manual_request",
