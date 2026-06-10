@@ -2022,21 +2022,132 @@ def render_sidebar_brand() -> None:
 
 def render_hero(user: Optional[Dict[str, Any]] = None) -> None:
     display_name = escape(_display_name(user))
+    rotating_messages = [
+        "✨ Kalbinde tamamlanmamış bir hikâye yeniden canlanıyor…",
+        "🔮 Uzak birinden gelecek bir haber enerjisi var…",
+        "🌙 Beklediğin bir mesaj sandığından daha yakın…",
+        "✨ İç sesin bugün seni doğru yere çağırıyor…",
+        "🔮 Geçmişten biri hâlâ enerjinde iz bırakıyor…",
+        "🌙 Kalbin sakladığın bir duyguyu görünür kılabilir…",
+        "✨ Sessiz bir düşüncen başka bir kalbe ulaşmış…",
+        "🔮 Beklenmedik bir söz dengeni değiştirebilir…",
+        "🌙 İçinde küçük ama güçlü bir farkındalık doğuyor…",
+        "✨ Sana söylenmemiş bir şey var… hissediyorum…",
+    ]
+    messages_html = "".join(
+        f'<span class="kp-rotating-message kp-rotating-message-{idx}">{escape(message)}</span>'
+        for idx, message in enumerate(rotating_messages, start=1)
+    )
     st.markdown(
         f"""
+        <style>
+        .kp-hero {{
+            min-height: 292px !important;
+            padding: 26px 20px 24px !important;
+        }}
+        .kp-hero-opening {{
+            position: relative;
+            z-index: 2;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            min-height: 238px;
+        }}
+        .kp-hero-small-welcome {{
+            display: inline-flex;
+            width: fit-content;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 14px;
+            padding: 7px 11px;
+            border-radius: 999px;
+            background: rgba(255,241,184,0.08);
+            border: 1px solid rgba(255,241,184,0.17);
+            color: rgba(255,241,184,0.90) !important;
+            font-size: 0.72rem;
+            font-weight: 850;
+            letter-spacing: 0.04em;
+        }}
+        .kp-hero-brand-title {{
+            font-family: var(--kp-font-serif);
+            font-size: clamp(3.1rem, 12vw, 5.15rem);
+            line-height: 0.88;
+            font-weight: 800;
+            letter-spacing: -0.065em;
+            color: #fff8e8;
+            text-shadow: 0 14px 36px rgba(0,0,0,0.36), 0 0 32px rgba(217,183,110,0.16);
+        }}
+        .kp-hero-brand-title span {{
+            display: block;
+            color: var(--kp-gold-2);
+            font-family: var(--kp-font-serif);
+        }}
+        .kp-hero-mystic-subtitle {{
+            max-width: 470px;
+            margin: 18px 0 16px;
+            color: rgba(255,248,232,0.78) !important;
+            font-size: 1.02rem;
+            line-height: 1.65;
+        }}
+        .kp-rotating-shell {{
+            position: relative;
+            min-height: 42px;
+            max-width: 520px;
+            margin-top: 4px;
+            padding: 11px 13px;
+            border-radius: 18px;
+            background: rgba(255,255,255,0.055);
+            border: 1px solid rgba(255,241,184,0.14);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.07);
+            overflow: hidden;
+        }}
+        .kp-rotating-message {{
+            position: absolute;
+            left: 13px;
+            right: 13px;
+            top: 50%;
+            transform: translateY(-50%);
+            opacity: 0;
+            color: var(--kp-gold-2) !important;
+            font-size: 0.88rem;
+            font-weight: 760;
+            line-height: 1.35;
+            white-space: normal;
+            animation: kpHeroMessageFade 30s infinite ease-in-out;
+            will-change: opacity;
+        }}
+        .kp-rotating-message-1 {{ animation-delay: 0s; }}
+        .kp-rotating-message-2 {{ animation-delay: 3s; }}
+        .kp-rotating-message-3 {{ animation-delay: 6s; }}
+        .kp-rotating-message-4 {{ animation-delay: 9s; }}
+        .kp-rotating-message-5 {{ animation-delay: 12s; }}
+        .kp-rotating-message-6 {{ animation-delay: 15s; }}
+        .kp-rotating-message-7 {{ animation-delay: 18s; }}
+        .kp-rotating-message-8 {{ animation-delay: 21s; }}
+        .kp-rotating-message-9 {{ animation-delay: 24s; }}
+        .kp-rotating-message-10 {{ animation-delay: 27s; }}
+        @keyframes kpHeroMessageFade {{
+            0%, 8% {{ opacity: 0; }}
+            11%, 19% {{ opacity: 1; }}
+            22%, 100% {{ opacity: 0; }}
+        }}
+        @media (max-width: 760px) {{
+            .kp-hero {{ min-height: 260px !important; padding: 22px 15px 21px !important; }}
+            .kp-hero-opening {{ min-height: 210px; }}
+            .kp-hero-small-welcome {{ font-size: 0.68rem; margin-bottom: 12px; }}
+            .kp-hero-mystic-subtitle {{ font-size: 0.90rem; margin: 14px 0 13px; }}
+            .kp-rotating-shell {{ min-height: 46px; padding: 12px 12px; }}
+            .kp-rotating-message {{ left: 12px; right: 12px; font-size: 0.80rem; }}
+        }}
+        </style>
         <div class="kp-hero">
-            <div class="kp-hero-top">
-                <div class="kp-avatar-wrap"><div class="kp-avatar">☽</div></div>
-                <div>
-                    <div class="kp-eyebrow">✦ Aşk & ilişki pusulası</div>
-                    <div class="kp-username">Hoş geldin, {display_name}</div>
-                </div>
+            <div class="kp-hero-opening">
+                <div class="kp-hero-small-welcome">☽ Hoş geldin, {display_name}</div>
+                <div class="kp-hero-brand-title">Kalbimin <span>Pusulası</span></div>
+                <div class="kp-hero-mystic-subtitle">“Kader gürültüde değil… sükûtta konuşur.”</div>
+                <div class="kp-rotating-shell" aria-live="polite">{messages_html}</div>
             </div>
-            <div class="kp-title">Kalbimin <span>Pusulası</span></div>
-            <div class="kp-subtitle">
-                KADER GÜRÜLTÜDE DEĞİL, SÜKûTTA KONUŞUR
-            </div>
-            </div>
+        </div>
         """,
         unsafe_allow_html=True,
     )
