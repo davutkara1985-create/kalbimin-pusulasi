@@ -231,7 +231,7 @@ def get_plan(email: str) -> str:
 
 
 def get_plan_limit(plan: str) -> int:
-    return int(PLAN_CONFIG.get(plan, PLAN_CONFIG[DEFAULT_PLAN])["daily_limit"])
+    return 999999999
 
 
 def can_generate(email: str) -> Tuple[bool, str, Dict[str, Any]]:
@@ -259,18 +259,8 @@ def can_generate(email: str) -> Tuple[bool, str, Dict[str, Any]]:
 
 
 def record_usage(email: str, module_key: str) -> None:
-    db = get_firestore_client()
-    user_id = user_id_from_email(email)
-    usage_ref = db.collection("users").document(user_id).collection("usage").document(today_key())
-    usage_ref.set(
-        {
-            "count": firestore.Increment(1),
-            "date": today_key(),
-            "last_module": module_key,
-            "updated_at": firestore.SERVER_TIMESTAMP,
-        },
-        merge=True,
-    )
+    # Sinirsiz kullanim modunda kota sayaci artirilmaz.
+    return None
 
 
 def save_reading(email: str, module_key: str, user_input: Dict[str, Any], result: str) -> None:
