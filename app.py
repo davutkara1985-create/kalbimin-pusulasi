@@ -178,13 +178,13 @@ def prevent_browser_translate() -> None:
         width=0,
     )
 
-prevent_browser_translate()
+if not st.session_state.get("_kp_browser_setup_done"):
+    prevent_browser_translate()
+    st.session_state["_kp_browser_setup_done"] = True
 
-try:
-    PUBLIC_SETTINGS = get_public_settings()
-except Exception:
-    PUBLIC_SETTINGS = {"style": {}}
-
+# Performans: açılışta Firestore'dan tasarım ayarı çekilmez.
+# Admin Tasarım sekmesinde güncel ayarlar ayrıca yüklenir.
+PUBLIC_SETTINGS = {"style": {}}
 inject_css(PUBLIC_SETTINGS.get("style", {}))
 
 
@@ -496,7 +496,14 @@ def render_landing_auth() -> None:
     with st.expander("Yeni hesap oluştur"):
         display_name = st.text_input("Ad Soyad", key="register_name")
         reg_email = normalize_email(st.text_input("E-posta", key="register_email", placeholder="ornek@mail.com"))
-        reg_password = st.text_input("Şifre", type="password", key="register_password")
+        st.caption("Geçici, test veya doğrulanamayan alan adına sahip e-postalar kabul edilmez.")
+        reg_password = st.text_input(
+            "Şifre",
+            type="password",
+            key="register_password",
+            help="En az 6 karakter; en az 1 büyük harf, 1 küçük harf ve 1 rakam içermelidir.",
+        )
+        st.caption("Şifre en az 6 karakter olmalı; 1 büyük harf, 1 küçük harf ve 1 rakam içermelidir.")
         if st.button("Hesap oluştur", key="register_btn", use_container_width=True):
             try:
                 ok, msg, auth_user = create_user_account(reg_email, reg_password, display_name)
@@ -536,21 +543,12 @@ def render_top_account(user: Dict[str, Any]) -> None:
 
 
 def unread_inbox_count(user: Optional[Dict[str, Any]]) -> int:
-    """Return unread admin message count without requiring a new DB import.
-
-    The previous patch imported get_unread_inbox_count directly from
-    services.db. If app.py was deployed before services/db.py, Streamlit
-    crashed at startup with ImportError. This fallback uses the already
-    existing list_inbox function, so mobile and desktop can open safely even
-    if older db.py is still deployed.
-    """
     if not user or user.get("is_guest"):
         return 0
-    try:
-        messages = list_inbox(user, limit=20)
-        return sum(1 for item in messages if not bool(item.get("read", False)))
-    except Exception:
+    user_id = str(user.get("id", "") or "")
+    if not user_id:
         return 0
+    return _cached_unread_inbox_count(user_id)
 
 
 def render_user_message_notification(user: Dict[str, Any], current_page: str) -> None:
@@ -578,6 +576,149 @@ def render_user_message_notification(user: Dict[str, Any], current_page: str) ->
     )
 
 
+
+
+
+@st.cache_data(ttl=45, show_spinner=False)
+def _cached_unread_inbox_count(user_id: str) -> int:
+    """Small cached unread count; avoids loading full inbox on every page."""
+    try:
+        from services.db import get_unread_inbox_count
+        return int(get_unread_inbox_count({"id": user_id}, limit=20))
+    except Exception:
+        return 0
+
+
+RATING_LABELS = {
+    5: "5 - Çok iyi",
+    4: "4 - İyi",
+    3: "3 - Orta",
+    2: "2 - Zayıf",
+    1: "1 - Kötü",
+}
+
+
+def _rating_user_key(user: Optional[Dict[str, Any]]) -> str:
+    if not user:
+        return "guest"
+    return str(user.get("id") or user.get("email") or "guest")
+
+
+def _save_page_rating_safe(user: Dict[str, Any], module_key: str, rating: int, note: str = "") -> Tuple[bool, str]:
+    try:
+        from services.db import save_page_rating
+        save_page_rating(user, module_key, int(rating), note=note)
+        return True, "Puanın kaydedildi. Teşekkür ederiz."
+    except Exception as exc:
+        return False, f"Puan kaydedilemedi: {exc}"
+
+
+def _list_page_ratings_safe(limit: int = 1000) -> List[Dict[str, Any]]:
+    try:
+        from services.db import list_page_ratings
+        return list_page_ratings(limit=limit)
+    except Exception:
+        return []
+
+
+def render_page_rating(page: str, user: Dict[str, Any]) -> None:
+    if page not in MODULES or page == "admin":
+        return
+
+    module_title = str(MODULES.get(page, {}).get("title", page))
+    user_key = _rating_user_key(user)
+    submitted_key = f"rating_submitted_{page}_{user_key}_{dt.date.today().isoformat()}"
+
+    st.markdown("<div class='kp-rating-box'>", unsafe_allow_html=True)
+    st.markdown(f"#### Bu sayfayı puanla")
+    st.caption(f"{module_title} deneyimini 1 ile 5 arasında değerlendirebilirsin.")
+
+    if st.session_state.get(submitted_key):
+        st.success("Bu sayfa için puanın alındı.")
+        st.markdown("</div>", unsafe_allow_html=True)
+        return
+
+    rating = st.radio(
+        "Puan",
+        [5, 4, 3, 2, 1],
+        format_func=lambda value: RATING_LABELS.get(int(value), str(value)),
+        horizontal=True,
+        key=f"rating_value_{page}_{user_key}",
+    )
+    note = st.text_input(
+        "İstersen kısa not ekle",
+        key=f"rating_note_{page}_{user_key}",
+        placeholder="Kısa yorumun...",
+    )
+    if st.button("Puan ver", key=f"rating_submit_{page}_{user_key}", use_container_width=True):
+        ok, msg = _save_page_rating_safe(user, page, int(rating), note=note)
+        if ok:
+            st.session_state[submitted_key] = True
+            st.success(msg)
+        else:
+            st.warning(msg)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+
+def admin_ratings() -> None:
+    st.markdown("### Puanlar")
+    ratings = _list_page_ratings_safe(limit=1200)
+    if not ratings:
+        st.info("Henüz puan kaydı yok.")
+        return
+
+    total = len(ratings)
+    avg = sum(int(item.get("rating", 0) or 0) for item in ratings) / max(total, 1)
+    counts = {score: 0 for score in [5, 4, 3, 2, 1]}
+    by_module: Dict[str, Dict[str, Any]] = {}
+    for item in ratings:
+        score = int(item.get("rating", 0) or 0)
+        if score in counts:
+            counts[score] += 1
+        module_key = str(item.get("module_key", "") or "bilinmeyen")
+        bucket = by_module.setdefault(module_key, {"count": 0, "total": 0, "scores": {s: 0 for s in [5, 4, 3, 2, 1]}})
+        bucket["count"] += 1
+        bucket["total"] += score
+        if score in bucket["scores"]:
+            bucket["scores"][score] += 1
+
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        render_metric_card("Toplam puan", str(total), "Son 1200 kayıt")
+    with col2:
+        render_metric_card("Ortalama", f"{avg:.2f}/5", "Genel memnuniyet")
+    with col3:
+        render_metric_card("5 puan", str(counts.get(5, 0)), "Çok iyi")
+
+    st.markdown("#### Sayfa bazında genel durum")
+    table_rows = []
+    for module_key, data in sorted(by_module.items(), key=lambda pair: pair[1]["count"], reverse=True):
+        count = int(data["count"])
+        module_avg = float(data["total"]) / max(count, 1)
+        table_rows.append(
+            {
+                "Sayfa": MODULES.get(module_key, {}).get("title", module_key),
+                "Kayıt": count,
+                "Ortalama": round(module_avg, 2),
+                "5": data["scores"].get(5, 0),
+                "4": data["scores"].get(4, 0),
+                "3": data["scores"].get(3, 0),
+                "2": data["scores"].get(2, 0),
+                "1": data["scores"].get(1, 0),
+            }
+        )
+    st.dataframe(table_rows, use_container_width=True, hide_index=True)
+
+    with st.expander("Son puan kayıtları", expanded=False):
+        for item in ratings[:80]:
+            module_key = str(item.get("module_key", "") or "")
+            title = MODULES.get(module_key, {}).get("title", module_key or "Sayfa")
+            score = int(item.get("rating", 0) or 0)
+            email = str(item.get("user_email", "") or "misafir")
+            note = str(item.get("note", "") or "")
+            st.markdown(f"**{html_escape(str(title))}** · {score}/5 · `{html_escape(email)}`")
+            if note:
+                st.caption(note)
 
 def module_meta(module_key: str, module_settings: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
     base = dict(MODULES[module_key])
@@ -2388,6 +2529,10 @@ def render_inbox_message_list(user: Dict[str, Any], context_key: str = "inbox") 
             show_data_image(item.get("image"))
             if not item.get("read") and st.button("Okundu olarak işaretle", key=f"{context_key}_read_{item['id']}"):
                 mark_inbox_read(user, item["id"])
+                try:
+                    _cached_unread_inbox_count.clear()
+                except Exception:
+                    pass
                 st.rerun()
 
 
@@ -2400,21 +2545,14 @@ def page_account(user: Dict[str, Any]) -> None:
 
     plan = user.get("plan", "free")
     plan_info = PLAN_CONFIG.get(plan, PLAN_CONFIG["free"])
-    try:
-        used = get_usage(user["email"])
-    except Exception:
-        used = 0
-    active_modules = [key for key in MODULES if module_active(key, get_all_module_settings())]
-    limit = max(len(active_modules), 1)
-    remaining = max(limit - used, 0)
 
     col1, col2, col3 = st.columns(3)
     with col1:
-        render_metric_card("Plan", str(plan_info.get("name", plan)), "Mevcut üyelik")
+        render_metric_card("Plan", str(plan_info.get("name", plan)), "Tüm sayfalar ücretsiz")
     with col2:
-        render_metric_card("Bugünkü kullanım", f"{used}/{limit}", "Her sayfada günlük 1 hak")
+        render_metric_card("Kullanım", "Sınırsız", "Günlük kota uygulanmaz")
     with col3:
-        render_metric_card("Kalan hak", str(remaining), "Bugün için")
+        render_metric_card("Erişim", "Açık", "Tüm modüller aktif")
 
     with st.expander("Erişim kodu etkinleştir", expanded=False):
         code = st.text_input("Erişim kodu", type="password", key="account_access_code")
@@ -2920,7 +3058,10 @@ def admin_requests(user: Dict[str, Any]) -> None:
 
 def admin_style() -> None:
     st.markdown("### Tasarım Ayarları")
-    current = PUBLIC_SETTINGS.get("style", {})
+    try:
+        current = get_public_settings().get("style", {})
+    except Exception:
+        current = PUBLIC_SETTINGS.get("style", {})
     title_font = st.text_input("Başlık yazı tipi", value=current.get("title_font", "'Cormorant Garamond', Georgia, serif"))
     content_font = st.text_input("İçerik yazı tipi", value=current.get("content_font", "'Inter', system-ui, sans-serif"))
     font_scale = st.slider("Genel yazı büyüklüğü", 0.85, 1.25, float(current.get("font_scale", 1.0)), 0.01)
@@ -2962,7 +3103,7 @@ def page_admin(user: Dict[str, Any], prompts: Dict[str, str], module_settings: D
         st.error("Bu sayfaya sadece admin erişebilir.")
         return
     render_section_header("Admin Paneli", "Sayfalar, promptlar, içerikler, talepler ve tasarım ayarlarını yönet.", kicker="Yönetim")
-    tabs = st.tabs(["Genel", "Sayfalar", "Promptlar", "İçerikler", "Talepler", "Tasarım", "Kullanıcılar"])
+    tabs = st.tabs(["Genel", "Sayfalar", "Promptlar", "İçerikler", "Talepler", "Tasarım", "Kullanıcılar", "Puanlar"])
     with tabs[0]:
         admin_overview()
     with tabs[1]:
@@ -2977,11 +3118,14 @@ def page_admin(user: Dict[str, Any], prompts: Dict[str, str], module_settings: D
         admin_style()
     with tabs[6]:
         admin_users()
+    with tabs[7]:
+        admin_ratings()
 
 
 def render_page(page: str, user: Dict[str, Any], prompts: Dict[str, str], module_settings: Dict[str, Dict[str, Any]]) -> None:
     if page in MODULES and not module_plan_allowed(user, page, module_settings):
         show_plan_gate(user, page, module_settings)
+        render_page_rating(page, user)
         render_back_home_button(page)
         return
 
@@ -3033,6 +3177,7 @@ def render_page(page: str, user: Dict[str, Any], prompts: Dict[str, str], module
         reset_navigation_to_home()
         st.rerun()
 
+    render_page_rating(page, user)
     render_back_home_button(page)
 
 
@@ -3040,7 +3185,8 @@ def main() -> None:
     user = auth_sidebar()
     if not user:
         hide_sidebar_for_landing()
-        apply_page_background("home")
+        # Performans: girişte ağır arka plan görseli yüklenmez.
+        # apply_page_background("home")
         render_hero()
         render_landing_auth()
         render_footer()
@@ -3048,7 +3194,6 @@ def main() -> None:
 
     try:
         module_settings = get_all_module_settings()
-        prompts = get_all_prompts()
     except Exception as exc:
         stop_with_setup_error(exc)
         return
@@ -3056,7 +3201,18 @@ def main() -> None:
     render_top_account(user)
     page = navigation(user, module_settings)
     persist_auth_query(user, page)
-    apply_page_background(page)
+
+    # Performans: arka plan görselleri base64 olarak her sayfaya basılmadığı için sayfa geçişleri hızlanır.
+    # apply_page_background(page)
+
+    prompts: Dict[str, str] = {}
+    if page in AI_PROMPT_MODULES or page == "admin":
+        try:
+            prompts = get_all_prompts()
+        except Exception as exc:
+            stop_with_setup_error(exc)
+            return
+
     render_user_message_notification(user, page)
     render_page(page, user, prompts, module_settings)
     render_footer()
