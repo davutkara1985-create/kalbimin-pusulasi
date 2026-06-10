@@ -1094,21 +1094,37 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
 
         .kp-hero, .kp-card, .kp-plan, .kp-metric, .kp-safe, .kp-notice, .kp-admin-card, .kp-inbox-card {{ animation: kpFadeUp 0.55s ease both; }}
         .kp-hero {{
-            min-height: 318px;
-            padding: 22px 20px 20px;
+            min-height: 430px;
+            padding: 26px 22px 24px;
             border-radius: 34px;
             background:
                 linear-gradient(145deg, rgba(255,255,255,0.10), rgba(255,255,255,0.035)),
-                radial-gradient(circle at 22% 15%, rgba(38, 112, 183, 0.34), transparent 34%),
-                radial-gradient(circle at 88% 10%, rgba(217, 183, 110, 0.22), transparent 28%),
-                radial-gradient(circle at 62% 76%, rgba(123, 75, 214, 0.42), transparent 45%),
-                rgba(10, 12, 36, 0.78);
+                radial-gradient(circle at 20% 12%, rgba(38, 112, 183, 0.28), transparent 32%),
+                radial-gradient(circle at 86% 8%, rgba(217, 183, 110, 0.20), transparent 27%),
+                radial-gradient(circle at 60% 78%, rgba(123, 75, 214, 0.34), transparent 43%),
+                rgba(10, 12, 36, 0.76);
             border: 1px solid var(--kp-border);
-            box-shadow: 0 30px 80px rgba(0,0,0,0.48), inset 0 1px 0 rgba(255,255,255,0.13);
+            box-shadow: 0 30px 72px rgba(0,0,0,0.44), inset 0 1px 0 rgba(255,255,255,0.13);
             position: relative;
             overflow: hidden;
-            backdrop-filter: blur(24px);
+            backdrop-filter: none;
+            -webkit-backdrop-filter: none;
             margin-bottom: 18px;
+            isolation: isolate;
+        }}
+        .kp-hero::before {{
+            content: "";
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            background-image:
+                radial-gradient(circle, rgba(255,241,184,0.55) 0 1px, transparent 1.6px),
+                radial-gradient(circle, rgba(255,255,255,0.38) 0 1px, transparent 1.5px);
+            background-size: 86px 86px, 128px 128px;
+            background-position: 0 0, 24px 44px;
+            opacity: 0.15;
+            animation: kpHomeStarDrift 34s linear infinite;
+            z-index: 0;
         }}
         .kp-hero::after {{
             content: "☉     ☽     ✧     ◇     ♀     ♃";
@@ -1119,11 +1135,94 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
             font-family: var(--kp-font-serif);
             font-size: 2.45rem;
             letter-spacing: 0.62rem;
-            color: rgba(255, 241, 184, 0.075);
+            color: rgba(255, 241, 184, 0.065);
             white-space: nowrap;
             pointer-events: none;
+            z-index: 0;
         }}
-        .kp-hero-top {{ position: relative; z-index: 2; display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }}
+        .kp-hero-top {{ position: relative; z-index: 3; display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }}
+        .kp-home-stars {{ position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 1; }}
+        .kp-home-star {{
+            position: absolute;
+            width: 90px;
+            height: 1px;
+            border-radius: 999px;
+            background: linear-gradient(90deg, transparent, rgba(255,241,184,0.88), transparent);
+            opacity: 0;
+            transform: translate3d(-140px, 0, 0) rotate(-18deg);
+            animation: kpShootingStar 8.8s linear infinite;
+        }}
+        .kp-home-star.s1 {{ top: 16%; left: -8%; animation-delay: 0.2s; }}
+        .kp-home-star.s2 {{ top: 34%; left: -18%; animation-delay: 2.8s; animation-duration: 9.6s; }}
+        .kp-home-star.s3 {{ top: 58%; left: -12%; animation-delay: 5.5s; animation-duration: 10.4s; }}
+        .kp-home-star.s4 {{ top: 76%; left: -20%; animation-delay: 7.4s; animation-duration: 11.2s; opacity: 0; }}
+        .kp-home-opening {{ position: relative; z-index: 3; }}
+        .kp-home-title {{
+            position: relative;
+            z-index: 3;
+            font-family: var(--kp-font-serif);
+            font-size: clamp(3.05rem, 11vw, 4.7rem);
+            line-height: 0.86;
+            font-weight: 700;
+            color: #fff8e8;
+            letter-spacing: -0.06em;
+            margin: 18px 0 18px;
+            text-shadow: 0 12px 34px rgba(0,0,0,0.34), 0 0 34px rgba(217,183,110,0.14);
+        }}
+        .kp-home-title span {{ display: block; font-family: var(--kp-font-serif); color: var(--kp-gold-2); }}
+        .kp-home-subtitle {{
+            position: relative;
+            z-index: 3;
+            max-width: 480px;
+            color: rgba(255,248,232,0.82);
+            font-size: 1.02rem;
+            line-height: 1.7;
+            margin: 0 0 18px;
+        }}
+        .kp-home-rotator {{
+            position: relative;
+            z-index: 3;
+            min-height: 74px;
+            max-width: 520px;
+            margin-top: 14px;
+            border-radius: 22px;
+            background: rgba(255,255,255,0.055);
+            border: 1px solid rgba(255,241,184,0.16);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
+            overflow: hidden;
+        }}
+        .kp-home-rotator span {{
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            padding: 16px 18px;
+            color: var(--kp-gold-2);
+            font-size: 0.98rem;
+            line-height: 1.45;
+            font-weight: 760;
+            opacity: 0;
+            transform: translateY(8px);
+            animation: kpHomeMessageFade 30s ease-in-out infinite;
+        }}
+        .kp-home-rotator span:nth-child(1) {{ animation-delay: 0s; }}
+        .kp-home-rotator span:nth-child(2) {{ animation-delay: 3s; }}
+        .kp-home-rotator span:nth-child(3) {{ animation-delay: 6s; }}
+        .kp-home-rotator span:nth-child(4) {{ animation-delay: 9s; }}
+        .kp-home-rotator span:nth-child(5) {{ animation-delay: 12s; }}
+        .kp-home-rotator span:nth-child(6) {{ animation-delay: 15s; }}
+        .kp-home-rotator span:nth-child(7) {{ animation-delay: 18s; }}
+        .kp-home-rotator span:nth-child(8) {{ animation-delay: 21s; }}
+        .kp-home-rotator span:nth-child(9) {{ animation-delay: 24s; }}
+        .kp-home-rotator span:nth-child(10) {{ animation-delay: 27s; }}
+        .kp-home-menu-hint {{
+            position: relative;
+            z-index: 3;
+            margin-top: 16px;
+            color: rgba(242,226,202,0.70);
+            font-size: 0.78rem;
+            line-height: 1.45;
+        }}
         .kp-avatar-wrap {{
             width: 70px; height: 70px; border-radius: 50%; padding: 2px;
             background: conic-gradient(from 0deg, #fff1b8, #d9b76e, #6f4bd5, #fff1b8);
@@ -1966,16 +2065,31 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
 
         @keyframes kpParticleDrift {{ 0% {{ background-position: 0 0, 28px 46px; }} 100% {{ background-position: 120px 160px, -40px 190px; }} }}
         @keyframes kpFadeUp {{ from {{ opacity: 0; transform: translateY(12px); }} to {{ opacity: 1; transform: translateY(0); }} }}
+        @keyframes kpHomeStarDrift {{ 0% {{ background-position: 0 0, 24px 44px; }} 100% {{ background-position: 120px 90px, -60px 180px; }} }}
+        @keyframes kpShootingStar {{
+            0%, 72% {{ opacity: 0; transform: translate3d(-140px, 0, 0) rotate(-18deg); }}
+            76% {{ opacity: 0.92; }}
+            88% {{ opacity: 0; transform: translate3d(760px, 210px, 0) rotate(-18deg); }}
+            100% {{ opacity: 0; transform: translate3d(760px, 210px, 0) rotate(-18deg); }}
+        }}
+        @keyframes kpHomeMessageFade {{
+            0%, 7% {{ opacity: 0; transform: translateY(8px); }}
+            10%, 18% {{ opacity: 1; transform: translateY(0); }}
+            21%, 100% {{ opacity: 0; transform: translateY(-8px); }}
+        }}
 
         @media (max-width: 760px) {{
             [data-testid="stSidebar"], [data-testid="stSidebar"] > div {{ width: 260px !important; min-width: 260px !important; max-width: 260px !important; }}
             [data-testid="stAppViewContainer"] .block-container {{ max-width: 100%; padding-left: 0.85rem; padding-right: 0.85rem; padding-top: 0.45rem; }}
-            .kp-hero {{ min-height: 285px; border-radius: 26px; padding: 18px 15px 17px; }}
+            .kp-hero {{ min-height: 390px; border-radius: 26px; padding: 18px 15px 17px; }}
             .kp-hero-top {{ gap: 10px; margin-bottom: 10px; }}
             .kp-avatar-wrap {{ width: 54px; height: 54px; }}
             .kp-avatar {{ font-size: 1.65rem; }}
-            .kp-title {{ font-size: 2.72rem; margin: 12px 0 12px; }}
-            .kp-subtitle {{ font-size: 0.90rem; line-height: 1.52; margin-bottom: 12px; }}
+            .kp-title, .kp-home-title {{ font-size: 2.72rem; margin: 12px 0 12px; }}
+            .kp-subtitle, .kp-home-subtitle {{ font-size: 0.90rem; line-height: 1.52; margin-bottom: 12px; }}
+            .kp-home-rotator {{ min-height: 82px; border-radius: 18px; }}
+            .kp-home-rotator span {{ padding: 13px 14px; font-size: 0.88rem; line-height: 1.42; }}
+            .kp-home-star {{ width: 70px; animation-duration: 10.8s; }}
             .kp-chip, .kp-element-chip {{ padding: 7px 9px; font-size: 0.72rem; }}
             .kp-section-title {{ font-size: 1.62rem; }}
             .kp-card, .kp-plan, .kp-result-card, .kp-share-card, .kp-lead-card, .kp-upgrade-card {{ border-radius: 20px; }}
@@ -2022,130 +2136,42 @@ def render_sidebar_brand() -> None:
 
 def render_hero(user: Optional[Dict[str, Any]] = None) -> None:
     display_name = escape(_display_name(user))
-    rotating_messages = [
+    messages = [
         "✨ Kalbinde tamamlanmamış bir hikâye yeniden canlanıyor…",
         "🔮 Uzak birinden gelecek bir haber enerjisi var…",
         "🌙 Beklediğin bir mesaj sandığından daha yakın…",
-        "✨ İç sesin bugün seni doğru yere çağırıyor…",
-        "🔮 Geçmişten biri hâlâ enerjinde iz bırakıyor…",
-        "🌙 Kalbin sakladığın bir duyguyu görünür kılabilir…",
-        "✨ Sessiz bir düşüncen başka bir kalbe ulaşmış…",
-        "🔮 Beklenmedik bir söz dengeni değiştirebilir…",
-        "🌙 İçinde küçük ama güçlü bir farkındalık doğuyor…",
+        "✨ İçinden geçen his seni doğru yöne çağırıyor…",
+        "🔮 Geçmişten biri zihninde değil… enerjinde duruyor…",
+        "🌙 Bugün kalbin sakladığın bir duyguyu açığa çıkarabilir…",
+        "✨ Sessiz bir düşüncen başkasının kalbine ulaşmış…",
+        "🔮 Beklenmedik bir söz her şeyi değiştirebilir…",
+        "🌙 Kalbinde küçük ama önemli bir farkındalık oluşuyor…",
         "✨ Sana söylenmemiş bir şey var… hissediyorum…",
     ]
-    messages_html = "".join(
-        f'<span class="kp-rotating-message kp-rotating-message-{idx}">{escape(message)}</span>'
-        for idx, message in enumerate(rotating_messages, start=1)
-    )
+    messages_html = "".join(f"<span>{escape(item)}</span>" for item in messages)
     st.markdown(
         f"""
-        <style>
-        .kp-hero {{
-            min-height: 292px !important;
-            padding: 26px 20px 24px !important;
-        }}
-        .kp-hero-opening {{
-            position: relative;
-            z-index: 2;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            min-height: 238px;
-        }}
-        .kp-hero-small-welcome {{
-            display: inline-flex;
-            width: fit-content;
-            align-items: center;
-            gap: 8px;
-            margin-bottom: 14px;
-            padding: 7px 11px;
-            border-radius: 999px;
-            background: rgba(255,241,184,0.08);
-            border: 1px solid rgba(255,241,184,0.17);
-            color: rgba(255,241,184,0.90) !important;
-            font-size: 0.72rem;
-            font-weight: 850;
-            letter-spacing: 0.04em;
-        }}
-        .kp-hero-brand-title {{
-            font-family: var(--kp-font-serif);
-            font-size: clamp(3.1rem, 12vw, 5.15rem);
-            line-height: 0.88;
-            font-weight: 800;
-            letter-spacing: -0.065em;
-            color: #fff8e8;
-            text-shadow: 0 14px 36px rgba(0,0,0,0.36), 0 0 32px rgba(217,183,110,0.16);
-        }}
-        .kp-hero-brand-title span {{
-            display: block;
-            color: var(--kp-gold-2);
-            font-family: var(--kp-font-serif);
-        }}
-        .kp-hero-mystic-subtitle {{
-            max-width: 470px;
-            margin: 18px 0 16px;
-            color: rgba(255,248,232,0.78) !important;
-            font-size: 1.02rem;
-            line-height: 1.65;
-        }}
-        .kp-rotating-shell {{
-            position: relative;
-            min-height: 42px;
-            max-width: 520px;
-            margin-top: 4px;
-            padding: 11px 13px;
-            border-radius: 18px;
-            background: rgba(255,255,255,0.055);
-            border: 1px solid rgba(255,241,184,0.14);
-            box-shadow: inset 0 1px 0 rgba(255,255,255,0.07);
-            overflow: hidden;
-        }}
-        .kp-rotating-message {{
-            position: absolute;
-            left: 13px;
-            right: 13px;
-            top: 50%;
-            transform: translateY(-50%);
-            opacity: 0;
-            color: var(--kp-gold-2) !important;
-            font-size: 0.88rem;
-            font-weight: 760;
-            line-height: 1.35;
-            white-space: normal;
-            animation: kpHeroMessageFade 30s infinite ease-in-out;
-            will-change: opacity;
-        }}
-        .kp-rotating-message-1 {{ animation-delay: 0s; }}
-        .kp-rotating-message-2 {{ animation-delay: 3s; }}
-        .kp-rotating-message-3 {{ animation-delay: 6s; }}
-        .kp-rotating-message-4 {{ animation-delay: 9s; }}
-        .kp-rotating-message-5 {{ animation-delay: 12s; }}
-        .kp-rotating-message-6 {{ animation-delay: 15s; }}
-        .kp-rotating-message-7 {{ animation-delay: 18s; }}
-        .kp-rotating-message-8 {{ animation-delay: 21s; }}
-        .kp-rotating-message-9 {{ animation-delay: 24s; }}
-        .kp-rotating-message-10 {{ animation-delay: 27s; }}
-        @keyframes kpHeroMessageFade {{
-            0%, 8% {{ opacity: 0; }}
-            11%, 19% {{ opacity: 1; }}
-            22%, 100% {{ opacity: 0; }}
-        }}
-        @media (max-width: 760px) {{
-            .kp-hero {{ min-height: 260px !important; padding: 22px 15px 21px !important; }}
-            .kp-hero-opening {{ min-height: 210px; }}
-            .kp-hero-small-welcome {{ font-size: 0.68rem; margin-bottom: 12px; }}
-            .kp-hero-mystic-subtitle {{ font-size: 0.90rem; margin: 14px 0 13px; }}
-            .kp-rotating-shell {{ min-height: 46px; padding: 12px 12px; }}
-            .kp-rotating-message {{ left: 12px; right: 12px; font-size: 0.80rem; }}
-        }}
-        </style>
-        <div class="kp-hero">
-            <div class="kp-hero-opening">
-                <div class="kp-hero-small-welcome">☽ Hoş geldin, {display_name}</div>
-                <div class="kp-hero-brand-title">Kalbimin <span>Pusulası</span></div>
-                <div class="kp-hero-mystic-subtitle">“Kader gürültüde değil… sükûtta konuşur.”</div>
-                <div class="kp-rotating-shell" aria-live="polite">{messages_html}</div>
+        <div class="kp-hero kp-home-only-hero">
+            <div class="kp-home-stars" aria-hidden="true">
+                <i class="kp-home-star s1"></i>
+                <i class="kp-home-star s2"></i>
+                <i class="kp-home-star s3"></i>
+                <i class="kp-home-star s4"></i>
+            </div>
+            <div class="kp-hero-top">
+                <div class="kp-avatar-wrap"><div class="kp-avatar">☽</div></div>
+                <div>
+                    <div class="kp-eyebrow">✦ Sezgisel kalp pusulası</div>
+                    <div class="kp-username">Hoş geldin, {display_name}</div>
+                </div>
+            </div>
+            <div class="kp-home-opening">
+                <div class="kp-home-title">Kalbimin <span>Pusulası</span></div>
+                <div class="kp-home-subtitle">“Kader gürültüde değil… sükûtta konuşur.”</div>
+                <div class="kp-home-rotator" aria-label="Dönen mistik mesajlar">
+                    {messages_html}
+                </div>
+                <div class="kp-home-menu-hint">Falını seçmek için menüyü kullan; kalbin hangi kapıya yönelirse oradan başla.</div>
             </div>
         </div>
         """,
