@@ -1090,67 +1090,118 @@ def render_back_home_button(page: str) -> None:
 
 
 def render_home_star_field() -> None:
-    """Ana sayfanın tamamında hafif, performans dostu yıldız kaymaları gösterir."""
+    """Ana sayfanın tamamına belirgin, sık ve performans dostu meteor animasyonu ekler."""
     st.markdown(
         """
         <style>
-        .kp-home-star-field {
+        .kp-home-meteor-field {
             position: fixed;
             inset: 0;
             pointer-events: none;
             overflow: hidden;
-            z-index: 2;
+            z-index: 5;
+            opacity: 1;
+            mix-blend-mode: screen;
         }
-        .kp-home-star-field .kp-home-wide-star {
-            position: absolute;
-            width: 118px;
-            height: 1px;
-            border-radius: 999px;
-            background: linear-gradient(90deg, transparent, rgba(255,241,184,0.86), rgba(255,255,255,0.62), transparent);
-            box-shadow: 0 0 14px rgba(255,241,184,0.24);
-            opacity: 0;
-            transform: translate3d(-180px, 0, 0) rotate(-18deg);
-            animation: kpHomeWideShootingStar 12s linear infinite;
-        }
-        .kp-home-wide-star::after {
+        .kp-home-meteor-field::before {
             content: "";
             position: absolute;
-            right: 42%;
-            top: -1.5px;
-            width: 4px;
-            height: 4px;
-            border-radius: 50%;
-            background: rgba(255,248,232,0.82);
-            box-shadow: 0 0 13px rgba(255,241,184,0.55);
+            inset: 0;
+            background-image:
+                radial-gradient(circle, rgba(255,255,255,0.72) 0 1px, transparent 1.7px),
+                radial-gradient(circle, rgba(91,139,255,0.52) 0 1px, transparent 1.8px),
+                radial-gradient(circle, rgba(255,241,184,0.44) 0 1px, transparent 1.7px);
+            background-size: 86px 86px, 137px 137px, 211px 211px;
+            background-position: 0 0, 31px 47px, 74px 19px;
+            opacity: 0.28;
+            filter: drop-shadow(0 0 4px rgba(97,137,255,0.26));
+            animation: kpHomeSkyTwinkle 5.8s ease-in-out infinite alternate;
         }
-        .kp-home-wide-star.s1 { top: 10%; left: -12%; animation-delay: 0s; animation-duration: 11.5s; }
-        .kp-home-wide-star.s2 { top: 24%; left: -24%; animation-delay: 2.3s; animation-duration: 13.5s; }
-        .kp-home-wide-star.s3 { top: 39%; left: -16%; animation-delay: 4.9s; animation-duration: 12.8s; }
-        .kp-home-wide-star.s4 { top: 55%; left: -28%; animation-delay: 7.2s; animation-duration: 14.6s; }
-        .kp-home-wide-star.s5 { top: 72%; left: -18%; animation-delay: 9.6s; animation-duration: 13.8s; }
-        .kp-home-wide-star.s6 { top: 86%; left: -34%; animation-delay: 5.8s; animation-duration: 15.5s; }
-        @keyframes kpHomeWideShootingStar {
-            0% { opacity: 0; transform: translate3d(-180px, 0, 0) rotate(-18deg); }
-            6% { opacity: 0.82; }
-            17% { opacity: 0.78; }
-            28% { opacity: 0; transform: translate3d(130vw, 42vh, 0) rotate(-18deg); }
-            100% { opacity: 0; transform: translate3d(130vw, 42vh, 0) rotate(-18deg); }
+        .kp-home-meteor {
+            position: absolute;
+            display: block;
+            width: var(--meteor-w, 190px);
+            height: var(--meteor-h, 3px);
+            border-radius: 999px;
+            background: linear-gradient(90deg,
+                transparent 0%,
+                rgba(115,150,255,0.16) 15%,
+                rgba(210,225,255,0.70) 48%,
+                rgba(255,255,255,0.98) 72%,
+                rgba(255,241,184,0.88) 100%
+            );
+            box-shadow:
+                0 0 16px rgba(207,224,255,0.72),
+                0 0 34px rgba(91,139,255,0.34),
+                0 0 48px rgba(255,241,184,0.16);
+            opacity: 0;
+            transform: translate3d(0, 0, 0) rotate(-22deg);
+            animation: kpHomeMeteorSweep var(--meteor-d, 6.8s) linear infinite;
+            animation-delay: var(--meteor-delay, 0s);
+            will-change: transform, opacity;
+        }
+        .kp-home-meteor::after {
+            content: "";
+            position: absolute;
+            right: -1px;
+            top: 50%;
+            width: 7px;
+            height: 7px;
+            transform: translateY(-50%);
+            border-radius: 50%;
+            background: rgba(255,255,255,0.98);
+            box-shadow:
+                0 0 14px rgba(255,255,255,0.90),
+                0 0 30px rgba(255,241,184,0.62),
+                0 0 44px rgba(91,139,255,0.35);
+        }
+        .kp-home-meteor.m1  { top: 6%;  left: 72%; --meteor-w: 240px; --meteor-d: 5.6s; --meteor-delay: -0.4s; }
+        .kp-home-meteor.m2  { top: 12%; left: 34%; --meteor-w: 170px; --meteor-d: 6.2s; --meteor-delay: -2.0s; }
+        .kp-home-meteor.m3  { top: 18%; left: 86%; --meteor-w: 230px; --meteor-d: 5.9s; --meteor-delay: -3.3s; }
+        .kp-home-meteor.m4  { top: 25%; left: 58%; --meteor-w: 280px; --meteor-d: 6.8s; --meteor-delay: -1.2s; }
+        .kp-home-meteor.m5  { top: 31%; left: 15%; --meteor-w: 150px; --meteor-d: 7.4s; --meteor-delay: -4.6s; }
+        .kp-home-meteor.m6  { top: 38%; left: 78%; --meteor-w: 250px; --meteor-d: 6.1s; --meteor-delay: -5.1s; }
+        .kp-home-meteor.m7  { top: 45%; left: 43%; --meteor-w: 200px; --meteor-d: 5.4s; --meteor-delay: -2.7s; }
+        .kp-home-meteor.m8  { top: 52%; left: 92%; --meteor-w: 300px; --meteor-d: 7.0s; --meteor-delay: -6.2s; }
+        .kp-home-meteor.m9  { top: 61%; left: 62%; --meteor-w: 210px; --meteor-d: 6.5s; --meteor-delay: -3.9s; }
+        .kp-home-meteor.m10 { top: 69%; left: 27%; --meteor-w: 165px; --meteor-d: 7.2s; --meteor-delay: -1.7s; }
+        .kp-home-meteor.m11 { top: 76%; left: 82%; --meteor-w: 245px; --meteor-d: 5.8s; --meteor-delay: -4.1s; }
+        .kp-home-meteor.m12 { top: 84%; left: 48%; --meteor-w: 190px; --meteor-d: 6.9s; --meteor-delay: -5.8s; }
+        .kp-home-meteor.m13 { top: 9%;  left: 8%;  --meteor-w: 130px; --meteor-h: 2px; --meteor-d: 8.1s; --meteor-delay: -6.9s; }
+        .kp-home-meteor.m14 { top: 33%; left: 101%; --meteor-w: 180px; --meteor-h: 2px; --meteor-d: 7.6s; --meteor-delay: -0.9s; }
+        .kp-home-meteor.m15 { top: 57%; left: 4%; --meteor-w: 145px; --meteor-h: 2px; --meteor-d: 8.4s; --meteor-delay: -7.4s; }
+        .kp-home-meteor.m16 { top: 88%; left: 106%; --meteor-w: 260px; --meteor-d: 6.4s; --meteor-delay: -2.4s; }
+        @keyframes kpHomeMeteorSweep {
+            0%   { opacity: 0; transform: translate3d(0, 0, 0) rotate(-22deg); }
+            4%   { opacity: 0; }
+            10%  { opacity: 0.98; }
+            24%  { opacity: 0.90; }
+            37%  { opacity: 0; transform: translate3d(-118vw, 48vh, 0) rotate(-22deg); }
+            100% { opacity: 0; transform: translate3d(-118vw, 48vh, 0) rotate(-22deg); }
+        }
+        @keyframes kpHomeSkyTwinkle {
+            from { opacity: 0.20; }
+            to   { opacity: 0.36; }
         }
         @media (max-width: 760px) {
-            .kp-home-star-field .kp-home-wide-star { width: 82px; animation-duration: 14s; }
-            .kp-home-wide-star.s4, .kp-home-wide-star.s6 { display: none; }
+            .kp-home-meteor-field::before { opacity: 0.20; background-size: 76px 76px, 118px 118px, 170px 170px; }
+            .kp-home-meteor { width: calc(var(--meteor-w, 180px) * 0.72); height: 2px; animation-duration: calc(var(--meteor-d, 7s) * 1.18); }
+            .kp-home-meteor.m5, .kp-home-meteor.m10, .kp-home-meteor.m13, .kp-home-meteor.m15 { display: none; }
         }
         @media (prefers-reduced-motion: reduce) {
-            .kp-home-star-field .kp-home-wide-star { animation: none !important; opacity: 0.18; }
+            .kp-home-meteor { animation: none !important; opacity: 0.16; }
+            .kp-home-meteor-field::before { animation: none !important; }
         }
         </style>
-        <div class="kp-home-star-field" aria-hidden="true">
-            <i class="kp-home-wide-star s1"></i>
-            <i class="kp-home-wide-star s2"></i>
-            <i class="kp-home-wide-star s3"></i>
-            <i class="kp-home-wide-star s4"></i>
-            <i class="kp-home-wide-star s5"></i>
-            <i class="kp-home-wide-star s6"></i>
+        <div class="kp-home-meteor-field" aria-hidden="true">
+            <i class="kp-home-meteor m1"></i><i class="kp-home-meteor m2"></i>
+            <i class="kp-home-meteor m3"></i><i class="kp-home-meteor m4"></i>
+            <i class="kp-home-meteor m5"></i><i class="kp-home-meteor m6"></i>
+            <i class="kp-home-meteor m7"></i><i class="kp-home-meteor m8"></i>
+            <i class="kp-home-meteor m9"></i><i class="kp-home-meteor m10"></i>
+            <i class="kp-home-meteor m11"></i><i class="kp-home-meteor m12"></i>
+            <i class="kp-home-meteor m13"></i><i class="kp-home-meteor m14"></i>
+            <i class="kp-home-meteor m15"></i><i class="kp-home-meteor m16"></i>
         </div>
         """,
         unsafe_allow_html=True,
@@ -1158,64 +1209,125 @@ def render_home_star_field() -> None:
 
 
 def render_home_intro_text() -> None:
-    """Eski Aşk Odağın alanında görünen yeni mistik açılış metni."""
-    render_section_header("AŞK ODAĞIN", "Kalbinin işaretlerini dinle", kicker="")
+    """Ana sayfa metnini başlıksız ve sayfanın atmosferine gömülü şekilde gösterir."""
     st.markdown(
         """
-        <div class="kp-home-story-card">
-            <p>Bazen içinden geçenleri açıklayamazsın… ama hissedersin.</p>
-            <p>Kalbinde kalan bir soru, yarım kalmış bir duygu ya da adını koyamadığın bir enerji…</p>
-            <p>İşte tam da bu yüzden buradasın.</p>
-            <p>Bu alan, sadece bir uygulama değil…</p>
-            <p>İç sesini duyduğun, hislerini anlamlandırdığın ve sana söylenmeyeni fark ettiğin bir yolculuk.</p>
-            <p>Belki bir mesaj seni bekliyordur,<br>belki geçmişten gelen bir bağ hâlâ çözülmemiştir,<br>belki de kalbin sana anlatmaya çalıştığı şeyi ilk kez net duyacaksın.</p>
-            <p>Şimdi dur…<br>Derin bir nefes al…</p>
-            <p>Ve kendine şunu sor:</p>
-            <p class="kp-home-story-question">“Bugün kalbim bana ne söylemek istiyor?”</p>
-            <p>Cevaplar burada… ve sandığından daha yakın.</p>
-        </div>
         <style>
-        .kp-home-story-card {
-            position: relative;
-            z-index: 4;
-            margin: 8px 0 22px;
-            padding: 20px 19px;
-            border-radius: 24px;
-            background: linear-gradient(145deg, rgba(255,255,255,0.11), rgba(255,255,255,0.045));
-            border: 1px solid rgba(255,241,184,0.19);
-            box-shadow: 0 18px 42px rgba(0,0,0,0.22), inset 0 1px 0 rgba(255,255,255,0.08);
+        /* Ana sayfada Kalbimin Pusulası kutusu daha kompakt; diğer sayfalar etkilenmez. */
+        .kp-home-shell .kp-hero {
+            max-width: 430px !important;
+            min-height: auto !important;
+            margin: 0 auto 22px !important;
+            padding: 18px 18px 16px !important;
+            border-radius: 28px !important;
         }
-        .kp-home-story-card p {
-            margin: 0 0 0.86rem;
-            color: rgba(255,248,232,0.90);
+        .kp-home-shell .kp-hero-top {
+            gap: 11px !important;
+            margin-bottom: 12px !important;
+        }
+        .kp-home-shell .kp-avatar-wrap {
+            width: 56px !important;
+            height: 56px !important;
+        }
+        .kp-home-shell .kp-avatar {
+            font-size: 1.72rem !important;
+        }
+        .kp-home-shell .kp-eyebrow {
+            padding: 6px 9px !important;
+            font-size: 0.64rem !important;
+        }
+        .kp-home-shell .kp-username {
+            margin-top: 5px !important;
+            font-size: 0.78rem !important;
+        }
+        .kp-home-shell .kp-title {
+            font-size: clamp(2.45rem, 8.4vw, 3.42rem) !important;
+            line-height: 0.88 !important;
+            margin: 12px 0 12px !important;
+        }
+        .kp-home-shell .kp-subtitle {
+            font-size: 0.76rem !important;
+            letter-spacing: 0.09em !important;
+        }
+        .kp-home-story-embedded {
+            position: relative;
+            z-index: 8;
+            max-width: 610px;
+            margin: 18px auto 34px;
+            padding: 2px 8px 18px;
+            color: rgba(255,248,232,0.93);
+            text-align: left;
+            text-shadow: 0 2px 16px rgba(0,0,0,0.70), 0 0 28px rgba(12,18,60,0.42);
+        }
+        .kp-home-story-embedded::before {
+            content: "";
+            position: absolute;
+            left: 8px;
+            top: -10px;
+            width: 108px;
+            height: 1px;
+            border-radius: 999px;
+            background: linear-gradient(90deg, rgba(255,241,184,0.88), transparent);
+            box-shadow: 0 0 20px rgba(255,241,184,0.34);
+        }
+        .kp-home-story-embedded p {
+            margin: 0 0 1.02rem;
+            color: inherit;
             font-size: 1.01rem;
-            line-height: 1.72;
+            line-height: 1.78;
             letter-spacing: -0.01em;
         }
-        .kp-home-story-card p:last-child { margin-bottom: 0; }
+        .kp-home-story-embedded p:last-child { margin-bottom: 0; }
         .kp-home-story-question {
             color: var(--kp-gold-2) !important;
             font-family: var(--kp-font-serif);
             font-size: 1.42rem !important;
-            line-height: 1.22 !important;
-            text-shadow: 0 0 22px rgba(217,183,110,0.16);
+            line-height: 1.24 !important;
+            margin: 0.2rem 0 0.92rem !important;
+            text-align: center;
+            text-shadow: 0 0 24px rgba(217,183,110,0.30), 0 2px 18px rgba(0,0,0,0.74);
         }
         @media (max-width: 760px) {
-            .kp-home-story-card { padding: 17px 15px; border-radius: 21px; }
-            .kp-home-story-card p { font-size: 0.94rem; line-height: 1.63; }
-            .kp-home-story-question { font-size: 1.23rem !important; }
+            .kp-home-shell .kp-hero {
+                max-width: 340px !important;
+                padding: 15px 14px 14px !important;
+                border-radius: 23px !important;
+                margin-bottom: 18px !important;
+            }
+            .kp-home-shell .kp-avatar-wrap { width: 48px !important; height: 48px !important; }
+            .kp-home-shell .kp-avatar { font-size: 1.46rem !important; }
+            .kp-home-shell .kp-title { font-size: clamp(2.05rem, 12vw, 2.72rem) !important; }
+            .kp-home-shell .kp-subtitle { font-size: 0.66rem !important; letter-spacing: 0.06em !important; }
+            .kp-home-story-embedded { margin: 14px auto 28px; padding: 2px 3px 14px; }
+            .kp-home-story-embedded p { font-size: 0.94rem; line-height: 1.68; margin-bottom: 0.96rem; }
+            .kp-home-story-question { font-size: 1.20rem !important; }
         }
         </style>
+        <section class="kp-home-story-embedded" aria-label="Kalbinin mesajı">
+            <p>Bazen bazı duygular vardır…<br>Ne tam anlatabilirsin, ne de içinden atabilirsin.</p>
+            <p>Sanki kalbin bir şey söylemek ister ama kelimeler yetmez.<br>İçinde kalan bir soru, yarım kalmış bir hikâye ya da adını koyamadığın bir his…<br>İşte tam da bu yüzden buradasın.</p>
+            <p>Çünkü bazı cevaplar dışarıda değil…<br>Senin içinde, hislerinde ve enerjinde saklıdır.</p>
+            <p>Bu alan sadece bir uygulama değil.<br>Burası; hislerini anlamlandırdığın, iç sesini gerçekten duyduğun,<br>Ve sana söylenmeyeni fark ettiğin bir yolculuk.</p>
+            <p>Belki kalbinde kapanmamış bir konu var… Belki aklından çıkmayan biri…<br>Belki de nedenini bilmeden hissettiğin bir ağırlık.</p>
+            <p>Bazen bir mesaj gecikir ama gelmesi kaçınılmazdır…<br>Bazen bir bağ kopmaz, sadece sessizce bekler…<br>Ve bazen… sen fark etmeden bir şeyler değişmeye başlar.</p>
+            <p>Şu an bulunduğun yer bir tesadüf değil.<br>Buraya gelişinin bir nedeni var. Çünkü içinden geçen o küçük ses seni buraya getirdi.</p>
+            <p>Belki bugün duymaya hazır olduğun bir şey var.<br>Belki uzun zamandır beklediğin bir cevap…<br>Artık kendini göstermeye hazırlanıyor.</p>
+            <p>Acele etme… Bir an dur… Derin bir nefes al…<br>Ve gerçekten kendine şunu sor:</p>
+            <p class="kp-home-story-question">“Kalbim bana ne anlatmak istiyor?”</p>
+            <p>Çünkü cevaplar burada… ve sandığından çok daha yakın.</p>
+        </section>
         """,
         unsafe_allow_html=True,
     )
 
 
 def page_home(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]]) -> None:
-    # Ana sayfa: eski Kalbimin Pusulası kutusu korunur; modüllere geçiş sadece menüden yapılır.
+    # Ana sayfa: Kalbimin Pusulası kutusu kompakt tutulur; modüllere geçiş sadece menüden yapılır.
     render_home_star_field()
+    st.markdown('<div class="kp-home-shell">', unsafe_allow_html=True)
     render_hero(user)
     render_home_intro_text()
+    st.markdown('</div>', unsafe_allow_html=True)
 
 
 def page_subscription(user: Dict[str, Any]) -> None:
