@@ -217,8 +217,8 @@ MODULE_ICON_ASSETS: Dict[str, str] = {
 }
 
 
-@st.cache_data(show_spinner=False)
-def icon_asset_data_uri(filename: str, max_side: int = 96) -> str:
+@st.cache_data(ttl=86400, max_entries=48, show_spinner=False)
+def icon_asset_data_uri(filename: str, max_side: int = 58) -> str:
     path = Path(__file__).resolve().parent.parent / "assets" / "icons" / filename
     if not path.exists() or not path.is_file():
         return ""
@@ -289,16 +289,16 @@ def _find_background_file(name: str) -> Optional[Path]:
     return None
 
 
-@st.cache_data(show_spinner=False)
-def asset_data_uri(name: str, max_side: Optional[int] = None, quality: int = 70) -> str:
+@st.cache_data(ttl=86400, max_entries=24, show_spinner=False)
+def asset_data_uri(name: str, max_side: Optional[int] = None, quality: int = 42) -> str:
     path = _find_background_file(name)
     if not path:
         return ""
     mime = _asset_mime(path)
     raw = path.read_bytes()
 
-    # Arka plan dosyaları büyük olduğunda Streamlit her sayfa geçişinde çok büyük HTML/CSS payload üretir.
-    # Bu yüzden sadece gerekli ekranda kullanılacak kadar küçültülmüş JPEG veri URI'si üretiyoruz.
+    # Arka planlar tam boy base64 basılırsa sayfa geçişleri yavaşlar.
+    # Bu nedenle görsel tek noktadan küçültülür, cache'lenir ve mümkünse WebP olarak gönderilir.
     if max_side and Image is not None:
         try:
             img = Image.open(io.BytesIO(raw))
@@ -307,15 +307,15 @@ def asset_data_uri(name: str, max_side: Optional[int] = None, quality: int = 70)
             img = img.convert("RGB")
             img.thumbnail((int(max_side), int(max_side)))
             buffer = io.BytesIO()
-            img.save(
-                buffer,
-                format="JPEG",
-                quality=int(quality),
-                optimize=True,
-                progressive=True,
-            )
-            raw = buffer.getvalue()
-            mime = "image/jpeg"
+            try:
+                img.save(buffer, format="WEBP", quality=int(quality), method=4)
+                raw = buffer.getvalue()
+                mime = "image/webp"
+            except Exception:
+                buffer = io.BytesIO()
+                img.save(buffer, format="JPEG", quality=int(quality), optimize=True, progressive=True)
+                raw = buffer.getvalue()
+                mime = "image/jpeg"
         except Exception:
             pass
 
@@ -341,24 +341,47 @@ def apply_page_background(page_key: str) -> None:
     }
     filename = page_backgrounds.get(page_key, "Genel")
 
-    # Büyük görselleri tam boy base64 olarak tarayıcıya göndermek sayfaları çok yavaşlatıyordu.
-    # Arka planlar burada tek noktadan optimize edilerek yüklenir.
-    uri = asset_data_uri(filename, max_side=650, quality=38) or asset_data_uri("Genel", max_side=650, quality=38)
+    # Performans dengesi: 520px WebP/JPEG küçük arka plan yeterli atmosfer verir,
+    # tam ekran ağır görsel ve sabit background kullanılmaz.
+    uri = asset_data_uri(filename, max_side=520, quality=34) or asset_data_uri("Genel", max_side=520, quality=34)
     if not uri:
         return
+
+    # Sayfaya göre hafif renk atmosferi. Görsel küçük olsa bile uygulamanın kimliği korunur.
+    accent = {
+        "coffee_text": "rgba(64, 36, 18, 0.54)",
+        "coffee_image": "rgba(64, 36, 18, 0.54)",
+        "birth_chart": "rgba(12, 27, 76, 0.54)",
+        "zodiac": "rgba(12, 27, 76, 0.54)",
+        "dream": "rgba(22, 28, 72, 0.58)",
+        "soulmate": "rgba(44, 18, 78, 0.58)",
+        "meditation": "rgba(17, 45, 64, 0.56)",
+        "rituals": "rgba(57, 28, 72, 0.56)",
+    }.get(page_key, "rgba(35, 16, 74, 0.54)")
+
     st.markdown(
         f"""
-        <style>
+        <style id="kp-page-bg">
         .stApp {{
             background-image:
-                linear-gradient(160deg, rgba(5, 6, 18, 0.42), rgba(9, 15, 47, 0.50) 46%, rgba(34, 15, 66, 0.55)),
+                linear-gradient(160deg, rgba(4, 6, 18, 0.70), rgba(8, 12, 38, 0.66) 48%, {accent}),
                 url("{uri}") !important;
             background-size: cover !important;
             background-position: center center !important;
+            background-repeat: no-repeat !important;
             background-attachment: scroll !important;
         }}
         [data-testid="stAppViewContainer"] {{
             background: transparent !important;
+        }}
+        @media (max-width: 760px) {{
+            .stApp {{
+                background-image:
+                    linear-gradient(160deg, rgba(4, 6, 18, 0.78), rgba(8, 12, 38, 0.73) 48%, {accent}),
+                    url("{uri}") !important;
+                background-size: auto 100% !important;
+                background-position: center top !important;
+            }}
         }}
         </style>
         """,
@@ -386,7 +409,7 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
     st.markdown(
         f"""
         <style>
-        @import url('https://fonts.googleapis.com/css2?family=Caveat:wght@400;500;600;700&family=Cormorant+Garamond:wght@500;600;700&family=Dancing+Script:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&family=Patrick+Hand&display=swap');
+        /* Harici font importu performans için kapatıldı; sistem fontları ve yedek serif fontlar kullanılır. */
 
         :root {{
             --kp-bg: #060817;
