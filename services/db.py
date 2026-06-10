@@ -3,7 +3,9 @@ from __future__ import annotations
 import datetime as dt
 import hashlib
 import json
+import re
 import secrets
+import socket
 from typing import Any, Dict, List, Optional, Tuple
 
 import firebase_admin
@@ -77,6 +79,114 @@ def is_admin_email(email: str) -> bool:
     return normalize_email(email) in _admin_emails()
 
 
+
+
+EMAIL_RE = re.compile(r"^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,63}$", re.IGNORECASE)
+
+COMMON_EMAIL_DOMAINS = {
+    "gmail.com", "googlemail.com", "hotmail.com", "outlook.com", "live.com", "msn.com",
+    "icloud.com", "me.com", "mac.com", "yahoo.com", "yahoo.com.tr", "ymail.com",
+    "proton.me", "protonmail.com", "aol.com", "zoho.com", "yandex.com", "yandex.com.tr",
+    "mail.com", "gmx.com", "gmx.net", "tutanota.com", "tuta.com",
+}
+
+COMMON_EMAIL_DOMAIN_TYPOS = {
+    "gamil.com": "gmail.com",
+    "gmial.com": "gmail.com",
+    "gmai.com": "gmail.com",
+    "gmail.con": "gmail.com",
+    "hotmial.com": "hotmail.com",
+    "hotmai.com": "hotmail.com",
+    "hotmail.con": "hotmail.com",
+    "outlok.com": "outlook.com",
+    "outlook.con": "outlook.com",
+    "icloud.con": "icloud.com",
+    "yaho.com": "yahoo.com",
+    "yahoo.con": "yahoo.com",
+}
+
+DISPOSABLE_EMAIL_DOMAINS = {
+    "10minutemail.com", "20minutemail.com", "guerrillamail.com", "guerrillamail.net",
+    "mailinator.com", "mailinator.net", "tempmail.com", "temp-mail.org", "temp-mail.io",
+    "yopmail.com", "yopmail.fr", "trashmail.com", "sharklasers.com", "getairmail.com",
+    "fakeinbox.com", "throwawaymail.com", "emailondeck.com", "moakt.com", "mintemail.com",
+    "dispostable.com", "maildrop.cc", "mailnesia.com", "mytemp.email", "tempmailo.com",
+}
+
+BLOCKED_FAKE_DOMAINS = {
+    "example.com", "example.net", "example.org", "test.com", "test.net", "test.org",
+    "mail.com.tr", "email.com", "demo.com", "fake.com", "asd.com", "abc.com",
+}
+
+BLOCKED_LOCAL_PARTS = {
+    "a", "aa", "aaa", "abc", "abcd", "asdf", "asd", "qwe", "qwer", "qwerty",
+    "test", "tester", "deneme", "demo", "fake", "mail", "email", "user", "kullanici",
+}
+
+
+def _email_domain_has_dns(domain: str) -> bool:
+    """Best-effort DNS check to reduce fake/random registration emails.
+
+    Gerçek e-posta sahipliğini kesin doğrulamanın yolu e-posta doğrulama kodu göndermektir.
+    Bu uygulamada mail gönderimi olmadığı için burada format, geçici domain ve DNS kontrolleri yapılır.
+    """
+    domain = domain.strip().lower()
+    if not domain:
+        return False
+    if domain in COMMON_EMAIL_DOMAINS:
+        return True
+    try:
+        previous_timeout = socket.getdefaulttimeout()
+        socket.setdefaulttimeout(2.0)
+        try:
+            socket.getaddrinfo(domain, None)
+            return True
+        finally:
+            socket.setdefaulttimeout(previous_timeout)
+    except Exception:
+        return False
+
+
+def validate_registration_email(email: str) -> Tuple[bool, str]:
+    normalized = normalize_email(email)
+    if not normalized:
+        return False, "E-posta adresi zorunludur."
+    if len(normalized) > 254 or not EMAIL_RE.match(normalized):
+        return False, "Geçerli bir e-posta adresi yazmalısın."
+    if ".." in normalized:
+        return False, "E-posta adresinde art arda nokta kullanılamaz."
+
+    local, domain = normalized.rsplit("@", 1)
+    if len(local) < 3:
+        return False, "E-posta kullanıcı adı çok kısa görünüyor."
+    if local in BLOCKED_LOCAL_PARTS:
+        return False, "Lütfen gerçek e-posta adresini yaz. Test/deneme e-postaları kabul edilmez."
+    if local.isdigit() or len(set(local.replace(".", "").replace("_", "").replace("-", ""))) <= 2:
+        return False, "E-posta adresi rastgele veya geçersiz görünüyor. Lütfen gerçek e-posta adresini yaz."
+
+    if domain in COMMON_EMAIL_DOMAIN_TYPOS:
+        return False, f"E-posta alan adı hatalı görünüyor. Şunu mu demek istedin: {COMMON_EMAIL_DOMAIN_TYPOS[domain]}?"
+    if domain in DISPOSABLE_EMAIL_DOMAINS:
+        return False, "Geçici e-posta servisleriyle üyelik oluşturulamaz. Lütfen kalıcı e-posta adresini kullan."
+    if domain in BLOCKED_FAKE_DOMAINS:
+        return False, "Test/sahte e-posta alan adlarıyla üyelik oluşturulamaz."
+    if not _email_domain_has_dns(domain):
+        return False, "E-posta alan adı doğrulanamadı. Lütfen gerçek ve erişilebilir bir e-posta adresi yaz."
+    return True, ""
+
+
+def validate_registration_password(password: str) -> Tuple[bool, str]:
+    if len(password or "") < 6:
+        return False, "Şifre en az 6 karakter olmalı."
+    if not re.search(r"[A-ZÇĞİÖŞÜ]", password):
+        return False, "Şifre en az 1 büyük harf içermeli."
+    if not re.search(r"[a-zçğıöşü]", password):
+        return False, "Şifre en az 1 küçük harf içermeli."
+    if not re.search(r"\d", password):
+        return False, "Şifre en az 1 rakam içermeli."
+    return True, ""
+
+
 def _password_hash(password: str, salt: str) -> str:
     return hashlib.pbkdf2_hmac(
         "sha256",
@@ -129,10 +239,13 @@ def get_or_create_user(email: str) -> Dict[str, Any]:
 
 def create_user_account(email: str, password: str, display_name: str = "") -> Tuple[bool, str, Optional[Dict[str, Any]]]:
     normalized = normalize_email(email)
-    if not normalized or "@" not in normalized:
-        return False, "Geçerli bir e-posta adresi yazmalısın.", None
-    if len(password) < 6:
-        return False, "Şifre en az 6 karakter olmalı.", None
+    email_ok, email_msg = validate_registration_email(normalized)
+    if not email_ok:
+        return False, email_msg, None
+
+    password_ok, password_msg = validate_registration_password(password)
+    if not password_ok:
+        return False, password_msg, None
 
     db = get_firestore_client()
     user_id = user_id_from_email(normalized)
@@ -338,7 +451,7 @@ def activate_access_code(email: str, code: str) -> Tuple[bool, str]:
 # Admin-managed app settings
 # -----------------------------
 
-@st.cache_data(ttl=180, show_spinner=False)
+@st.cache_data(ttl=900, show_spinner=False)
 def get_public_settings() -> Dict[str, Any]:
     db = get_firestore_client()
     snap = db.collection("app_config").document("public_settings").get()
@@ -370,7 +483,7 @@ def save_style_settings(style: Dict[str, Any]) -> None:
     )
 get_public_settings.clear()
 
-@st.cache_data(ttl=180, show_spinner=False)
+@st.cache_data(ttl=900, show_spinner=False)
 def get_all_prompts() -> Dict[str, str]:
     db = get_firestore_client()
     snap = db.collection("app_config").document("prompts").get()
@@ -400,7 +513,7 @@ def save_prompt(module_key: str, prompt: str) -> None:
     )
     get_all_prompts.clear()
 
-@st.cache_data(ttl=180, show_spinner=False)
+@st.cache_data(ttl=900, show_spinner=False)
 def get_all_module_settings() -> Dict[str, Dict[str, Any]]:
     db = get_firestore_client()
     defaults = module_defaults()
@@ -747,3 +860,45 @@ def list_users(limit: int = 150) -> List[Dict[str, Any]]:
         data["id"] = doc.id
         users.append(data)
     return users
+
+
+# -----------------------------
+# Page ratings
+# -----------------------------
+
+
+def save_page_rating(user: Dict[str, Any], module_key: str, rating: int, note: str = "") -> str:
+    """Save a 1-5 page/module rating for admin review."""
+    score = max(1, min(int(rating), 5))
+    db = get_firestore_client()
+    user_id = str((user or {}).get("id") or "guest")
+    email = normalize_email(str((user or {}).get("email") or "")) if user else ""
+    ref = db.collection("page_ratings").document()
+    ref.set(
+        {
+            "module_key": str(module_key or "").strip()[:80],
+            "rating": score,
+            "note": str(note or "").strip()[:500],
+            "user_id": user_id,
+            "user_email": email,
+            "is_guest": bool((user or {}).get("is_guest", False)),
+            "created_at": firestore.SERVER_TIMESTAMP,
+        }
+    )
+    return ref.id
+
+
+def list_page_ratings(limit: int = 1000) -> List[Dict[str, Any]]:
+    db = get_firestore_client()
+    docs = (
+        db.collection("page_ratings")
+        .order_by("created_at", direction=firestore.Query.DESCENDING)
+        .limit(int(limit))
+        .stream()
+    )
+    items: List[Dict[str, Any]] = []
+    for doc in docs:
+        data = doc.to_dict() or {}
+        data["id"] = doc.id
+        items.append(data)
+    return items
