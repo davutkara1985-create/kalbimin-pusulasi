@@ -621,20 +621,27 @@ def _list_page_ratings_safe(limit: int = 1000) -> List[Dict[str, Any]]:
         return []
 
 
-def render_page_rating(page: str, user: Dict[str, Any]) -> None:
+def render_page_rating(page: str, user: Dict[str, Any], context_id: str = "") -> None:
+    """Show rating only next to an actual generated/admin response.
+
+    Bu alan artık sayfa sonunda otomatik görünmez. Kullanıcı yorumu/yanıtı
+    okurken, ilgili cevabın hemen altında gösterilir.
+    """
     if page not in MODULES or page == "admin":
         return
 
     module_title = str(MODULES.get(page, {}).get("title", page))
     user_key = _rating_user_key(user)
-    submitted_key = f"rating_submitted_{page}_{user_key}_{dt.date.today().isoformat()}"
+    safe_context = re.sub(r"[^A-Za-z0-9_-]", "_", str(context_id or "result"))[:64]
+    submitted_key = f"rating_submitted_{page}_{safe_context}_{user_key}_{dt.date.today().isoformat()}"
+    widget_key = f"{page}_{safe_context}_{user_key}"
 
     st.markdown("<div class='kp-rating-box'>", unsafe_allow_html=True)
-    st.markdown(f"#### Bu sayfayı puanla")
-    st.caption(f"{module_title} deneyimini 1 ile 5 arasında değerlendirebilirsin.")
+    st.markdown("#### Bu yorumu puanla")
+    st.caption(f"Aldığın {module_title} yorumunu 1 ile 5 arasında değerlendirebilirsin.")
 
     if st.session_state.get(submitted_key):
-        st.success("Bu sayfa için puanın alındı.")
+        st.success("Bu yorum için puanın alındı.")
         st.markdown("</div>", unsafe_allow_html=True)
         return
 
@@ -643,14 +650,14 @@ def render_page_rating(page: str, user: Dict[str, Any]) -> None:
         [5, 4, 3, 2, 1],
         format_func=lambda value: RATING_LABELS.get(int(value), str(value)),
         horizontal=True,
-        key=f"rating_value_{page}_{user_key}",
+        key=f"rating_value_{widget_key}",
     )
     note = st.text_input(
         "İstersen kısa not ekle",
-        key=f"rating_note_{page}_{user_key}",
+        key=f"rating_note_{widget_key}",
         placeholder="Kısa yorumun...",
     )
-    if st.button("Puan ver", key=f"rating_submit_{page}_{user_key}", use_container_width=True):
+    if st.button("Puan ver", key=f"rating_submit_{widget_key}", use_container_width=True):
         ok, msg = _save_page_rating_safe(user, page, int(rating), note=note)
         if ok:
             st.session_state[submitted_key] = True
@@ -1064,6 +1071,7 @@ def run_ai_free(user: Dict[str, Any], module_key: str, payload: Dict[str, Any], 
                 save_reading(user["email"], module_key, payload, result)
             st.success("Yorum hazır.")
             render_result_panel(module_key, result, plan)
+            render_page_rating(module_key, user)
         except Exception as exc:
             st.error(f"Yorum oluşturulamadı: {exc}")
 
@@ -1556,6 +1564,7 @@ def run_birth_chart_ai(user: Dict[str, Any], payload: Dict[str, Any], prompts: D
                 save_reading(user["email"], "birth_chart", payload, result)
             st.success("Doğum haritası analizin hazır.")
             render_birth_chart_html_result(result, plan)
+            render_page_rating("birth_chart", user)
         except Exception as exc:
             st.error(f"Doğum haritası analizi oluşturulamadı: {exc}")
 
@@ -2536,6 +2545,9 @@ def render_inbox_message_list(user: Dict[str, Any], context_key: str = "inbox") 
                 unsafe_allow_html=True,
             )
             show_data_image(item.get("image"))
+            response_module_key = str(item.get("request_type") or "")
+            if response_module_key in MODULES:
+                render_page_rating(response_module_key, user, context_id=str(item.get("id", "")))
             if not item.get("read") and st.button("Okundu olarak işaretle", key=f"{context_key}_read_{item['id']}"):
                 mark_inbox_read(user, item["id"])
                 try:
@@ -3134,7 +3146,6 @@ def page_admin(user: Dict[str, Any], prompts: Dict[str, str], module_settings: D
 def render_page(page: str, user: Dict[str, Any], prompts: Dict[str, str], module_settings: Dict[str, Dict[str, Any]]) -> None:
     if page in MODULES and not module_plan_allowed(user, page, module_settings):
         show_plan_gate(user, page, module_settings)
-        render_page_rating(page, user)
         render_back_home_button(page)
         return
 
@@ -3186,7 +3197,6 @@ def render_page(page: str, user: Dict[str, Any], prompts: Dict[str, str], module
         reset_navigation_to_home()
         st.rerun()
 
-    render_page_rating(page, user)
     render_back_home_button(page)
 
 
