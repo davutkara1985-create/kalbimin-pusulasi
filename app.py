@@ -1211,6 +1211,26 @@ def render_home_video_background() -> None:
         [data-testid="stAppViewContainer"] .block-container {
             padding-top: 0.35rem !important;
         }
+        .kp-home-story-image-wrap {
+            position: relative;
+            z-index: 3;
+            width: min(640px, 94vw);
+            max-width: 640px;
+            margin: 0.45rem auto 3.1rem;
+            padding: 0;
+            text-align: center;
+        }
+        .kp-home-story-image {
+            display: block;
+            width: 100%;
+            height: auto;
+            object-fit: contain;
+            border: none;
+            background: transparent;
+            filter: drop-shadow(0 20px 36px rgba(0,0,0,0.46));
+            user-select: none;
+            -webkit-user-drag: none;
+        }
         .kp-home-story {
             position: relative;
             z-index: 3;
@@ -1218,7 +1238,7 @@ def render_home_video_background() -> None:
             margin: 0.75rem auto 3.1rem;
             padding: 0 0.45rem;
             color: rgba(255, 246, 221, 0.92);
-            font-family: "Monotype Corsiva", "Segoe Script", "Lucida Handwriting", "Brush Script MT", "Apple Chancery", cursive !important;
+            font-family: "Dancing Script", "Segoe Script", "Lucida Handwriting", "Brush Script MT", "Apple Chancery", cursive !important;
             font-size: clamp(0.92rem, 2.2vw, 1.12rem);
             line-height: 1.55;
             letter-spacing: 0.01em;
@@ -1227,9 +1247,8 @@ def render_home_video_background() -> None:
         }
         .kp-home-story p,
         .kp-home-story span,
-        .kp-home-story div,
-        .kp-home-story strong {
-            font-family: "Monotype Corsiva", "Segoe Script", "Lucida Handwriting", "Brush Script MT", "Apple Chancery", cursive !important;
+        .kp-home-story div {
+            font-family: "Dancing Script", "Segoe Script", "Lucida Handwriting", "Brush Script MT", "Apple Chancery", cursive !important;
         }
         .kp-home-story p {
             margin: 0 0 0.78rem;
@@ -1243,6 +1262,15 @@ def render_home_video_background() -> None:
             .kp-home-video-bg video {
                 opacity: 0.70;
                 object-position: center center;
+            }
+            .kp-home-story-image-wrap {
+                width: min(92vw, 390px);
+                max-width: 390px;
+                margin-top: 0.30rem;
+                margin-bottom: 2.2rem;
+            }
+            .kp-home-story-image {
+                filter: drop-shadow(0 14px 24px rgba(0,0,0,0.42));
             }
             .kp-home-story {
                 font-size: 1.03rem;
@@ -1262,15 +1290,29 @@ def render_home_video_background() -> None:
     )
 
 
+@st.cache_data(ttl=86400, show_spinner=False)
+def _home_story_image_data_uri() -> str:
+    """Return the uploaded home letter image as a compact data URI."""
+    image_path = Path(__file__).resolve().parent / "assets" / "backgrounds" / "kp_home_story_letter.webp"
+    if not image_path.exists():
+        return ""
+    encoded = base64.b64encode(image_path.read_bytes()).decode("utf-8")
+    return f"data:image/webp;base64,{encoded}"
+
+
 def render_home_story_text() -> None:
-    story_html = html_escape(HOME_STORY_TEXT.strip())
-    story_html = story_html.replace("\n\n", "</p><p>")
-    story_html = story_html.replace("\n", "<br>")
-    story_html = story_html.replace(
-        "Kalbim bana ne anlatmak istiyor?",
-        "<strong>Kalbim bana ne anlatmak istiyor?</strong>",
+    story_image_uri = _home_story_image_data_uri()
+    if not story_image_uri:
+        return
+    safe_uri = html_escape(story_image_uri, quote=True)
+    st.markdown(
+        f'''
+        <div class="kp-home-story-image-wrap">
+            <img class="kp-home-story-image" src="{safe_uri}" alt="Kalbimin Pusulası giriş mektubu" loading="lazy" />
+        </div>
+        ''',
+        unsafe_allow_html=True,
     )
-    st.markdown(f"<div class='kp-home-story'><p>{story_html}</p></div>", unsafe_allow_html=True)
 
 
 def page_home(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]]) -> None:
