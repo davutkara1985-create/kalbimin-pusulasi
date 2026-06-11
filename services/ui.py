@@ -683,10 +683,14 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
             width: 100%;
             height: 100%;
             display: block;
-            object-fit: cover;
+            object-fit: contain;
+            padding: 2px;
             border-radius: 9px;
+            box-sizing: border-box;
         }}
         .element-container:has(.kp-side-nav-clickrow) {{
+            height: 41px !important;
+            min-height: 41px !important;
             margin: 0 0 -41px 0 !important;
             padding: 0 !important;
             position: relative !important;
@@ -818,6 +822,19 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
             transform: none !important;
         }}
 
+
+        @media (min-width: 761px) {{
+            .kp-mobile-menu-panel {{
+                display: none !important;
+                visibility: hidden !important;
+                opacity: 0 !important;
+                height: 0 !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                pointer-events: none !important;
+            }}
+        }}
+
         @media (max-width: 760px) {{
             /* Android/iOS'ta native sidebar overlay kapanma sorunu çıkarabildiği için mobilde gizlenir.
                Aynı menü ana içerikteki açılır/kapanır panelle gösterilir. */
@@ -947,8 +964,10 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
             .kp-mobile-menu-icon .kp-icon-img {{
                 width: 100%;
                 height: 100%;
-                object-fit: cover;
+                object-fit: contain;
+                padding: 2px;
                 border-radius: 8px;
+                box-sizing: border-box;
             }}
         }}
 
