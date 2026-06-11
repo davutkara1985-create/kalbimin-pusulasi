@@ -2893,8 +2893,7 @@ def page_feedback(user: Dict[str, Any]) -> None:
     st.markdown(
         """
         <div class="kp-admin-card">
-            <strong>Mesajın admin paneline düşer.</strong><br>
-            Admin inceledikten sonra yanıtı gelen kutuna gönderir.
+            <strong>Görüşleriniz bizim için değerlidir</strong><br>
         </div>
         """,
         unsafe_allow_html=True,
