@@ -989,48 +989,31 @@ def navigation(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]])
 
     current_page = st.session_state.get("current_page", "home")
 
-    if current_page == "home":
-        st.sidebar.markdown(
-            """
-            <div class="kp-sidebar-home-link active">
-                <span class="kp-sidebar-home-icon">⌂</span><span>Ana Sayfa</span>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-    else:
-        if st.sidebar.button("⌂ Ana Sayfa", key="sidebar_nav_home", use_container_width=True):
-            go_to_page("home", user, module_settings)
+    def render_sidebar_nav_item(page_key: str, label: str, button_key: str) -> None:
+        """Compact embedded sidebar navigation.
+
+        Eski görünmez buton overlay sistemi metinlerin alta kaymasına neden oluyordu.
+        Bu yapı menüyü doğrudan tasarıma gömer: aktif satır sadece renk değiştirir,
+        pasif satırlar ise normal Streamlit butonu olarak çalışır.
+        """
+        safe_label = html_escape(str(label))
+        if current_page == page_key:
+            st.sidebar.markdown(
+                f'<div class="kp-side-nav-item active"><span class="kp-side-nav-text">{safe_label}</span></div>',
+                unsafe_allow_html=True,
+            )
+            return
+
+        if st.sidebar.button(str(label), key=button_key, use_container_width=True):
+            go_to_page(page_key, user, module_settings)
             st.rerun()
+
+    render_sidebar_nav_item("home", "Ana Sayfa", "sidebar_nav_home")
 
     st.sidebar.markdown("<div class='kp-sidebar-menu-title'>Menü</div>", unsafe_allow_html=True)
     for _group_title, _group_icon, items in build_menu_groups(user, module_settings):
-        for page_key, label, icon in items:
-            icon_rendered = sidebar_icon_html(page_key, icon)
-            label_html = html_escape(label)
-            if current_page == page_key:
-                st.sidebar.markdown(
-                    f"""
-                    <div class="kp-side-nav-item active">
-                        <span class="kp-side-nav-icon">{icon_rendered}</span><span>{label_html}</span>
-                    </div>
-                    """,
-                    unsafe_allow_html=True,
-                )
-            else:
-                # Görsel satır + görünmez Streamlit buton overlay'i: eski özel ikon görünümü korunur,
-                # URL yenilemeden sayfa geçişi yapılır ve metinlerin üst üste kayması engellenir.
-                st.sidebar.markdown(
-                    f"""
-                    <div class="kp-side-nav-clickrow">
-                        <span class="kp-side-nav-icon">{icon_rendered}</span><span>{label_html}</span>
-                    </div>
-                    """,
-                    unsafe_allow_html=True,
-                )
-                if st.sidebar.button(label, key=f"sidebar_nav_{page_key}", use_container_width=True):
-                    go_to_page(page_key, user, module_settings)
-                    st.rerun()
+        for page_key, label, _icon in items:
+            render_sidebar_nav_item(page_key, label, f"sidebar_nav_{page_key}")
 
     render_mobile_navigation(user, module_settings, current_page)
     return st.session_state.get("current_page", "home")
