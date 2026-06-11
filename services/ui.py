@@ -1108,7 +1108,7 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
             position: relative;
             overflow: hidden;
             backdrop-filter: blur(18px);
-            margin-top: -0.95rem;
+            margin-top: -0.110rem;
             margin-bottom: 10px;
         }}
         .kp-hero::after {{
