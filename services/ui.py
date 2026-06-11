@@ -831,7 +831,7 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
                 animation: none !important;
                 box-shadow: 0 10px 26px rgba(0,0,0,0.22) !important;
             }}
-            .kp-mobile-menu-panel {
+            .kp-mobile-menu-panel {{
                display: block;
                margin: 0 0 4px 0 !important;
                padding: 0;
