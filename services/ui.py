@@ -1972,7 +1972,7 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
         @media (max-width: 760px) {{
             [data-testid="stSidebar"], [data-testid="stSidebar"] > div {{ width: 260px !important; min-width: 260px !important; max-width: 260px !important; }}
             [data-testid="stAppViewContainer"] .block-container {{ max-width: 100%; padding-left: 0.85rem; padding-right: 0.85rem; padding-top: 0.45rem; }}
-            .kp-hero {{ min-height: 188px; border-radius: 22px; padding: 13px 13px 12px; margin-top: -0.35rem; }}
+            .kp-hero {{ min-height: 188px; border-radius: 22px; padding: 13px 13px 12px; margin-top: -0.85rem; }}
             .kp-hero-top {{ gap: 8px; margin-bottom: 8px; }}
             .kp-avatar-wrap {{ width: 42px; height: 42px; }}
             .kp-avatar {{ font-size: 1.18rem; }}
