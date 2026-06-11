@@ -171,11 +171,7 @@ div[data-testid="stHorizontalBlock"]:has(.kp-card-slot-wrap) > div[data-testid="
 
 MODULE_VISUALS: Dict[str, Tuple[str, str, str]] = {
     "relationship": ("Aşk & İlişki", "♡", "fire"),
-    "message_analysis": ("Aşk & İlişki", "✉", "air"),
     "love_fortune": ("Aşk & İlişki", "☽", "fire"),
-    "daily_energy": ("Aşk & İlişki", "✺", "air"),
-    "emotion": ("Duygusal & Kişisel Analiz", "◌", "water"),
-    "zodiac": ("Duygusal & Kişisel Analiz", "♓", "air"),
     "birth_chart": ("Astroloji", "♈", "air"),
     "mini_tarot": ("Fal & Kehanet", "◇", "fire"),
     "tarot": ("Fal & Kehanet", "✧", "fire"),
@@ -198,11 +194,7 @@ def module_visual(module_key: str) -> Tuple[str, str, str]:
 
 MODULE_ICON_ASSETS: Dict[str, str] = {
     "relationship": "relationship.png",
-    "message_analysis": "message_analysis.png",
     "love_fortune": "love_fortune.png",
-    "daily_energy": "daily_energy.png",
-    "emotion": "emotion.png",
-    "zodiac": "zodiac.png",
     "birth_chart": "birth_chart.png",
     "mini_tarot": "mini_tarot.png",
     "tarot": "tarot.png",
@@ -389,11 +381,7 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
 
         .stApp {{
             color: var(--kp-text);
-            background:
-                radial-gradient(circle at 12% 8%, rgba(123, 75, 214, 0.38), transparent 26%),
-                radial-gradient(circle at 85% 12%, rgba(217, 183, 110, 0.18), transparent 24%),
-                radial-gradient(circle at 50% 90%, rgba(35, 108, 178, 0.30), transparent 36%),
-                linear-gradient(160deg, #050612 0%, #0a1032 42%, #220f42 100%);
+            background: #030613 !important;
             overflow-x: hidden;
         }}
 
@@ -757,6 +745,50 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
         /* Mobil performans ve erişilebilir menü düzeni */
         .kp-mobile-menu-panel {{
             display: none;
+        }}
+
+        .kp-mobile-active-pill {{
+            display: flex;
+            align-items: center;
+            min-height: 38px;
+            margin: 4px 0;
+            padding: 6px 10px;
+            border-radius: 13px;
+            color: var(--kp-gold-2) !important;
+            background: linear-gradient(135deg, rgba(217,183,110,0.20), rgba(123,75,214,0.15));
+            border: 1px solid rgba(255,241,184,0.34);
+            font-size: 0.74rem;
+            font-weight: 900;
+        }}
+        div[data-testid="stExpander"] {{
+            position: relative !important;
+            z-index: 99999 !important;
+            width: min(340px, 88vw) !important;
+            margin: 0.05rem auto 0.30rem auto !important;
+            border-radius: 16px !important;
+            background: rgba(8, 10, 30, 0.88) !important;
+            border: 1px solid rgba(255, 241, 184, 0.30) !important;
+            box-shadow: 0 8px 22px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.08) !important;
+            overflow: hidden !important;
+        }}
+        div[data-testid="stExpander"] summary {{
+            color: #fff1b8 !important;
+            -webkit-text-fill-color: #fff1b8 !important;
+            font-weight: 900 !important;
+            font-size: 0.82rem !important;
+        }}
+        div[data-testid="stExpander"] div.stButton > button {{
+            min-height: 36px !important;
+            margin: 2px 0 !important;
+            padding: 0.42rem 0.56rem !important;
+            border-radius: 13px !important;
+            border: 1px solid rgba(255, 241, 184, 0.13) !important;
+            background: rgba(255,255,255,0.055) !important;
+            color: rgba(255,248,232,0.88) !important;
+            font-size: 0.70rem !important;
+            font-weight: 800 !important;
+            text-align: left !important;
+            justify-content: flex-start !important;
         }}
         .kp-side-nav-link {{
             text-decoration: none !important;
