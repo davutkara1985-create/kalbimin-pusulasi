@@ -1109,7 +1109,7 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
     box-shadow: 0 22px 54px rgba(0,0,0,0.42), inset 0 1px 0 rgba(255,255,255,0.13);
     position: relative;
     overflow: hidden;
-    backdrop-filter: blur(10px);
+    backdrop-filter: blur(4px);
     margin: -0.55rem auto 1.05rem auto !important;
 }}
         .kp-hero::after {{
