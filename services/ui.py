@@ -1100,16 +1100,17 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
     padding: 16px 17px 15px !important;
     border-radius: 24px !important;
     background:
-        linear-gradient(145deg, rgba(255,255,255,0.10), rgba(255,255,255,0.035)),
-        radial-gradient(circle at 22% 15%, rgba(38, 112, 183, 0.34), transparent 34%),
-        radial-gradient(circle at 88% 10%, rgba(217, 183, 110, 0.22), transparent 28%),
-        radial-gradient(circle at 62% 76%, rgba(123, 75, 214, 0.42), transparent 45%),
-        rgba(10, 12, 36, 0.30);
-    border: 1px solid var(--kp-border);
-    box-shadow: 0 22px 54px rgba(0,0,0,0.42), inset 0 1px 0 rgba(255,255,255,0.13);
+        linear-gradient(145deg, rgba(255,255,255,0.045), rgba(255,255,255,0.012)),
+        radial-gradient(circle at 22% 15%, rgba(38, 112, 183, 0.14), transparent 34%),
+        radial-gradient(circle at 88% 10%, rgba(217, 183, 110, 0.08), transparent 28%),
+        radial-gradient(circle at 62% 76%, rgba(123, 75, 214, 0.14), transparent 45%),
+        rgba(10, 12, 36, 0.36) !important;
+    border: 1px solid rgba(217, 183, 110, 0.18) !important;
+    box-shadow: 0 14px 34px rgba(0,0,0,0.26), inset 0 1px 0 rgba(255,255,255,0.08) !important;
     position: relative;
     overflow: hidden;
-    backdrop-filter: blur(4px);
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
     margin: -0.55rem auto 1.05rem auto !important;
 }}
         .kp-hero::after {{
@@ -1121,7 +1122,7 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
             font-family: var(--kp-font-serif);
             font-size: 1.72rem;
             letter-spacing: 0.48rem;
-            color: rgba(255, 241, 184, 0.075);
+            color: rgba(255, 241, 184, 0.035);
             white-space: nowrap;
             pointer-events: none;
         }}
