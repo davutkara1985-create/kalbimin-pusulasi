@@ -409,24 +409,24 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
             max-width: var(--kp-sidebar-width) !important;
             flex: 0 0 var(--kp-sidebar-width) !important;
             background:
-                radial-gradient(circle at 16% 10%, rgba(217, 183, 110, 0.14), transparent 30%),
-                radial-gradient(circle at 80% 85%, rgba(123, 75, 214, 0.18), transparent 32%),
-                linear-gradient(180deg, rgba(7, 9, 28, 0.98), rgba(19, 13, 48, 0.98));
-            border-right: 1px solid rgba(217, 183, 110, 0.18);
+                radial-gradient(circle at 18% 8%, rgba(217, 183, 110, 0.10), transparent 30%),
+                radial-gradient(circle at 85% 88%, rgba(123, 75, 214, 0.13), transparent 34%),
+                linear-gradient(180deg, rgba(7, 9, 28, 0.94), rgba(14, 12, 39, 0.94)) !important;
+            border-right: 1px solid rgba(217, 183, 110, 0.16) !important;
+            box-shadow: none !important;
         }}
 
         [data-testid="stSidebar"] > div {{
             width: var(--kp-sidebar-width) !important;
             min-width: var(--kp-sidebar-width) !important;
             max-width: var(--kp-sidebar-width) !important;
-            height: 100vh;
-            overflow-y: auto;
-            position: sticky;
-            top: 0;
-            padding-top: 0.7rem;
-            padding-bottom: 1.4rem;
-            scrollbar-width: thin;
-            scrollbar-color: rgba(217, 183, 110, 0.34) rgba(255,255,255,0.04);
+            min-height: 100vh !important;
+            height: auto !important;
+            overflow-y: visible !important;
+            position: relative !important;
+            top: auto !important;
+            padding-top: 0.70rem !important;
+            padding-bottom: 1.10rem !important;
         }}
 
         @media (min-width: 761px) {{
@@ -448,11 +448,11 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
             align-items: center;
             gap: 9px;
             padding: 10px;
-            margin: 0 0 10px 0;
+            margin: 0 0 8px 0;
             border-radius: 18px;
-            background: linear-gradient(145deg, rgba(255,255,255,0.11), rgba(255,255,255,0.035));
+            background: linear-gradient(145deg, rgba(255,255,255,0.10), rgba(255,255,255,0.032));
             border: 1px solid rgba(217, 183, 110, 0.22);
-            box-shadow: 0 14px 32px rgba(0,0,0,0.22), inset 0 1px 0 rgba(255,255,255,0.10);
+            box-shadow: 0 10px 24px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.09);
             overflow: hidden;
         }}
 
@@ -490,44 +490,75 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
             font-size: 0.62rem;
             line-height: 1.25;
         }}
-        .kp-sidebar-home-link {{
-            display: none !important;
-        }}
-        .kp-sidebar-home-icon {{
-            display: none !important;
-        }}
         .kp-sidebar-menu-title {{
-            margin: 6px 0 4px !important;
-            color: rgba(255, 241, 184, 0.72) !important;
+            margin: 7px 0 4px !important;
+            color: rgba(255, 241, 184, 0.74) !important;
             font-size: 0.58rem !important;
             font-weight: 900 !important;
-            letter-spacing: 0.12em !important;
+            letter-spacing: 0.13em !important;
             text-transform: uppercase !important;
         }}
         .kp-side-nav-item {{
             display: flex !important;
             align-items: center !important;
-            min-height: 30px !important;
-            height: auto !important;
-            padding: 0.34rem 0.56rem !important;
-            margin: 1px 0 !important;
-            border-radius: 11px !important;
+            gap: 7px !important;
+            min-height: 33px !important;
+            padding: 4px 7px !important;
+            margin: 2px 0 !important;
+            border-radius: 12px !important;
             color: rgba(255, 248, 232, 0.88) !important;
             background: rgba(255,255,255,0.045) !important;
             border: 1px solid rgba(255,241,184,0.10) !important;
-            box-shadow: none !important;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.045) !important;
             font-size: 0.70rem !important;
-            font-weight: 820 !important;
+            font-weight: 800 !important;
             line-height: 1.12 !important;
+            text-decoration: none !important;
+            cursor: pointer !important;
         }}
         .kp-side-nav-item.active {{
             color: #fff1b8 !important;
-            background: rgba(217,183,110,0.18) !important;
+            background: rgba(217,183,110,0.17) !important;
             border-color: rgba(255,241,184,0.30) !important;
             box-shadow: inset 0 1px 0 rgba(255,255,255,0.08) !important;
         }}
+        .kp-side-nav-link:hover {{
+            color: #fff1b8 !important;
+            background: rgba(217,183,110,0.11) !important;
+            border-color: rgba(255,241,184,0.24) !important;
+            text-decoration: none !important;
+            transform: none !important;
+        }}
+        .kp-side-nav-link:visited {{
+            color: rgba(255, 248, 232, 0.88) !important;
+            text-decoration: none !important;
+        }}
+        .kp-side-nav-icon {{
+            width: 25px !important;
+            height: 25px !important;
+            display: inline-grid !important;
+            place-items: center !important;
+            flex: 0 0 25px !important;
+            border-radius: 9px !important;
+            overflow: hidden !important;
+            background: rgba(217,183,110,0.10) !important;
+            border: 1px solid rgba(217,183,110,0.15) !important;
+            color: var(--kp-gold-2) !important;
+            font-family: var(--kp-font-serif) !important;
+            font-size: 0.80rem !important;
+        }}
+        .kp-side-nav-icon .kp-icon-img {{
+            display: block !important;
+            width: 100% !important;
+            height: 100% !important;
+            object-fit: contain !important;
+            padding: 2px !important;
+            border-radius: 9px !important;
+            box-sizing: border-box !important;
+        }}
         .kp-side-nav-text {{
             display: block !important;
+            min-width: 0 !important;
             overflow: hidden !important;
             text-overflow: ellipsis !important;
             white-space: normal !important;
@@ -535,92 +566,79 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
         .kp-side-nav-clickrow {{
             display: none !important;
         }}
-        .kp-side-nav-icon {{
-            display: none !important;
-        }}
-        .kp-side-nav-icon .kp-icon-img {{
-            display: none !important;
-        }}
-        .element-container:has(.kp-side-nav-clickrow) {{
-            display: none !important;
-            height: 0 !important;
-            min-height: 0 !important;
-            margin: 0 !important;
-            padding: 0 !important;
-        }}
-        .element-container:has(.kp-side-nav-clickrow) + .element-container {{
-            height: auto !important;
-            min-height: 0 !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            position: relative !important;
-            z-index: auto !important;
-        }}
-        .element-container:has(.kp-side-nav-clickrow) + .element-container div.stButton {{
-            height: auto !important;
-            min-height: 0 !important;
-            margin: 0 !important;
-            padding: 0 !important;
-        }}
-        .element-container:has(.kp-side-nav-clickrow) + .element-container div.stButton > button {{
-            height: auto !important;
-            min-height: 30px !important;
-            margin: 1px 0 !important;
-            padding: 0.34rem 0.56rem !important;
-            opacity: 1 !important;
-            color: rgba(255,248,232,0.88) !important;
-            background: rgba(255,255,255,0.045) !important;
-            border: 1px solid rgba(255,241,184,0.10) !important;
-            box-shadow: none !important;
-            cursor: pointer !important;
-        }}
 
-        [data-testid="stSidebar"] .element-container:has(div.stButton) {{
-            margin: 0 !important;
-            padding: 0 !important;
-        }}
-        [data-testid="stSidebar"] div.stButton {{
-            margin: 0 !important;
-            padding: 0 !important;
-        }}
-        [data-testid="stSidebar"] div.stButton > button {{
-            justify-content: flex-start !important;
-            width: 100% !important;
-            min-height: 30px !important;
-            height: auto !important;
-            margin: 1px 0 !important;
-            padding: 0.34rem 0.56rem !important;
-            border-radius: 11px !important;
-            border: 1px solid rgba(255,241,184,0.10) !important;
-            background: rgba(255,255,255,0.045) !important;
-            color: rgba(255,248,232,0.88) !important;
-            box-shadow: none !important;
-            font-size: 0.70rem !important;
-            font-weight: 820 !important;
-            line-height: 1.12 !important;
-            text-align: left !important;
-            transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease !important;
-        }}
-        [data-testid="stSidebar"] div.stButton > button:hover,
-        [data-testid="stSidebar"] div.stButton > button:focus {{
+        .kp-top-account-floating {{
+            position: fixed !important;
+            top: 12px !important;
+            right: 18px !important;
+            left: auto !important;
+            bottom: auto !important;
             transform: none !important;
-            border-color: rgba(255,241,184,0.26) !important;
-            background: rgba(217,183,110,0.12) !important;
-            color: #fff1b8 !important;
-            box-shadow: none !important;
+            z-index: 999999 !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: flex-end !important;
+            gap: 8px !important;
+            width: auto !important;
+            max-width: min(360px, calc(100vw - var(--kp-sidebar-width) - 28px)) !important;
+            margin: 0 !important;
+            padding: 6px 8px !important;
+            border-radius: 999px !important;
+            background: rgba(6, 8, 23, 0.62) !important;
+            border: 1px solid rgba(255, 241, 184, 0.18) !important;
+            box-shadow: 0 12px 28px rgba(0,0,0,0.22), inset 0 1px 0 rgba(255,255,255,0.08) !important;
         }}
-
-        .kp-side-nav-link {{
+        .kp-top-account-name {{
+            color: var(--kp-gold-2) !important;
+            font-size: 0.76rem !important;
+            font-weight: 900 !important;
+            line-height: 1 !important;
+            max-width: 170px !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+            white-space: nowrap !important;
+        }}
+        .kp-top-account-link {{
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            min-height: 26px !important;
+            padding: 0 10px !important;
+            border-radius: 999px !important;
+            background: linear-gradient(135deg, rgba(217,183,110,0.96), rgba(154,112,52,0.96)) !important;
+            color: #120d23 !important;
+            border: 1px solid rgba(255,241,184,0.32) !important;
+            font-size: 0.72rem !important;
+            font-weight: 900 !important;
+            text-decoration: none !important;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.28) !important;
+        }}
+        .kp-top-account-link:hover {{
+            filter: brightness(1.06) !important;
             text-decoration: none !important;
         }}
-        .kp-side-nav-link:hover {{
-            border-color: rgba(255, 241, 184, 0.28) !important;
-            background: rgba(217,183,110,0.09) !important;
-            text-decoration: none !important;
+        .kp-top-message-link {{
+            background: linear-gradient(135deg, rgba(255,241,184,0.96), rgba(217,183,110,0.92)) !important;
+            color: #120d23 !important;
         }}
-        .kp-side-nav-item:visited,
-        .kp-side-nav-link:visited {{
-            color: rgba(255, 248, 232, 0.86) !important;
+        @media (max-width: 760px) {{
+            .kp-top-account-floating {{
+                top: 8px !important;
+                right: 10px !important;
+                left: auto !important;
+                max-width: calc(100vw - 20px) !important;
+                gap: 5px !important;
+                padding: 5px 6px !important;
+            }}
+            .kp-top-account-name {{
+                max-width: 120px !important;
+                font-size: 0.70rem !important;
+            }}
+            .kp-top-account-link {{
+                min-height: 24px !important;
+                padding: 0 7px !important;
+                font-size: 0.66rem !important;
+            }}
         }}
 
         /* Hız için en ağır dekoratif katmanlar kapatıldı. */
