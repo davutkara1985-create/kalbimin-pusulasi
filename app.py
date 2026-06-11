@@ -67,7 +67,6 @@ from services.db import (
 )
 from services.ui import (
     APP_NAME,
-    apply_page_background,
     asset_data_uri,
     inject_css,
     render_drawn_cards,
@@ -1289,10 +1288,11 @@ def render_home_video_background() -> None:
         """
         <style>
         @import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400;500;600;700&display=swap');
-        .stApp {
+        html, body, .stApp {
             background: #030613 !important;
         }
-        [data-testid="stAppViewContainer"] {
+        [data-testid="stAppViewContainer"],
+        [data-testid="stAppViewContainer"] > .main {
             background: transparent !important;
         }
         .kp-home-video-bg {
@@ -1436,9 +1436,8 @@ def render_home_story_text() -> None:
 
 
 def page_home(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]]) -> None:
-    # Ana sayfada yalnızca video arka plan, marka kutusu ve gömülü hikâye metni gösterilir.
-    # Modüllere erişim sol/mobil menüden yapılır; kartlar ve Freemium plan bloğu özellikle kaldırıldı.
-    render_home_video_background()
+    # Video arka plan artık tüm uygulamada global olarak main() içinde uygulanır.
+    # Ana sayfada yalnızca marka kutusu ve giriş mektubu görseli gösterilir.
     render_hero(user)
     render_home_story_text()
 
@@ -3688,10 +3687,12 @@ def render_page(page: str, user: Dict[str, Any], prompts: Dict[str, str], module
 
 def main() -> None:
     user = auth_sidebar()
+    # Tüm uygulamada tek arka plan kullanılır: ana sayfadaki hareketli video.
+    # Sayfa geçişlerinde farklı görsel arka plan yüklenmediği için beyaz/parlak geçiş etkisi azalır.
+    render_home_video_background()
+
     if not user:
         hide_sidebar_for_landing()
-        # Arka plan geri getirildi; services/ui.py tarafında küçük ve cache'li veri URI olarak optimize edilir.
-        apply_page_background("home")
         render_hero()
         render_landing_auth()
         render_footer()
@@ -3706,9 +3707,6 @@ def main() -> None:
     render_top_account(user)
     page = navigation(user, module_settings)
     persist_auth_query(user, page)
-
-    # Sayfa arka planları optimize edilmiş düşük boyutlu görsellerle uygulanır.
-    apply_page_background(page)
 
     prompts: Dict[str, str] = {}
     if page in AI_PROMPT_MODULES or page == "admin":
