@@ -324,69 +324,13 @@ def asset_data_uri(name: str, max_side: Optional[int] = None, quality: int = 42)
 
 
 def apply_page_background(page_key: str) -> None:
-    page_backgrounds = {
-        "relationship": "İliski_Resmi",
-        "message_analysis": "İliski_Resmi",
-        "love_fortune": "İliski_Resmi",
-        "daily_energy": "İliski_Resmi",
-        "emotion": "İliski_Resmi",
-        "coffee_text": "Kahve_Fali",
-        "coffee_image": "Kahve_Fali",
-        "birth_chart": "Dogum.jpeg",
-        "dream": "Ruya_Yorumu.jpeg",
-        "zodiac": "Burc_Uyum.jpeg",
-        "soulmate": "Ruh_Esi",
-        "meditation": "Meditasyon",
-        "rituals": "Ritueller.jpeg",
-    }
-    filename = page_backgrounds.get(page_key, "Genel")
+    """Page-specific static backgrounds are intentionally disabled.
 
-    # Performans dengesi: 520px WebP/JPEG küçük arka plan yeterli atmosfer verir,
-    # tam ekran ağır görsel ve sabit background kullanılmaz.
-    uri = asset_data_uri(filename, max_side=520, quality=34) or asset_data_uri("Genel", max_side=520, quality=34)
-    if not uri:
-        return
-
-    # Sayfaya göre hafif renk atmosferi. Görsel küçük olsa bile uygulamanın kimliği korunur.
-    accent = {
-        "coffee_text": "rgba(64, 36, 18, 0.54)",
-        "coffee_image": "rgba(64, 36, 18, 0.54)",
-        "birth_chart": "rgba(12, 27, 76, 0.54)",
-        "zodiac": "rgba(12, 27, 76, 0.54)",
-        "dream": "rgba(22, 28, 72, 0.58)",
-        "soulmate": "rgba(44, 18, 78, 0.58)",
-        "meditation": "rgba(17, 45, 64, 0.56)",
-        "rituals": "rgba(57, 28, 72, 0.56)",
-    }.get(page_key, "rgba(35, 16, 74, 0.54)")
-
-    st.markdown(
-        f"""
-        <style id="kp-page-bg">
-        .stApp {{
-            background-image:
-                linear-gradient(160deg, rgba(4, 6, 18, 0.70), rgba(8, 12, 38, 0.66) 48%, {accent}),
-                url("{uri}") !important;
-            background-size: cover !important;
-            background-position: center center !important;
-            background-repeat: no-repeat !important;
-            background-attachment: scroll !important;
-        }}
-        [data-testid="stAppViewContainer"] {{
-            background: transparent !important;
-        }}
-        @media (max-width: 760px) {{
-            .stApp {{
-                background-image:
-                    linear-gradient(160deg, rgba(4, 6, 18, 0.78), rgba(8, 12, 38, 0.73) 48%, {accent}),
-                    url("{uri}") !important;
-                background-size: auto 100% !important;
-                background-position: center top !important;
-            }}
-        }}
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
+    The whole app now uses the shared home video background injected from app.py.
+    Keeping this function as a safe no-op prevents older calls from reintroducing
+    per-page images, which caused slower transitions and white flashes on rerun.
+    """
+    return None
 
 
 def _display_name(user: Optional[Dict[str, Any]]) -> str:
