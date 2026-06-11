@@ -2887,7 +2887,7 @@ def page_feedback(user: Dict[str, Any]) -> None:
 
     render_section_header(
         "İstek / Öneri / Şikayet",
-        "Uygulamayla ilgili mesajını doğrudan admine iletebilirsin.",
+        "Sizi Dinliyoruz",
         kicker="Geri Bildirim",
     )
     st.markdown(
