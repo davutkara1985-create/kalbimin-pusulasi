@@ -1094,9 +1094,9 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
 
         .kp-hero, .kp-card, .kp-plan, .kp-metric, .kp-safe, .kp-notice, .kp-admin-card, .kp-inbox-card {{ animation: kpFadeUp 0.55s ease both; }}
         .kp-hero {{
-            min-height: 318px;
-            padding: 22px 20px 20px;
-            border-radius: 34px;
+            min-height: 205px;
+            padding: 15px 16px 14px;
+            border-radius: 26px;
             background:
                 linear-gradient(145deg, rgba(255,255,255,0.10), rgba(255,255,255,0.035)),
                 radial-gradient(circle at 22% 15%, rgba(38, 112, 183, 0.34), transparent 34%),
@@ -1107,25 +1107,26 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
             box-shadow: 0 30px 80px rgba(0,0,0,0.48), inset 0 1px 0 rgba(255,255,255,0.13);
             position: relative;
             overflow: hidden;
-            backdrop-filter: blur(24px);
-            margin-bottom: 18px;
+            backdrop-filter: blur(18px);
+            margin-top: -0.55rem;
+            margin-bottom: 10px;
         }}
         .kp-hero::after {{
             content: "☉     ☽     ✧     ◇     ♀     ♃";
             position: absolute;
-            right: -44px;
-            bottom: 46px;
+            right: -58px;
+            bottom: 24px;
             transform: rotate(-18deg);
             font-family: var(--kp-font-serif);
-            font-size: 2.45rem;
-            letter-spacing: 0.62rem;
+            font-size: 1.72rem;
+            letter-spacing: 0.48rem;
             color: rgba(255, 241, 184, 0.075);
             white-space: nowrap;
             pointer-events: none;
         }}
-        .kp-hero-top {{ position: relative; z-index: 2; display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }}
+        .kp-hero-top {{ position: relative; z-index: 2; display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }}
         .kp-avatar-wrap {{
-            width: 70px; height: 70px; border-radius: 50%; padding: 2px;
+            width: 48px; height: 48px; border-radius: 50%; padding: 2px;
             background: conic-gradient(from 0deg, #fff1b8, #d9b76e, #6f4bd5, #fff1b8);
             box-shadow: 0 0 34px rgba(217, 183, 110, 0.34), 0 0 70px rgba(123, 75, 214, 0.18);
             flex: 0 0 auto;
@@ -1133,22 +1134,23 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
         .kp-avatar {{
             width: 100%; height: 100%; border-radius: 50%; display: grid; place-items: center;
             background: linear-gradient(145deg, #10194a, #3a166a 58%, #090f2f);
-            color: var(--kp-gold-2); font-family: var(--kp-font-serif); font-size: 2.1rem;
+            color: var(--kp-gold-2); font-family: var(--kp-font-serif); font-size: 1.35rem;
         }}
         .kp-eyebrow {{
-            display: inline-flex; gap: 7px; padding: 7px 10px; border-radius: 999px;
+            display: inline-flex; gap: 6px; padding: 5px 8px; border-radius: 999px;
             background: rgba(255,241,184,0.08); border: 1px solid rgba(255,241,184,0.18);
-            color: var(--kp-gold-2); font-size: 0.70rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;
+            color: var(--kp-gold-2); font-size: 0.58rem; font-weight: 800; letter-spacing: 0.075em; text-transform: uppercase;
         }}
-        .kp-username {{ margin-top: 7px; color: var(--kp-muted); font-size: 0.9rem; }}
+        .kp-username {{ margin-top: 5px; color: var(--kp-muted); font-size: 0.78rem; }}
         .kp-title {{
             position: relative; z-index: 2; font-family: var(--kp-font-serif);
-            font-size: clamp(3rem, 11vw, 4.55rem); line-height: 0.86; font-weight: 700;
-            color: #fff8e8; letter-spacing: -0.06em; margin: 18px 0 18px;
-            text-shadow: 0 12px 34px rgba(0,0,0,0.34), 0 0 34px rgba(217,183,110,0.14);
+            font-size: clamp(1.9rem, 6.5vw, 2.62rem); line-height: 1.05; font-weight: 700;
+            color: #fff8e8; letter-spacing: -0.035em; margin: 9px 0 6px;
+            white-space: nowrap;
+            text-shadow: 0 10px 26px rgba(0,0,0,0.34), 0 0 26px rgba(217,183,110,0.12);
         }}
-        .kp-title span {{ display: block; font-family: var(--kp-font-serif); color: var(--kp-gold-2); }}
-        .kp-subtitle {{ position: relative; z-index: 2; max-width: 440px; color: var(--kp-muted); font-size: 0.98rem; line-height: 1.68; margin-bottom: 18px; }}
+        .kp-title span {{ display: inline; font-family: var(--kp-font-serif); color: var(--kp-gold-2); }}
+        .kp-subtitle {{ position: relative; z-index: 2; max-width: none; color: var(--kp-muted); font-size: 0.76rem; line-height: 1.36; margin-bottom: 0; letter-spacing: 0.08em; }}
         .kp-chip-row, .kp-element-row {{ position: relative; z-index: 2; display: flex; gap: 8px; flex-wrap: wrap; }}
         .kp-chip, .kp-element-chip {{
             display: inline-flex; align-items: center; gap: 6px; padding: 9px 11px; border-radius: 999px;
@@ -1970,12 +1972,14 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
         @media (max-width: 760px) {{
             [data-testid="stSidebar"], [data-testid="stSidebar"] > div {{ width: 260px !important; min-width: 260px !important; max-width: 260px !important; }}
             [data-testid="stAppViewContainer"] .block-container {{ max-width: 100%; padding-left: 0.85rem; padding-right: 0.85rem; padding-top: 0.45rem; }}
-            .kp-hero {{ min-height: 285px; border-radius: 26px; padding: 18px 15px 17px; }}
-            .kp-hero-top {{ gap: 10px; margin-bottom: 10px; }}
-            .kp-avatar-wrap {{ width: 54px; height: 54px; }}
-            .kp-avatar {{ font-size: 1.65rem; }}
-            .kp-title {{ font-size: 2.72rem; margin: 12px 0 12px; }}
-            .kp-subtitle {{ font-size: 0.90rem; line-height: 1.52; margin-bottom: 12px; }}
+            .kp-hero {{ min-height: 188px; border-radius: 22px; padding: 13px 13px 12px; margin-top: -0.35rem; }}
+            .kp-hero-top {{ gap: 8px; margin-bottom: 8px; }}
+            .kp-avatar-wrap {{ width: 42px; height: 42px; }}
+            .kp-avatar {{ font-size: 1.18rem; }}
+            .kp-eyebrow {{ font-size: 0.52rem; padding: 4px 7px; }}
+            .kp-username {{ font-size: 0.72rem; margin-top: 4px; }}
+            .kp-title {{ font-size: clamp(1.62rem, 7vw, 2.05rem); margin: 7px 0 5px; letter-spacing: -0.035em; white-space: nowrap; }}
+            .kp-subtitle {{ font-size: 0.66rem; line-height: 1.28; margin-bottom: 0; letter-spacing: 0.065em; }}
             .kp-chip, .kp-element-chip {{ padding: 7px 9px; font-size: 0.72rem; }}
             .kp-section-title {{ font-size: 1.62rem; }}
             .kp-card, .kp-plan, .kp-result-card, .kp-share-card, .kp-lead-card, .kp-upgrade-card {{ border-radius: 20px; }}
