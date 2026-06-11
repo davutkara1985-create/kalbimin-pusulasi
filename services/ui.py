@@ -831,15 +831,15 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
                 animation: none !important;
                 box-shadow: 0 10px 26px rgba(0,0,0,0.22) !important;
             }}
-            .kp-mobile-menu-panel {{
-                display: block;
-                margin: 4px 0 14px;
-                padding: 0;
-                border-radius: 18px;
-                background: rgba(8, 10, 30, 0.76);
-                border: 1px solid rgba(255, 241, 184, 0.18);
-                box-shadow: 0 12px 28px rgba(0,0,0,0.22);
-                overflow: hidden;
+            .kp-mobile-menu-panel {
+               display: block;
+               margin: 0 0 4px 0 !important;
+               padding: 0;
+               border-radius: 16px;
+               background: rgba(8, 10, 30, 0.76);
+               border: 1px solid rgba(255, 241, 184, 0.18);
+              box-shadow: 0 8px 20px rgba(0,0,0,0.20);
+              overflow: hidden;
             }}
             .kp-mobile-menu-summary {{
                 list-style: none;
