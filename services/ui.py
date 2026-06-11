@@ -2397,4 +2397,5 @@ def render_footer() -> None:
         """,
         unsafe_allow_html=True,
     )
+
     
