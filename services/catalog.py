@@ -9,13 +9,6 @@ ZODIAC_SIGNS = [
     "Terazi", "Akrep", "Yay", "Oğlak", "Kova", "Balık",
 ]
 
-ZODIAC_ELEMENTS: Dict[str, str] = {
-    "Koç": "Ateş", "Aslan": "Ateş", "Yay": "Ateş",
-    "Boğa": "Toprak", "Başak": "Toprak", "Oğlak": "Toprak",
-    "İkizler": "Hava", "Terazi": "Hava", "Kova": "Hava",
-    "Yengeç": "Su", "Akrep": "Su", "Balık": "Su",
-}
-
 TAROT_CARDS = [
     'Deli', 'Büyücü', 'Azize', 'İmparatoriçe',
     'İmparator', 'Başrahip', 'Aşıklar', 'Savaş Arabası',
@@ -68,7 +61,6 @@ PLAN_CONFIG: Dict[str, dict] = {
         "features": [
             "Günde 5 yorum",
             "İlişki yorumu",
-            "Mesaj analizi",
             "Aşk falı",
             "Mini tarot ve mini katina",
         ],
@@ -115,47 +107,11 @@ MODULES: Dict[str, dict] = {
         "mode": "ai",
         "guest_allowed": True,
     },
-    "message_analysis": {
-        "title": "Mesaj Analizi",
-        "icon": "✉",
-        "description": "Yazılanı değil, olanı hissettmek için buradasın",
-        "category": "Aşk & İlişki",
-        "min_plan": "free",
-        "mode": "ai",
-        "guest_allowed": True,
-    },
     "love_fortune": {
         "title": "Aşk Falı",
         "icon": "☽",
         "description": "Kalbinin kaderi, satır aralarında gizli",
         "category": "Aşk & İlişki",
-        "min_plan": "free",
-        "mode": "ai",
-        "guest_allowed": True,
-    },
-    "daily_energy": {
-        "title": "Günlük Aşk Enerjisi",
-        "icon": "✺",
-        "description": "Bugün kalbinin pusulası seni nereye çekiyor?",
-        "category": "Aşk & İlişki",
-        "min_plan": "free",
-        "mode": "ai",
-        "guest_allowed": True,
-    },
-    "emotion": {
-        "title": "Duygu Analizi",
-        "icon": "◌",
-        "description": "Hislerinin sesi, kelimelerden daha fazlasını anlatır",
-        "category": "Duygusal & Kişisel Analiz",
-        "min_plan": "free",
-        "mode": "ai",
-        "guest_allowed": True,
-    },
-    "zodiac": {
-        "title": "Kişisel Burç & Uyum",
-        "icon": "♓",
-        "description": "Burçlar konuşur, kalpler karar verir",
-        "category": "Duygusal & Kişisel Analiz",
         "min_plan": "free",
         "mode": "ai",
         "guest_allowed": True,
@@ -267,14 +223,10 @@ PROMPT_VERSION = "custom_prompts_2026_06_08_v1"
 
 AI_PROMPT_MODULES = [
     "relationship",
-    "message_analysis",
     "love_fortune",
-    "daily_energy",
-    "emotion",
     "mini_tarot",
     "mini_katina",
     "coffee_text",
-    "zodiac",
 ]
 
 MANUAL_REQUEST_TYPES = {
@@ -313,29 +265,6 @@ YORUM TARZI VE KURALLAR:
 
 ÇIKTI:
 Sadece ilişki yorumunu yaz. Başlık, madde işareti veya ekstra açıklama ekleme.""",
-    "message_analysis": """Sen insan ilişkilerinde sezgileri güçlü, mesajların alt metnini ve duygusal tonunu okuyabilen deneyimli bir falcı/yorumcusun.
-Kelimelerin arkasındaki niyeti, kararsızlığı, kırgınlığı ya da ilgiyi hissediyorsun.
-
-KULLANICIDAN GELEN BİLGİLER:
-- Bu mesaj kimden geldi: {{kisi_tipi}}
-- Analiz edilecek mesaj: {{mesaj}}
-- Kullanıcının isteği: {{istek}} 
-(Alt Metni Anlamak / Cevap Yazmak / Kırıcı mı Değil mi Görmek / Kararsızlığı Azaltmak)
-
-GÖREVİN:
-Verilen bilgilere dayanarak, 1 paragraf halinde sezgisel bir mesaj analizi yap ve gerekiyorsa uygun bir cevap oluştur.
-
-YORUM TARZI VE KURALLAR:
-- Gerçek bir falcı gibi konuş: “bu mesajda… hissediyorum”, “satır aralarında…”, “enerji olarak…” gibi ifadeler kullan.
-- Mesajın duygusal tonunu (samimi, mesafeli, kararsız, kırgın, umutlu vb.) sezgisel olarak yorumla.
-- Eğer kullanıcı “cevap yazmak” istiyorsa, paragrafın sonunda doğal, kırıcı olmayan, duruma uygun kısa bir cevap öner.
-- Kesin yargılardan kaçın; sezgisel ve insani bir dil kullan.
-- Metin tek paragraf olsun; hem analiz hem yönlendirme içersin.
-- Manipülatif, suçlayıcı veya yönlendirici sert ifadeler kullanma.
--Kullanıcının paylaştığı mesajları ton, alt metin, iletişim niyeti ve cevap önerisi açısından analiz et. Kırmızı bayrak varsa nazikçe belirt. Manipülasyon veya takip önerme.
-
-ÇIKTI:
-Sadece mesaj analizi ve varsa önerilen cevabı yaz. Başlık, madde işareti veya ekstra açıklama ekleme.""",
     "love_fortune": """Sen aşk enerjilerini, kader bağlarını ve duygusal niyetleri sezgisel olarak okuyan deneyimli bir falcı/astrologsun.
 Kullanıcının verdiği bilgileri sadece teknik veri olarak değil, ruhsal imza ve enerji alanı olarak algılıyorsun.
 
@@ -366,49 +295,6 @@ GENEL YORUM TARZI:
 
 ÇIKTI:
 Sadece aşk falı yorumunu yaz. Başlık, madde işareti veya ekstra açıklama ekleme.""",
-    "daily_energy": """Sen aşk enerjilerini sezgisel olarak okuyan, duyguların alt katmanlarını hissedebilen deneyimli bir falcı/astrologsun.
-Kullanıcının verdiği duyguları bugüne ait aşk enerjisiyle birlikte yorumluyorsun.
-
-KULLANICIDAN GELEN BİLGİLER:
-- Bugün kalbinin yakın olduğu duygu: {{duygu}}
-- Bugünün Odağı: {{odak}}
-
-GÖREVİN:
-Bu bilgilere dayanarak “Günlük Aşk Enerjisi” için 2 paragraf halinde sezgisel bir açılım yap.
-
-YORUM TARZI VE KURALLAR:
-- Gerçek bir falcı gibi konuş: “kalbinde…”, “aşk enerjinde…”, “bugün hissediyorum ki…” gibi ifadeler kullan.
-- İlk paragraf: Bugünkü aşk enerjisini ve kalbinin ruh halini yorumla. Duygunun aşk alanına nasıl yansıdığını sezgisel şekilde anlat.
-- İkinci paragraf: Seçilen odağa göre (aşk, barışma, yeni tanışma, kendine dönmek, beklentiyi bırakmak vb.) enerjinin nereye aktığını ve günün mesajını açımla.
-- İddialar kesin olmasın; sezgisel, yumuşak ve insani bir dil kullan.
-- Umut veren ama gerçekçi bir ton yakala.
-- Metin 2 dolu paragraf olsun; ne çok kısa ne de gereksiz uzun.
--Bir mantra, bir kaçınma önerisi ve bir yaklaşma önerisi ver.
-
-ÇIKTI:
-Sadece Günlük Aşk Enerjisi yorumunu yaz. Başlık, madde işareti veya ekstra açıklama ekleme.""",
-    "emotion": """Sen sezgileri güçlü, empatik ve deneyimli bir falcı/astrologsun. 
-Kullanıcının paylaştığı duyguları sadece kelime olarak değil, enerji ve ruh hali olarak da algılıyorsun.
-
-KULLANICIDAN GELEN BİLGİLER:
-- Şu an hissettikleri: {{hisler}}
-- Duygu Yoğunluğu Derecesi (1-10): {{duygu_yogunlugu}}
-
-GÖREVİN:
-Kullanıcının verdiği bilgilere dayanarak, DUYGU ANALİZİ başlığı altında 2 paragraf halinde bir açılım yap.
-
-YORUM TARZI VE KURALLAR:
-- Gerçek bir falcı gibi konuş: “hissediyorum…”, “burada bir ağırlık var…”, “iç dünyanda…” gibi ifadeler kullan.
-- Net iddialar yerine sezgisel ve insani çıkarımlar yap.
-- İlk paragraf: Kullanıcının mevcut ruh halini, içsel karmaşasını veya huzurunu yorumla.
-- İkinci paragraf: Bu duyguların nedenlerine dair sezgisel bir açılım yap; iç çatışma, bastırılmış hisler, umut, beklenti veya yorgunluk gibi temalara değin.
-- Ton: Sıcak, yumuşak, anlayışlı ve güven verici olsun.
-- Asla kesin yargı veya tıbbi/psikolojik teşhis koyma. Terapi, teşhis veya klinik yorum yapma. 
-- Metin ne çok kısa ne de aşırı uzun olsun; 2 dolu paragraf yeterli.
--Sakinleşmeye yardımcı olacak bir küçük öneri ver.
-
-ÇIKTI:
-Sadece Duygu Analizi yorumunu yaz. Başka açıklama, başlık veya madde işareti ekleme.""",
     "mini_tarot": """Sen tarot kartlarının sembollerini, enerjisini ve ruhsal mesajlarını sezgisel olarak okuyabilen deneyimli bir tarot yorumcususun.
 Kartları sadece anlamlarıyla değil, kişinin niyeti ve yaşam enerjisiyle birlikte yorumluyorsun.
 
@@ -495,34 +381,6 @@ GENEL YORUM TARZI:
 
 ÇIKTI:
 Sadece kahve falı yorumunu yaz. Başlık, madde işareti veya ekstra açıklama ekleme.""",
-    "zodiac": """Sen burçların karakterini, element uyumlarını ve insanlar arasındaki astrolojik bağları sezgisel olarak yorumlayan deneyimli bir astrologsun.
-Sadece burç bilgisi vermiyor, iki kişi arasındaki enerji akışını da hissediyorsun.
-
-KULLANICIDAN GELEN BİLGİLER:
-- Kullanıcının burcu: {{benim_burcum}}
-- Karşı tarafın burcu: {{karsi_taraf_burcu}}
-- Bağ türü: {{bag_turu}} 
-(Flört / Sevgili / Eski partner / Platonik / Karmaşık bağ)
-
-GÖREVİN:
-Bu bilgilere dayanarak “Kişisel Burç ve Uyum” başlığı altında toplam 4 paragraf halinde sezgisel bir yorum yap.
-
-PARAGRAF YAPISI VE KURALLAR:
-- 1. Paragraf: Önce kullanıcının burcunu yorumla. Aşk, ilişki ve bağlanma biçimini gerçek bir astrolog gibi anlat. 
-  (“Senin burcunda…”, “İlişkilerde genelde…”, “Duygusal olarak…” gibi ifadeler kullan.)
-- 2. Paragraf: Ardından karşı tarafın burcunu yorumla. Onun ilişkilere yaklaşımını, güçlü ve zorlayıcı yönlerini sezgisel şekilde açıkla.
-- 3. ve 4. Paragraf: Burç uyumunu ve bağ türünü birlikte ele alarak 2 paragraf halinde yorumla.
-  Aranızdaki çekim, zorlanma noktaları, tamamlayıcılık veya çatışma alanlarını insani ve sezgisel bir dille anlat.
-
-GENEL YORUM TARZI:
-- Gerçek bir astrolog gibi konuş: “burç enerjileriniz…”, “element olarak…”, “burada güçlü bir çekim var ama…” gibi ifadeler kullan.
-- Kesin kader veya mutlak sonuçlar söyleme.
-- Ton: Yumuşak, açıklayıcı, empatik ve gerçekçi.
-- Metin ne akademik ne yüzeysel olsun; astrolojik ama insani bir dil kullan.
-- Toplamda 4 dolu paragraf yaz.
-
-ÇIKTI:
-Sadece burç ve uyum yorumunu yaz. Başlık, madde işareti veya ekstra açıklama ekleme.""",
 }
 
 DEFAULT_MEDITATIONS = [
@@ -585,41 +443,3 @@ def module_defaults() -> Dict[str, Dict[str, Any]]:
     }
 
 
-def calculate_zodiac_compatibility(user_sign: str, partner_sign: str, relation_type: str = "İlişki") -> Dict[str, Any]:
-    user_element = ZODIAC_ELEMENTS.get(user_sign, "Bilinmiyor")
-    partner_element = ZODIAC_ELEMENTS.get(partner_sign, "Bilinmiyor")
-
-    if user_sign == partner_sign:
-        score = 82
-        headline = "Benzer ritim, güçlü ayna etkisi"
-        detail = "Aynı burç enerjisi iki tarafın birbirini hızlı anlamasını sağlayabilir; ancak benzer hassasiyetler aynı anda tetiklenebilir."
-    elif user_element == partner_element:
-        score = 88
-        headline = "Aynı elementten gelen doğal akış"
-        detail = "Benzer elementler ilişkiye tanıdık bir ritim verir. İletişim daha kolay kurulabilir, fakat ilişkiyi canlı tutmak için bilinçli yenilik gerekebilir."
-    elif {user_element, partner_element} in [{"Ateş", "Hava"}, {"Toprak", "Su"}]:
-        score = 78
-        headline = "Birbirini besleyen tamamlayıcı enerji"
-        detail = "Bu element eşleşmesi ilişkiye destekleyici bir alan açabilir. Biri hareketi, diğeri akışı güçlendirebilir."
-    elif {user_element, partner_element} in [{"Ateş", "Su"}, {"Hava", "Toprak"}]:
-        score = 64
-        headline = "Ritim farkı dikkat isteyebilir"
-        detail = "Bu eşleşmede tempo ve ihtiyaçlar farklı hissedilebilir. Açık iletişim ve beklenti netliği ilişkiyi dengeler."
-    else:
-        score = 70
-        headline = "Farklılıkla büyüyen bağ"
-        detail = "Elementler farklı çalışsa da bu bağ merak, öğrenme ve karşılıklı esneklikle gelişebilir."
-
-    advice = (
-        f"{relation_type} bağında en güçlü alan, iki tarafın kendi ihtiyacını suçlama dili olmadan anlatabilmesi. "
-        "Bu yorum eğlence ve farkındalık amaçlıdır; ilişki kararlarını tek başına belirlemez."
-    )
-
-    return {
-        "score": score,
-        "headline": headline,
-        "detail": detail,
-        "advice": advice,
-        "user_element": user_element,
-        "partner_element": partner_element,
-    }
