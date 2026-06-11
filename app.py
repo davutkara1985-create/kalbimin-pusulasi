@@ -1118,7 +1118,36 @@ def render_back_home_button(page: str) -> None:
     st.markdown('</div>', unsafe_allow_html=True)
 
 
-HOME_STORY_TEXT = """Bazen bazı duygular vardır… Ne tam anlatabilirsin, ne de içinden atabilirsin. Sanki kalbin bir şey söylemek ister ama kelimeler yetmez. İçinde kalan bir soru, yarım kalmış bir hikâye ya da adını koyamadığın bir his… İşte tam da bu yüzden buradasın. Çünkü bazı cevaplar dışarıda değil… Senin içinde, hislerinde ve enerjinde saklıdır. Bu alan sadece bir uygulama değil. Burası; hislerini anlamlandırdığın, iç sesini gerçekten duyduğun, Ve sana söylenmeyeni fark ettiğin bir yolculuk. Belki kalbinde kapanmamış bir konu var… Belki aklından çıkmayan biri… Belki de nedenini bilmeden hissettiğin bir ağırlık. Bazen bir mesaj gecikir ama gelmesi kaçınılmazdır… Bazen bir bağ kopmaz, sadece sessizce bekler… Ve bazen… Sen fark etmeden bir şeyler değişmeye başlar. Şu an bulunduğun yer bir tesadüf değil. Buraya gelişinin bir nedeni var. Çünkü içinden geçen o küçük ses seni buraya getirdi. Belki bugün duymaya hazır olduğun bir şey var. Belki uzun zamandır beklediğin bir cevap… Artık kendini göstermeye hazırlanıyor. Acele etme… Bir an dur… Derin bir nefes al… Ve gerçekten kendine şunu sor: “Kalbim bana ne anlatmak istiyor?” Çünkü cevaplar burada… ve sandığından çok daha yakın."""
+HOME_STORY_TEXT = """
+Bazen bazı duygular vardır… 
+Ne tam anlatabilirsin, ne de içinden atabilirsin.
+Sanki kalbin bir şey söylemek ister ama kelimeler yetmez.
+İçinde kalan bir soru, yarım kalmış bir hikâye ya da adını koyamadığın bir his…
+
+İşte tam da bu yüzden buradasın. 
+Çünkü bazı cevaplar dışarıda değil…
+Senin içinde, hislerinde ve enerjinde saklıdır.
+Bu alan sadece bir uygulama değil.
+Burası; hislerini anlamlandırdığın, iç sesini gerçekten duyduğun,
+Ve sana söylenmeyeni fark ettiğin bir yolculuk.
+
+Belki kalbinde kapanmamış bir konu var… 
+Belki aklından çıkmayan biri…
+Belki de nedenini bilmeden hissettiğin bir ağırlık.
+Bazen bir mesaj gecikir ama gelmesi kaçınılmazdır…
+Bazen bir bağ kopmaz, sadece sessizce bekler… 
+
+Ve bazen… Sen fark etmeden bir şeyler değişmeye başlar. 
+Şu an bulunduğun yer bir tesadüf değil. 
+Buraya gelişinin bir nedeni var. 
+Çünkü içinden geçen o küçük ses seni buraya getirdi. 
+Belki bugün duymaya hazır olduğun bir şey var.
+Belki uzun zamandır beklediğin bir cevap… 
+Artık kendini göstermeye hazırlanıyor. 
+Acele etme… 
+Bir an dur… Derin bir nefes al… 
+Ve gerçekten kendine şunu sor: “Kalbim bana ne anlatmak istiyor?”
+Çünkü cevaplar burada… ve sandığından çok daha yakın."""
 
 
 @st.cache_data(ttl=86400, show_spinner=False)
@@ -1184,13 +1213,13 @@ def render_home_video_background() -> None:
         .kp-home-story {
             position: relative;
             z-index: 3;
-            max-width: 620px;
+            max-width: 720px;
             margin: 0.75rem auto 3.1rem;
             padding: 0 0.45rem;
             color: rgba(255, 246, 221, 0.92);
             font-family: "Monotype Corsiva", "Segoe Script", "Lucida Handwriting", "Brush Script MT", "Apple Chancery", cursive;
             font-size: clamp(1.02rem, 2.6vw, 1.28rem);
-            line-height: 1.55;
+            line-height: 1.70;
             letter-spacing: 0.01em;
             text-align: center;
             text-shadow: 0 2px 11px rgba(0,0,0,0.82), 0 0 18px rgba(255,241,184,0.18);
@@ -1224,8 +1253,14 @@ def render_home_video_background() -> None:
 
 
 def render_home_story_text() -> None:
-    story_html = html_escape(HOME_STORY_TEXT).replace("Kalbim bana ne anlatmak istiyor?", "<strong>Kalbim bana ne anlatmak istiyor?</strong>")
-    st.markdown(f"<div class='kp-home-story'>{story_html}</div>", unsafe_allow_html=True)
+    story_html = html_escape(HOME_STORY_TEXT.strip())
+    story_html = story_html.replace("\n\n", "</p><p>")
+    story_html = story_html.replace("\n", "<br>")
+    story_html = story_html.replace(
+        "Kalbim bana ne anlatmak istiyor?",
+        "<strong>Kalbim bana ne anlatmak istiyor?</strong>",
+    )
+    st.markdown(f"<div class='kp-home-story'><p>{story_html}</p></div>", unsafe_allow_html=True)
 
 
 def page_home(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]]) -> None:
