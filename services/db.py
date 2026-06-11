@@ -842,12 +842,109 @@ def get_unread_inbox_count(user: Dict[str, Any], limit: int = 20) -> int:
 
 
 
+def get_inbox_count(user: Dict[str, Any], limit: int = 99) -> int:
+    """Return a lightweight total inbox count for the top message shortcut."""
+    if not user or user.get("is_guest"):
+        return 0
+    db = get_firestore_client()
+    docs = (
+        db.collection("users")
+        .document(user["id"])
+        .collection("inbox")
+        .limit(int(limit))
+        .stream()
+    )
+    return sum(1 for _ in docs)
+
+
+
 def mark_inbox_read(user: Dict[str, Any], message_id: str) -> None:
     if not user or user.get("is_guest"):
         return
     db = get_firestore_client()
     db.collection("users").document(user["id"]).collection("inbox").document(message_id).set(
         {"read": True, "read_at": firestore.SERVER_TIMESTAMP}, merge=True
+    )
+
+
+def submit_user_feedback(user: Dict[str, Any], category: str, subject: str, message: str) -> str:
+    if not user or user.get("is_guest"):
+        raise PermissionError("Bu işlem için hesapla giriş yapılmalıdır.")
+    clean_category = str(category or "Geri Bildirim").strip()[:40] or "Geri Bildirim"
+    clean_subject = str(subject or "").strip()[:120]
+    clean_message = str(message or "").strip()[:4000]
+    if not clean_message:
+        raise ValueError("Mesaj alanı boş olamaz.")
+
+    db = get_firestore_client()
+    ref = db.collection("user_feedback").document()
+    ref.set(
+        {
+            "category": clean_category,
+            "subject": clean_subject,
+            "message": clean_message,
+            "status": "pending",
+            "user_id": user["id"],
+            "user_email": normalize_email(user.get("email", "")),
+            "display_name": user.get("display_name", ""),
+            "created_at": firestore.SERVER_TIMESTAMP,
+            "updated_at": firestore.SERVER_TIMESTAMP,
+        }
+    )
+    return ref.id
+
+
+def list_user_feedback(status: str = "pending", limit: int = 100) -> List[Dict[str, Any]]:
+    db = get_firestore_client()
+    query = db.collection("user_feedback")
+    if status != "all":
+        query = query.where("status", "==", status)
+    docs = query.limit(int(limit)).stream()
+    results: List[Dict[str, Any]] = []
+    for doc in docs:
+        data = doc.to_dict() or {}
+        data["id"] = doc.id
+        results.append(data)
+    results.sort(key=lambda item: str(item.get("created_at", "")), reverse=True)
+    return results
+
+
+def send_feedback_response(feedback_id: str, response_text: str, admin_user: Dict[str, Any]) -> None:
+    db = get_firestore_client()
+    ref = db.collection("user_feedback").document(feedback_id)
+    snap = ref.get()
+    if not snap.exists:
+        raise ValueError("Geri bildirim kaydı bulunamadı.")
+    item = snap.to_dict() or {}
+    user_id = item.get("user_id")
+    if not user_id:
+        raise ValueError("Geri bildirim kullanıcı bilgisi eksik.")
+
+    response_payload = {
+        "text": response_text.strip(),
+        "admin_email": admin_user.get("email", "admin"),
+        "sent_at": firestore.SERVER_TIMESTAMP,
+    }
+    ref.set(
+        {
+            "status": "completed",
+            "response": response_payload,
+            "updated_at": firestore.SERVER_TIMESTAMP,
+        },
+        merge=True,
+    )
+
+    title = str(item.get("subject") or item.get("category") or "Geri bildirimin yanıtlandı")
+    db.collection("users").document(user_id).collection("inbox").add(
+        {
+            "request_id": feedback_id,
+            "request_type": "feedback",
+            "title": f"Geri bildirim yanıtı: {title}",
+            "message": response_text.strip(),
+            "image": None,
+            "read": False,
+            "created_at": firestore.SERVER_TIMESTAMP,
+        }
     )
 
 
