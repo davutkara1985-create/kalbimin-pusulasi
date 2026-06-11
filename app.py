@@ -938,30 +938,39 @@ def _nav_href(page_key: str, user: Optional[Dict[str, Any]] = None) -> str:
 
 
 def render_mobile_navigation(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]], current_page: str) -> None:
-    # Mobilde URL yenileyen HTML linkler yerine Streamlit-native butonlar kullanılır.
-    # Böylece sayfa geçişinde tam tarayıcı yenilemesi/beyaz ekran riski azaltılır.
+    # Mobilde native sidebar gizlidir; bu HTML menü sadece mobil CSS içinde görünür.
+    # Desktop görünümde sol menü tek navigasyon olarak kalır.
     items = []
     for _group_title, _group_icon, group_items in build_menu_groups(user, module_settings):
         items.extend(group_items)
     if not items:
         return
 
-    with st.expander("☰ Menü", expanded=False):
-        if current_page == "home":
-            st.markdown("<div class='kp-mobile-active-pill'>⌂ Ana Sayfa</div>", unsafe_allow_html=True)
-        else:
-            if st.button("⌂ Ana Sayfa", key="mobile_nav_home", use_container_width=True):
-                go_to_page("home", user, module_settings)
-                st.rerun()
+    home_href = html_escape(_nav_href("home", user), quote=True)
+    home_active_class = " active" if current_page == "home" else ""
+    links = [
+        f'<a class="kp-mobile-menu-link kp-mobile-menu-home{home_active_class}" href="{home_href}" target="_self">'
+        f'<span class="kp-mobile-menu-icon">⌂</span><span>Ana Sayfa</span></a>'
+    ]
+    for page_key, label, icon in items:
+        icon_rendered = sidebar_icon_html(page_key, icon)
+        active_class = " active" if current_page == page_key else ""
+        href = html_escape(_nav_href(page_key, user), quote=True)
+        links.append(
+            f'<a class="kp-mobile-menu-link{active_class}" href="{href}" target="_self">'
+            f'<span class="kp-mobile-menu-icon">{icon_rendered}</span><span>{html_escape(label)}</span></a>'
+        )
 
-        for page_key, label, icon in items:
-            button_label = f"{icon} {label}"
-            if current_page == page_key:
-                st.markdown(f"<div class='kp-mobile-active-pill'>{html_escape(button_label)}</div>", unsafe_allow_html=True)
-            else:
-                if st.button(button_label, key=f"mobile_nav_{page_key}", use_container_width=True):
-                    go_to_page(page_key, user, module_settings)
-                    st.rerun()
+    links_html = "".join(links)
+    st.markdown(
+        f"""
+      <details class="kp-mobile-menu-panel">
+          <summary class="kp-mobile-menu-summary"><span class="kp-mobile-menu-title">☰ Menü</span></summary>
+          <div class="kp-mobile-menu-list">{links_html}</div>
+      </details>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 def navigation(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]]) -> str:
@@ -997,19 +1006,29 @@ def navigation(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]])
     st.sidebar.markdown("<div class='kp-sidebar-menu-title'>Menü</div>", unsafe_allow_html=True)
     for _group_title, _group_icon, items in build_menu_groups(user, module_settings):
         for page_key, label, icon in items:
-            button_label = f"{icon} {label}"
-            label_html = html_escape(button_label)
+            icon_rendered = sidebar_icon_html(page_key, icon)
+            label_html = html_escape(label)
             if current_page == page_key:
                 st.sidebar.markdown(
                     f"""
                     <div class="kp-side-nav-item active">
-                        <span class="kp-side-nav-icon">{html_escape(str(icon))}</span><span>{html_escape(label)}</span>
+                        <span class="kp-side-nav-icon">{icon_rendered}</span><span>{label_html}</span>
                     </div>
                     """,
                     unsafe_allow_html=True,
                 )
             else:
-                if st.sidebar.button(button_label, key=f"sidebar_nav_{page_key}", use_container_width=True):
+                # Görsel satır + görünmez Streamlit buton overlay'i: eski özel ikon görünümü korunur,
+                # URL yenilemeden sayfa geçişi yapılır ve metinlerin üst üste kayması engellenir.
+                st.sidebar.markdown(
+                    f"""
+                    <div class="kp-side-nav-clickrow">
+                        <span class="kp-side-nav-icon">{icon_rendered}</span><span>{label_html}</span>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+                if st.sidebar.button(label, key=f"sidebar_nav_{page_key}", use_container_width=True):
                     go_to_page(page_key, user, module_settings)
                     st.rerun()
 
