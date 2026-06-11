@@ -2914,13 +2914,13 @@ def page_feedback(user: Dict[str, Any]) -> None:
         key="feedback_message",
         placeholder="İsteğini, önerini veya şikayetini buraya yazabilirsin.",
     )
-    if st.button("Admine gönder", key="feedback_submit_btn", use_container_width=True):
+    if st.button("Gönder", key="feedback_submit_btn", use_container_width=True):
         if not message.strip():
             st.warning("Mesaj alanı boş olamaz.")
             return
         try:
             feedback_id = submit_user_feedback(user, category, subject, message)
-            st.success(f"Mesajın admine iletildi. Kayıt no: {feedback_id}")
+            st.success(f"Mesajın iletildi. Kayıt no: {feedback_id}")
         except Exception as exc:
             st.error(f"Mesaj gönderilemedi: {exc}")
 
