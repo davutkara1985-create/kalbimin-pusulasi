@@ -490,310 +490,126 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
             font-size: 0.62rem;
             line-height: 1.25;
         }}
-        .kp-sidebar-home-link {{
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            min-height: 38px;
-            padding: 6px 9px;
-            margin: 0 0 8px 0;
-            border-radius: 13px;
-            color: var(--kp-gold-2) !important;
-            text-decoration: none !important;
-            background: linear-gradient(135deg, rgba(217,183,110,0.16), rgba(123,75,214,0.11));
-            border: 1px solid rgba(255,241,184,0.22);
-            box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
-            font-size: 0.74rem;
-            font-weight: 900;
-        }}
-        .kp-sidebar-home-link:hover, .kp-sidebar-home-link.active {{
-            border-color: rgba(255,241,184,0.38) !important;
-            filter: brightness(1.04);
-        }}
-        .kp-sidebar-home-icon {{
-            width: 26px;
-            height: 26px;
-            display: inline-grid;
-            place-items: center;
-            flex: 0 0 auto;
-            border-radius: 9px;
-            background: rgba(217,183,110,0.12);
-            border: 1px solid rgba(217,183,110,0.18);
-            color: var(--kp-gold-2) !important;
-            font-size: 0.86rem;
-        }}
-        .kp-account-mini {{
+        .kp-sidebar-home-link {
             display: none !important;
-        }}
-        .kp-account-mini-name {{
+        }
+        .kp-sidebar-home-icon {
             display: none !important;
-        }}
-        .kp-top-account-floating {{
-            position: fixed;
-            top: 12px;
-            right: 18px;
-            z-index: 999999;
-            display: inline-flex;
-            align-items: center;
-            justify-content: flex-end;
-            gap: 8px;
-            max-width: min(360px, calc(100vw - var(--kp-sidebar-width) - 28px));
-            padding: 6px 8px;
-            border-radius: 999px;
-            background: rgba(6, 8, 23, 0.62);
-            border: 1px solid rgba(255, 241, 184, 0.18);
-            box-shadow: 0 12px 28px rgba(0,0,0,0.22), inset 0 1px 0 rgba(255,255,255,0.08);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-        }}
-        .kp-top-account-name {{
-            color: var(--kp-gold-2) !important;
-            font-size: 0.76rem;
-            font-weight: 900;
-            line-height: 1;
-            max-width: 170px;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }}
-        .kp-top-account-link {{
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 26px;
-            padding: 0 10px;
-            border-radius: 999px;
-            background: linear-gradient(135deg, rgba(217,183,110,0.96), rgba(154,112,52,0.96));
-            color: #120d23 !important;
-            border: 1px solid rgba(255,241,184,0.32);
-            font-size: 0.72rem;
-            font-weight: 900;
-            text-decoration: none !important;
-            box-shadow: inset 0 1px 0 rgba(255,255,255,0.28);
-        }}
-        .kp-top-account-link:hover {{
-            filter: brightness(1.06);
-            text-decoration: none !important;
-        }}
-        .kp-top-message-link {{
-            background: linear-gradient(135deg, rgba(255,241,184,0.96), rgba(217,183,110,0.92)) !important;
-            color: #120d23 !important;
-        }}
-        @media (max-width: 760px) {{
-            .kp-top-account-floating {{
-                top: 8px;
-                right: 10px;
-                max-width: calc(100vw - 20px);
-                gap: 5px;
-                padding: 5px 6px;
-            }}
-            .kp-top-account-name {{
-                max-width: 120px;
-                font-size: 0.70rem;
-            }}
-            .kp-top-account-link {{
-                min-height: 24px;
-                padding: 0 7px;
-                font-size: 0.66rem;
-            }}
-        }}
-
-        .kp-sidebar-menu-title {{
-            margin: 12px 0 7px;
-            color: var(--kp-gold-2);
-            font-size: 0.62rem;
-            font-weight: 900;
-            letter-spacing: 0.16em;
-            text-transform: uppercase;
-        }}
-        .kp-sidebar-section-title {{
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            margin: 11px 0 5px;
-            color: rgba(255, 241, 184, 0.68) !important;
-            font-size: 0.62rem;
-            font-weight: 900;
-            letter-spacing: 0.10em;
-            text-transform: uppercase;
-        }}
-        .kp-sidebar-section-icon {{
-            width: 22px;
-            height: 22px;
-            display: inline-grid;
-            place-items: center;
-            border-radius: 9px;
-            background: rgba(217, 183, 110, 0.10);
-            border: 1px solid rgba(217, 183, 110, 0.16);
-            color: var(--kp-gold-2) !important;
-            font-family: var(--kp-font-serif);
-            font-size: 0.78rem;
-            letter-spacing: 0;
-            overflow: hidden;
-            flex: 0 0 auto;
-        }}
-        .kp-sidebar-section-icon .kp-icon-img {{
-            width: 100%;
-            height: 100%;
-            display: block;
-            object-fit: cover;
-            border-radius: 9px;
-        }}
-        .kp-side-nav-item,
-        .kp-side-nav-clickrow {{
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            min-height: 38px;
-            padding: 6px 9px;
-            margin: 3px 0;
-            border-radius: 13px;
-            color: rgba(255, 248, 232, 0.86) !important;
-            background: rgba(255,255,255,0.05);
-            border: 1px solid rgba(255,241,184,0.11);
-            box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
-            font-size: 0.74rem;
-            font-weight: 760;
-        }}
-        .kp-side-nav-clickrow {{
-            pointer-events: none;
-        }}
-        .kp-side-nav-item.active {{
-            color: var(--kp-gold-2) !important;
-            background: linear-gradient(135deg, rgba(217,183,110,0.18), rgba(123,75,214,0.13));
-            border-color: rgba(255,241,184,0.34);
-            box-shadow: 0 0 18px rgba(217,183,110,0.11), inset 0 1px 0 rgba(255,255,255,0.11);
-        }}
-        .kp-side-nav-icon {{
-            width: 26px;
-            height: 26px;
-            display: inline-grid;
-            place-items: center;
-            flex: 0 0 auto;
-            border-radius: 9px;
-            color: var(--kp-gold-2) !important;
-            background: rgba(217,183,110,0.10);
-            border: 1px solid rgba(217,183,110,0.15);
-            font-family: var(--kp-font-serif);
-            font-size: 0.82rem;
-            overflow: hidden;
-            box-shadow: 0 0 12px rgba(217,183,110,0.10);
-        }}
-        .kp-side-nav-icon .kp-icon-img {{
-            width: 100%;
-            height: 100%;
-            display: block;
-            object-fit: contain;
-            padding: 2px;
-            border-radius: 9px;
-            box-sizing: border-box;
-        }}
-        .element-container:has(.kp-side-nav-clickrow) {{
-            height: 41px !important;
-            min-height: 41px !important;
-            margin: 0 0 -41px 0 !important;
-            padding: 0 !important;
-            position: relative !important;
-            z-index: 1 !important;
-            pointer-events: none !important;
-        }}
-        .element-container:has(.kp-side-nav-clickrow) + .element-container {{
-            height: 41px !important;
-            min-height: 41px !important;
-            margin: 0 0 3px 0 !important;
-            padding: 0 !important;
-            position: relative !important;
-            z-index: 3 !important;
-        }}
-        .element-container:has(.kp-side-nav-clickrow) + .element-container div.stButton {{
-            height: 41px !important;
-            min-height: 41px !important;
+        }
+        .kp-sidebar-menu-title {
+            margin: 6px 0 4px !important;
+            color: rgba(255, 241, 184, 0.72) !important;
+            font-size: 0.58rem !important;
+            font-weight: 900 !important;
+            letter-spacing: 0.12em !important;
+            text-transform: uppercase !important;
+        }
+        .kp-side-nav-item {
+            display: flex !important;
+            align-items: center !important;
+            min-height: 30px !important;
+            height: auto !important;
+            padding: 0.34rem 0.56rem !important;
+            margin: 1px 0 !important;
+            border-radius: 11px !important;
+            color: rgba(255, 248, 232, 0.88) !important;
+            background: rgba(255,255,255,0.045) !important;
+            border: 1px solid rgba(255,241,184,0.10) !important;
+            box-shadow: none !important;
+            font-size: 0.70rem !important;
+            font-weight: 820 !important;
+            line-height: 1.12 !important;
+        }
+        .kp-side-nav-item.active {
+            color: #fff1b8 !important;
+            background: rgba(217,183,110,0.18) !important;
+            border-color: rgba(255,241,184,0.30) !important;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.08) !important;
+        }
+        .kp-side-nav-text {
+            display: block !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+            white-space: normal !important;
+        }
+        .kp-side-nav-clickrow {
+            display: none !important;
+        }
+        .kp-side-nav-icon {
+            display: none !important;
+        }
+        .kp-side-nav-icon .kp-icon-img {
+            display: none !important;
+        }
+        .element-container:has(.kp-side-nav-clickrow) {
+            display: none !important;
+            height: 0 !important;
+            min-height: 0 !important;
             margin: 0 !important;
             padding: 0 !important;
-        }}
-        .element-container:has(.kp-side-nav-clickrow) + .element-container div.stButton > button {{
-            height: 38px !important;
-            min-height: 38px !important;
-            margin: 3px 0 0 0 !important;
+        }
+        .element-container:has(.kp-side-nav-clickrow) + .element-container {
+            height: auto !important;
+            min-height: 0 !important;
+            margin: 0 !important;
             padding: 0 !important;
-            opacity: 0 !important;
-            color: transparent !important;
-            background: transparent !important;
-            border: none !important;
+            position: relative !important;
+            z-index: auto !important;
+        }
+        .element-container:has(.kp-side-nav-clickrow) + .element-container div.stButton {
+            height: auto !important;
+            min-height: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+        .element-container:has(.kp-side-nav-clickrow) + .element-container div.stButton > button {
+            height: auto !important;
+            min-height: 30px !important;
+            margin: 1px 0 !important;
+            padding: 0.34rem 0.56rem !important;
+            opacity: 1 !important;
+            color: rgba(255,248,232,0.88) !important;
+            background: rgba(255,255,255,0.045) !important;
+            border: 1px solid rgba(255,241,184,0.10) !important;
             box-shadow: none !important;
             cursor: pointer !important;
-        }}
+        }
 
-        [data-testid="stSidebar"] div.stButton > button {{
+        [data-testid="stSidebar"] .element-container:has(div.stButton) {
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+        [data-testid="stSidebar"] div.stButton {
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+        [data-testid="stSidebar"] div.stButton > button {
             justify-content: flex-start !important;
             width: 100% !important;
-            min-height: 34px !important;
+            min-height: 30px !important;
+            height: auto !important;
             margin: 1px 0 !important;
-            padding: 0.46rem 0.58rem !important;
-            border-radius: 13px !important;
-            border: 1px solid rgba(255, 241, 184, 0.12) !important;
-            background: rgba(255,255,255,0.042) !important;
-            color: rgba(255, 248, 232, 0.84) !important;
-            box-shadow: inset 0 1px 0 rgba(255,255,255,0.06) !important;
-            font-size: 0.74rem !important;
-            font-weight: 760 !important;
-            text-align: left !important;
-        }}
-        [data-testid="stSidebar"] div.stButton > button:hover {{
-            transform: translateX(1px) !important;
-            border-color: rgba(255, 241, 184, 0.28) !important;
-            background: rgba(217,183,110,0.09) !important;
-        }}
-
-
-        /* Mobil performans ve erişilebilir menü düzeni */
-        .kp-mobile-menu-panel {{
-            display: none;
-        }}
-
-        .kp-mobile-active-pill {{
-            display: flex;
-            align-items: center;
-            min-height: 38px;
-            margin: 4px 0;
-            padding: 6px 10px;
-            border-radius: 13px;
-            color: var(--kp-gold-2) !important;
-            background: linear-gradient(135deg, rgba(217,183,110,0.20), rgba(123,75,214,0.15));
-            border: 1px solid rgba(255,241,184,0.34);
-            font-size: 0.74rem;
-            font-weight: 900;
-        }}
-        div[data-testid="stExpander"] {{
-            position: relative !important;
-            z-index: 99999 !important;
-            width: min(340px, 88vw) !important;
-            margin: 0.05rem auto 0.30rem auto !important;
-            border-radius: 16px !important;
-            background: rgba(8, 10, 30, 0.88) !important;
-            border: 1px solid rgba(255, 241, 184, 0.30) !important;
-            box-shadow: 0 8px 22px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.08) !important;
-            overflow: hidden !important;
-        }}
-        div[data-testid="stExpander"] summary {{
-            color: #fff1b8 !important;
-            -webkit-text-fill-color: #fff1b8 !important;
-            font-weight: 900 !important;
-            font-size: 0.82rem !important;
-        }}
-        div[data-testid="stExpander"] div.stButton > button {{
-            min-height: 36px !important;
-            margin: 2px 0 !important;
-            padding: 0.42rem 0.56rem !important;
-            border-radius: 13px !important;
-            border: 1px solid rgba(255, 241, 184, 0.13) !important;
-            background: rgba(255,255,255,0.055) !important;
+            padding: 0.34rem 0.56rem !important;
+            border-radius: 11px !important;
+            border: 1px solid rgba(255,241,184,0.10) !important;
+            background: rgba(255,255,255,0.045) !important;
             color: rgba(255,248,232,0.88) !important;
+            box-shadow: none !important;
             font-size: 0.70rem !important;
-            font-weight: 800 !important;
+            font-weight: 820 !important;
+            line-height: 1.12 !important;
             text-align: left !important;
-            justify-content: flex-start !important;
-        }}
+            transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease !important;
+        }
+        [data-testid="stSidebar"] div.stButton > button:hover,
+        [data-testid="stSidebar"] div.stButton > button:focus {
+            transform: none !important;
+            border-color: rgba(255,241,184,0.26) !important;
+            background: rgba(217,183,110,0.12) !important;
+            color: #fff1b8 !important;
+            box-shadow: none !important;
+        }
+
         .kp-side-nav-link {{
             text-decoration: none !important;
         }}
