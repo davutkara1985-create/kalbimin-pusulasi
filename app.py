@@ -158,114 +158,6 @@ st.markdown(
         z-index: 2147483647;
         pointer-events: none;
     }
-
-    /* Görünümü değiştirmeden hızlı geçiş: HTML menü satırlarının üstüne şeffaf Streamlit tıklama katmanı. */
-    [data-testid="stSidebar"] .element-container:has(.kp-native-nav-visual) {
-        margin: 0 !important;
-        padding: 0 !important;
-        position: relative !important;
-        z-index: 2 !important;
-    }
-    [data-testid="stSidebar"] .element-container:has(.kp-native-nav-visual) + .element-container:has(div.stButton) {
-        position: relative !important;
-        z-index: 5 !important;
-        height: 37px !important;
-        min-height: 37px !important;
-        margin: -37px 0 0 0 !important;
-        padding: 0 !important;
-        background: transparent !important;
-    }
-    [data-testid="stSidebar"] .element-container:has(.kp-native-nav-visual) + .element-container:has(div.stButton) div.stButton,
-    [data-testid="stSidebar"] .element-container:has(.kp-native-nav-visual) + .element-container:has(div.stButton) div.stButton > button {
-        width: 100% !important;
-        height: 37px !important;
-        min-height: 37px !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        border: none !important;
-        outline: none !important;
-        border-radius: 12px !important;
-        background: transparent !important;
-        box-shadow: none !important;
-        color: transparent !important;
-        font-size: 0 !important;
-        line-height: 0 !important;
-        opacity: 0 !important;
-        cursor: pointer !important;
-    }
-    [data-testid="stSidebar"] .element-container:has(.kp-native-nav-visual) + .element-container:has(div.stButton) div.stButton > button * {
-        display: none !important;
-        visibility: hidden !important;
-    }
-
-    /* Sağ üst Hesabım/Mesajlar görünümü aynı kalır; tıklama şeffaf Streamlit butonlarıyla yapılır. */
-    .element-container:has(.kp-top-inbox-click-marker),
-    .element-container:has(.kp-top-account-click-marker) {
-        height: 0 !important;
-        min-height: 0 !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        overflow: hidden !important;
-    }
-    .element-container:has(.kp-top-inbox-click-marker) + .element-container:has(div.stButton),
-    .element-container:has(.kp-top-account-click-marker) + .element-container:has(div.stButton) {
-        position: fixed !important;
-        top: 12px !important;
-        z-index: 1000001 !important;
-        height: 38px !important;
-        min-height: 38px !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        background: transparent !important;
-    }
-    .element-container:has(.kp-top-inbox-click-marker) + .element-container:has(div.stButton) {
-        right: 94px !important;
-        width: 112px !important;
-    }
-    .element-container:has(.kp-top-account-click-marker) + .element-container:has(div.stButton) {
-        right: 18px !important;
-        width: 78px !important;
-    }
-    .element-container:has(.kp-top-inbox-click-marker) + .element-container:has(div.stButton) div.stButton,
-    .element-container:has(.kp-top-account-click-marker) + .element-container:has(div.stButton) div.stButton,
-    .element-container:has(.kp-top-inbox-click-marker) + .element-container:has(div.stButton) div.stButton > button,
-    .element-container:has(.kp-top-account-click-marker) + .element-container:has(div.stButton) div.stButton > button {
-        width: 100% !important;
-        height: 38px !important;
-        min-height: 38px !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        border: none !important;
-        outline: none !important;
-        border-radius: 999px !important;
-        background: transparent !important;
-        box-shadow: none !important;
-        color: transparent !important;
-        font-size: 0 !important;
-        opacity: 0 !important;
-        cursor: pointer !important;
-    }
-    .element-container:has(.kp-top-inbox-click-marker) + .element-container:has(div.stButton) div.stButton > button *,
-    .element-container:has(.kp-top-account-click-marker) + .element-container:has(div.stButton) div.stButton > button * {
-        display: none !important;
-        visibility: hidden !important;
-    }
-    @media (max-width: 760px) {
-        .element-container:has(.kp-top-inbox-click-marker) + .element-container:has(div.stButton) {
-            top: 8px !important;
-            right: 79px !important;
-            width: 98px !important;
-            height: 34px !important;
-            min-height: 34px !important;
-        }
-        .element-container:has(.kp-top-account-click-marker) + .element-container:has(div.stButton) {
-            top: 8px !important;
-            right: 10px !important;
-            width: 68px !important;
-            height: 34px !important;
-            min-height: 34px !important;
-        }
-    }
     </style>
     """,
     unsafe_allow_html=True,
@@ -849,29 +741,20 @@ def render_top_account(user: Dict[str, Any]) -> None:
     if not user or user.get("is_guest"):
         return
     display_name = str(user.get("display_name") or user.get("email", "Kullanıcı").split("@")[0]).strip()
+    account_href = _nav_href("account", user)
+    inbox_href = _nav_href("inbox", user)
     message_count = inbox_message_count(user)
     badge_html = f'<span class="kp-top-account-badge">{message_count}</span>' if message_count > 0 else ""
-
-    # Görsel tasarım aynen korunur. <a> yerine span kullanılır; gerçek tıklama
-    # şeffaf Streamlit butonlarıyla yapılır, böylece tarayıcı sayfayı yenilemez.
     st.markdown(
         f"""
         <div class="kp-top-account-floating">
             <span class="kp-top-account-name">{html_escape(display_name)}</span>
-            <span class="kp-top-account-link kp-top-message-link">✉ Mesajlar{badge_html}</span>
-            <span class="kp-top-account-link">Hesabım</span>
+            <a class="kp-top-account-link kp-top-message-link" href="{html_escape(inbox_href, quote=True)}" target="_self">✉ Mesajlar{badge_html}</a>
+            <a class="kp-top-account-link" href="{html_escape(account_href, quote=True)}" target="_self">Hesabım</a>
         </div>
         """,
         unsafe_allow_html=True,
     )
-    st.markdown('<div class="kp-top-inbox-click-marker"></div>', unsafe_allow_html=True)
-    if st.button("Mesajlar", key="kp_top_inbox_internal_nav", help="Mesajlar", use_container_width=True):
-        go_to_page("inbox", user)
-        st.rerun()
-    st.markdown('<div class="kp-top-account-click-marker"></div>', unsafe_allow_html=True)
-    if st.button("Hesabım", key="kp_top_account_internal_nav", help="Hesabım", use_container_width=True):
-        go_to_page("account", user)
-        st.rerun()
 
 
 def unread_inbox_count(user: Optional[Dict[str, Any]]) -> int:
@@ -1097,14 +980,16 @@ def go_to_page(page_key: str, user: Optional[Dict[str, Any]] = None, module_sett
         valid = valid_pages_for(user, module_settings)
         if page_key not in valid:
             page_key = "home"
-    # İç sayfa geçişleri URL/query param yazmadan yapılır.
-    # Bu, tarayıcı yenilemesini ve beyaz ekran hissini azaltan ana değişikliktir.
     st.session_state["current_page"] = page_key
+    if user:
+        persist_auth_query(user, page_key)
+    else:
+        _query_set(PAGE_QUERY_KEY, page_key)
 
 
 def reset_navigation_to_home() -> None:
-    # İç gezinmede URL yazma yapılmaz; bu sayede ekstra rerun ve beyaz ekran azalır.
     st.session_state["current_page"] = "home"
+    _query_set(PAGE_QUERY_KEY, "home")
 
 
 
@@ -1185,8 +1070,9 @@ def navigation(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]])
     if "current_page" not in st.session_state:
         st.session_state["current_page"] = requested_page if requested_page in valid_pages else "home"
 
-    # Query parametresi yalnızca ilk açılışta kullanılır. İç geçişlerde session_state korunur.
-    # Böylece menü tıklamalarında tarayıcı URL yenilemesi ve ekstra rerun oluşmaz.
+    if requested_page in valid_pages and requested_page != st.session_state.get("current_page"):
+        st.session_state["current_page"] = requested_page
+
     if st.session_state.get("current_page") not in valid_pages:
         reset_navigation_to_home()
 
@@ -1207,19 +1093,16 @@ def navigation(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]])
             )
             return
 
-        # Görünüm aynı kalır; tıklama şeffaf Streamlit butonuyla alınır.
+        href = html_escape(_nav_href(page_key, user), quote=True)
         st.sidebar.markdown(
             f"""
-            <div class="kp-side-nav-item kp-side-nav-link kp-native-nav-visual">
+            <a class="kp-side-nav-item kp-side-nav-link" href="{href}" target="_self">
                 <span class="kp-side-nav-icon">{icon_rendered}</span>
                 <span class="kp-side-nav-text">{label_html}</span>
-            </div>
+            </a>
             """,
             unsafe_allow_html=True,
         )
-        if st.sidebar.button(" ", key=f"kp_sidebar_internal_nav_{page_key}", help=str(label), use_container_width=True):
-            go_to_page(page_key, user, module_settings)
-            st.rerun()
 
     render_sidebar_link("home", "Ana Sayfa", "⌂")
 
@@ -1455,7 +1338,12 @@ Ve gerçekten kendine şunu sor: “Kalbim bana ne anlatmak istiyor?”
 
 @st.cache_data(ttl=86400, show_spinner=False)
 def _home_video_data_uri() -> str:
-    """Fallback: return the original high quality home video as a data URI."""
+    """Return the original high quality home video as a data URI.
+
+    Fast/low-size background video caused visible quality loss, so the app now
+    prefers the original kp_home_landing.mp4 again. The fast video remains only
+    as a fallback if the original file is missing.
+    """
     base_dir = Path(__file__).resolve().parent / "assets" / "backgrounds"
     original_video = base_dir / "kp_home_landing.mp4"
     fast_video = base_dir / "kp_home_landing_fast.mp4"
@@ -1466,16 +1354,8 @@ def _home_video_data_uri() -> str:
     return f"data:video/mp4;base64,{encoded}"
 
 
-def _home_video_source() -> str:
-    """Prefer Streamlit static serving so the video is browser-cached and not resent on every rerun."""
-    static_video = Path(__file__).resolve().parent / "static" / "kp_home_landing.mp4"
-    if static_video.exists():
-        return "/app/static/kp_home_landing.mp4"
-    return _home_video_data_uri()
-
-
 def render_home_video_background() -> None:
-    video_uri = _home_video_source()
+    video_uri = _home_video_data_uri()
     if not video_uri:
         return
     safe_uri = html_escape(video_uri, quote=True)
@@ -3830,6 +3710,7 @@ def main() -> None:
 
     render_top_account(user)
     page = navigation(user, module_settings)
+    persist_auth_query(user, page)
 
     prompts: Dict[str, str] = {}
     if page in AI_PROMPT_MODULES or page == "admin":
