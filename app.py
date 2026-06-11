@@ -1168,6 +1168,7 @@ def render_home_video_background() -> None:
     st.markdown(
         """
         <style>
+        @import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400;500;600;700&display=swap');
         .stApp {
             background: #030613 !important;
         }
@@ -1217,17 +1218,20 @@ def render_home_video_background() -> None:
             margin: 0.75rem auto 3.1rem;
             padding: 0 0.45rem;
             color: rgba(255, 246, 221, 0.92);
-           .kp-home-story,
-.kp-home-story p,
-.kp-home-story span,
-.kp-home-story div {
-    font-family: "Dancing Script", "Segoe Script", "Lucida Handwriting", cursive !important;
-}
+            font-family: "Dancing Script", "Segoe Script", "Lucida Handwriting", "Brush Script MT", "Apple Chancery", cursive !important;
             font-size: clamp(0.92rem, 2.2vw, 1.12rem);
             line-height: 1.55;
             letter-spacing: 0.01em;
             text-align: center;
             text-shadow: 0 2px 11px rgba(0,0,0,0.82), 0 0 18px rgba(255,241,184,0.18);
+        }
+        .kp-home-story p,
+        .kp-home-story span,
+        .kp-home-story div {
+            font-family: "Dancing Script", "Segoe Script", "Lucida Handwriting", "Brush Script MT", "Apple Chancery", cursive !important;
+        }
+        .kp-home-story p {
+            margin: 0 0 0.78rem;
         }
         .kp-home-story strong {
             color: #fff1b8;
