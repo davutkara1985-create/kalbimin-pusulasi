@@ -490,13 +490,139 @@ def install_fast_internal_navigation() -> None:
 # Clear caches kısayolunu ve tarayıcı çeviri müdahalesini her rerun'da güvenli şekilde bastır.
 # JS tarafında tek seferlik işaret kullanıldığı için tekrar dinleyici birikmez.
 prevent_browser_translate()
-install_fast_internal_navigation()
+# install_fast_internal_navigation()  # devre disi: Streamlit input sinyali Cloud'da guvenilir calismadi
 st.session_state["_kp_browser_setup_done"] = True
 
 # Performans: açılışta Firestore'dan tasarım ayarı çekilmez.
 # Admin Tasarım sekmesinde güncel ayarlar ayrıca yüklenir.
 PUBLIC_SETTINGS = {"style": {}}
 inject_css(PUBLIC_SETTINGS.get("style", {}))
+
+
+# Tasarımı değiştirmeden güvenilir Streamlit buton tıklaması için şeffaf hit-layer.
+st.markdown(
+    """
+    <style id="kp-navigation-click-hotfix">
+    /* Sol menü: görünen satır aynı kalır, hemen altındaki Streamlit buton şeffaf tıklama katmanı olur. */
+    [data-testid="stSidebar"] .element-container:has(.kp-side-nav-clickrow) {
+        position: relative !important;
+        z-index: 2 !important;
+        height: 35px !important;
+        min-height: 35px !important;
+        margin: 2px 0 !important;
+        padding: 0 !important;
+        overflow: visible !important;
+    }
+    [data-testid="stSidebar"] .kp-side-nav-clickrow {
+        pointer-events: none !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+    }
+    [data-testid="stSidebar"] .element-container:has(.kp-side-nav-clickrow) + .element-container:has(div.stButton) {
+        position: relative !important;
+        z-index: 4 !important;
+        height: 35px !important;
+        min-height: 35px !important;
+        margin: -37px 0 2px 0 !important;
+        padding: 0 !important;
+        overflow: visible !important;
+    }
+    [data-testid="stSidebar"] .element-container:has(.kp-side-nav-clickrow) + .element-container:has(div.stButton) div.stButton,
+    [data-testid="stSidebar"] .element-container:has(.kp-side-nav-clickrow) + .element-container:has(div.stButton) div.stButton > button {
+        width: 100% !important;
+        height: 35px !important;
+        min-height: 35px !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+    [data-testid="stSidebar"] .element-container:has(.kp-side-nav-clickrow) + .element-container:has(div.stButton) div.stButton > button {
+        opacity: 0.01 !important;
+        color: transparent !important;
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+        cursor: pointer !important;
+        font-size: 0 !important;
+        line-height: 0 !important;
+    }
+    [data-testid="stSidebar"] .element-container:has(.kp-side-nav-clickrow) + .element-container:has(div.stButton) div.stButton > button * {
+        color: transparent !important;
+        font-size: 0 !important;
+        line-height: 0 !important;
+    }
+
+    /* Sağ üst Mesajlar / Hesabım: görünüm HTML'de kalır, şeffaf Streamlit butonlar üstüne oturur. */
+    .element-container:has(.kp-top-account-button-marker) {
+        position: fixed !important;
+        top: 0 !important;
+        right: 0 !important;
+        width: 0 !important;
+        height: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        overflow: visible !important;
+        z-index: 1000002 !important;
+    }
+    .element-container:has(.kp-top-account-button-marker) + .element-container,
+    .element-container:has(.kp-top-account-button-marker) + .element-container + .element-container {
+        position: fixed !important;
+        top: 12px !important;
+        height: 34px !important;
+        min-height: 34px !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        z-index: 1000003 !important;
+        overflow: hidden !important;
+    }
+    .element-container:has(.kp-top-account-button-marker) + .element-container {
+        right: 92px !important;
+        width: 116px !important;
+    }
+    .element-container:has(.kp-top-account-button-marker) + .element-container + .element-container {
+        right: 18px !important;
+        width: 72px !important;
+    }
+    .element-container:has(.kp-top-account-button-marker) + .element-container div.stButton,
+    .element-container:has(.kp-top-account-button-marker) + .element-container + .element-container div.stButton,
+    .element-container:has(.kp-top-account-button-marker) + .element-container div.stButton > button,
+    .element-container:has(.kp-top-account-button-marker) + .element-container + .element-container div.stButton > button {
+        width: 100% !important;
+        height: 34px !important;
+        min-height: 34px !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+    .element-container:has(.kp-top-account-button-marker) + .element-container div.stButton > button,
+    .element-container:has(.kp-top-account-button-marker) + .element-container + .element-container div.stButton > button {
+        opacity: 0.01 !important;
+        color: transparent !important;
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+        cursor: pointer !important;
+        font-size: 0 !important;
+        line-height: 0 !important;
+    }
+    @media (max-width: 760px) {
+        .element-container:has(.kp-top-account-button-marker) + .element-container,
+        .element-container:has(.kp-top-account-button-marker) + .element-container + .element-container {
+            top: 8px !important;
+            height: 30px !important;
+            min-height: 30px !important;
+        }
+        .element-container:has(.kp-top-account-button-marker) + .element-container {
+            right: 76px !important;
+            width: 98px !important;
+        }
+        .element-container:has(.kp-top-account-button-marker) + .element-container + .element-container {
+            right: 10px !important;
+            width: 62px !important;
+        }
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 
 
 BASE_MENU_GROUPS = [
@@ -843,20 +969,27 @@ def render_top_account(user: Dict[str, Any]) -> None:
     if not user or user.get("is_guest"):
         return
     display_name = str(user.get("display_name") or user.get("email", "Kullanıcı").split("@")[0]).strip()
-    account_href = _nav_href("account", user)
-    inbox_href = _nav_href("inbox", user)
     message_count = inbox_message_count(user)
     badge_html = f'<span class="kp-top-account-badge">{message_count}</span>' if message_count > 0 else ""
     st.markdown(
         f"""
         <div class="kp-top-account-floating">
             <span class="kp-top-account-name">{html_escape(display_name)}</span>
-            <a class="kp-top-account-link kp-top-message-link" href="{html_escape(inbox_href, quote=True)}" data-kp-page="inbox" target="_self">✉ Mesajlar{badge_html}</a>
-            <a class="kp-top-account-link" href="{html_escape(account_href, quote=True)}" data-kp-page="account" target="_self">Hesabım</a>
+            <span class="kp-top-account-link kp-top-message-link">✉ Mesajlar{badge_html}</span>
+            <span class="kp-top-account-link">Hesabım</span>
         </div>
         """,
         unsafe_allow_html=True,
     )
+    # Görünüm yukarıdaki HTML ile birebir kalır. Aşağıdaki iki şeffaf Streamlit
+    # butonu yalnızca tıklamayı yakalar; tarayıcı reload yapmadan sayfa değiştirir.
+    st.markdown('<div class="kp-top-account-button-marker"></div>', unsafe_allow_html=True)
+    if st.button("Mesajlar", key="kp_top_nav_inbox", help="Gelen kutusu"):
+        go_to_page("inbox", user)
+        st.rerun()
+    if st.button("Hesabım", key="kp_top_nav_account", help="Hesabım"):
+        go_to_page("account", user)
+        st.rerun()
 
 
 def unread_inbox_count(user: Optional[Dict[str, Any]]) -> int:
@@ -1077,21 +1210,32 @@ def valid_pages_for(user: Dict[str, Any], module_settings: Dict[str, Dict[str, A
     return pages
 
 
-def go_to_page(page_key: str, user: Optional[Dict[str, Any]] = None, module_settings: Optional[Dict[str, Dict[str, Any]]] = None) -> None:
+def go_to_page(
+    page_key: str,
+    user: Optional[Dict[str, Any]] = None,
+    module_settings: Optional[Dict[str, Dict[str, Any]]] = None,
+    persist_url: bool = False,
+) -> None:
+    """Change page inside the current Streamlit session.
+
+    Page clicks must not rewrite query params by default; doing so was the main
+    reason for browser-like refreshes, slow transitions and white-screen flashes.
+    URL persistence is kept only for explicit flows such as login when requested.
+    """
     if user and module_settings:
         valid = valid_pages_for(user, module_settings)
         if page_key not in valid:
             page_key = "home"
     st.session_state["current_page"] = page_key
-    if user:
-        persist_auth_query(user, page_key)
-    else:
-        _query_set(PAGE_QUERY_KEY, page_key)
+    if persist_url:
+        if user:
+            persist_auth_query(user, page_key)
+        else:
+            _query_set(PAGE_QUERY_KEY, page_key)
 
 
 def reset_navigation_to_home() -> None:
     st.session_state["current_page"] = "home"
-    _query_set(PAGE_QUERY_KEY, "home")
 
 
 
@@ -1168,22 +1312,10 @@ def navigation(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]])
     valid_pages = valid_pages_for(user, module_settings)
     requested_page = _query_get(PAGE_QUERY_KEY, "home")
 
-    # URL ile doğrudan açılış desteklenir. Normal uygulama içi geçişlerde ise
-    # URL yeniden yüklenmez; aşağıdaki gizli sinyal input'u session_state'i günceller.
+    # URL sadece ilk açılışta okunur. Menü tıklamalarında query param yazılmaz;
+    # böylece tarayıcı seviyesinde yenileme ve beyaz ekran oluşmaz.
     if "current_page" not in st.session_state:
         st.session_state["current_page"] = requested_page if requested_page in valid_pages else "home"
-
-    nav_signal = st.sidebar.text_input(
-        "kp_nav_signal",
-        key="_kp_nav_signal",
-        label_visibility="collapsed",
-        placeholder="kp_nav_signal",
-    )
-    if nav_signal and nav_signal != st.session_state.get("_kp_nav_last_signal"):
-        target_page = str(nav_signal).split("|", 1)[0].strip()
-        if target_page in valid_pages:
-            st.session_state["current_page"] = target_page
-            st.session_state["_kp_nav_last_signal"] = nav_signal
 
     if st.session_state.get("current_page") not in valid_pages:
         reset_navigation_to_home()
@@ -1193,28 +1325,20 @@ def navigation(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]])
     def render_sidebar_link(page_key: str, label: str, icon: str = "✦") -> None:
         icon_rendered = sidebar_icon_html(page_key, icon)
         label_html = html_escape(str(label))
-        if current_page == page_key:
-            st.sidebar.markdown(
-                f"""
-                <div class="kp-side-nav-item active">
-                    <span class="kp-side-nav-icon">{icon_rendered}</span>
-                    <span class="kp-side-nav-text">{label_html}</span>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-            return
-
-        href = html_escape(_nav_href(page_key, user), quote=True)
+        active_class = " active" if current_page == page_key else ""
         st.sidebar.markdown(
             f"""
-            <a class="kp-side-nav-item kp-side-nav-link" href="{href}" data-kp-page="{html_escape(page_key, quote=True)}" target="_self">
+            <div class="kp-side-nav-item kp-side-nav-clickrow{active_class}">
                 <span class="kp-side-nav-icon">{icon_rendered}</span>
                 <span class="kp-side-nav-text">{label_html}</span>
-            </a>
+            </div>
             """,
             unsafe_allow_html=True,
         )
+        if current_page != page_key:
+            if st.sidebar.button(str(label), key=f"sidebar_nav_click_{page_key}", use_container_width=True):
+                go_to_page(page_key, user, module_settings)
+                st.rerun()
 
     render_sidebar_link("home", "Ana Sayfa", "⌂")
 
