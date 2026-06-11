@@ -48,25 +48,21 @@ from services.db import (
     get_all_module_settings,
     get_all_prompts,
     get_content_items,
-    get_inbox_count,
     get_or_create_user,
     get_public_settings,
     get_usage,
     list_inbox,
     list_manual_requests,
-    list_user_feedback,
     list_users,
     record_usage,
     save_module_setting,
     save_prompt,
     save_reading,
     save_style_settings,
-    send_feedback_response,
     send_manual_response,
     submit_email_lead,
     submit_manual_request,
     submit_upgrade_request,
-    submit_user_feedback,
     update_content_item,
 )
 from services.ui import (
@@ -89,6 +85,50 @@ from services.ui import (
     render_content_visual,
     module_icon_html,
 )
+
+
+# Yeni geri bildirim / mesaj kutusu fonksiyonları eski db.py ile de ImportError üretmesin diye
+# üst importtan çıkarıldı ve aşağıda güvenli sarmalayıcılarla çağrılıyor.
+def _db_module():
+    import services.db as db_service
+    return db_service
+
+
+def get_inbox_count(user: Dict[str, Any], limit: int = 99) -> int:
+    db_service = _db_module()
+    fn = getattr(db_service, "get_inbox_count", None)
+    if callable(fn):
+        return int(fn(user, limit=limit))
+    # Eski db.py sürümlerinde toplam sayım yoksa okunmamış sayımı güvenli yedek olarak kullan.
+    unread_fn = getattr(db_service, "get_unread_inbox_count", None)
+    if callable(unread_fn):
+        return int(unread_fn(user, limit=limit))
+    return 0
+
+
+def submit_user_feedback(user: Dict[str, Any], category: str, subject: str, message: str) -> str:
+    db_service = _db_module()
+    fn = getattr(db_service, "submit_user_feedback", None)
+    if callable(fn):
+        return str(fn(user, category, subject, message))
+    raise RuntimeError("services/db.py güncel değil: submit_user_feedback fonksiyonu bulunamadı. Bu yamanın services/db.py dosyasını da yükleyin.")
+
+
+def list_user_feedback(status: str = "pending", limit: int = 100) -> List[Dict[str, Any]]:
+    db_service = _db_module()
+    fn = getattr(db_service, "list_user_feedback", None)
+    if callable(fn):
+        return list(fn(status=status, limit=limit))
+    return []
+
+
+def send_feedback_response(feedback_id: str, response_text: str, admin_user: Dict[str, Any]) -> None:
+    db_service = _db_module()
+    fn = getattr(db_service, "send_feedback_response", None)
+    if callable(fn):
+        fn(feedback_id, response_text, admin_user)
+        return
+    raise RuntimeError("services/db.py güncel değil: send_feedback_response fonksiyonu bulunamadı. Bu yamanın services/db.py dosyasını da yükleyin.")
 
 
 st.set_page_config(
@@ -220,11 +260,11 @@ def prevent_browser_translate() -> None:
             }
 
             function closeClearCacheDialog() {
-                const needle = "Are you sure you want to clear the app's function caches";
+                const needles = ["Are you sure you want to clear the app\'s function caches", "Clear caches", "function caches"];
                 const dialogs = Array.from(doc.querySelectorAll('[role="dialog"], [data-testid="stDialog"], div'));
                 for (const el of dialogs) {
                     const txt = (el.innerText || '');
-                    if (txt.includes(needle)) {
+                    if (needles.some(needle => txt.includes(needle))) {
                         const buttons = Array.from(el.querySelectorAll('button'));
                         const cancel = buttons.find(btn => /cancel|hayır|vazgeç|no/i.test(btn.innerText || ''));
                         if (cancel) cancel.click();
@@ -240,8 +280,8 @@ def prevent_browser_translate() -> None:
             applyNoTranslate();
             setTimeout(applyNoTranslate, 700);
 
-            if (!parentWin.__kpDisableClearCacheShortcutV5) {
-                parentWin.__kpDisableClearCacheShortcutV5 = true;
+            if (!parentWin.__kpDisableClearCacheShortcutV6) {
+                parentWin.__kpDisableClearCacheShortcutV6 = true;
                 const targets = [doc, parentWin, window].filter(Boolean);
                 for (const target of targets) {
                     target.addEventListener('keydown', blockClearCacheShortcut, true);
@@ -667,6 +707,15 @@ def _cached_unread_inbox_count(user_id: str) -> int:
     try:
         from services.db import get_unread_inbox_count
         return int(get_unread_inbox_count({"id": user_id}, limit=20))
+    except Exception:
+        return 0
+
+
+@st.cache_data(ttl=45, show_spinner=False)
+def _cached_inbox_message_count(user_id: str) -> int:
+    """Small cached total inbox count for the top-right message shortcut."""
+    try:
+        return int(get_inbox_count({"id": user_id}, limit=99))
     except Exception:
         return 0
 
