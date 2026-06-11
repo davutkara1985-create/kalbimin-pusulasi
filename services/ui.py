@@ -408,11 +408,8 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
             min-width: var(--kp-sidebar-width) !important;
             max-width: var(--kp-sidebar-width) !important;
             flex: 0 0 var(--kp-sidebar-width) !important;
-            background:
-                radial-gradient(circle at 18% 8%, rgba(217, 183, 110, 0.10), transparent 30%),
-                radial-gradient(circle at 85% 88%, rgba(123, 75, 214, 0.13), transparent 34%),
-                linear-gradient(180deg, rgba(7, 9, 28, 0.94), rgba(14, 12, 39, 0.94)) !important;
-            border-right: 1px solid rgba(217, 183, 110, 0.16) !important;
+            background: transparent !important;
+            border-right: 1px solid rgba(255, 241, 184, 0.10) !important;
             box-shadow: none !important;
         }}
 
@@ -427,6 +424,7 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
             top: auto !important;
             padding-top: 0.70rem !important;
             padding-bottom: 1.10rem !important;
+            background: transparent !important;
         }}
 
         @media (min-width: 761px) {{
@@ -450,9 +448,9 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
             padding: 10px;
             margin: 0 0 8px 0;
             border-radius: 18px;
-            background: linear-gradient(145deg, rgba(255,255,255,0.10), rgba(255,255,255,0.032));
-            border: 1px solid rgba(217, 183, 110, 0.22);
-            box-shadow: 0 10px 24px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.09);
+            background: rgba(6, 8, 23, 0.28);
+            border: 1px solid rgba(217, 183, 110, 0.18);
+            box-shadow: none;
             overflow: hidden;
         }}
 
@@ -507,8 +505,8 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
             margin: 2px 0 !important;
             border-radius: 12px !important;
             color: rgba(255, 248, 232, 0.88) !important;
-            background: rgba(255,255,255,0.045) !important;
-            border: 1px solid rgba(255,241,184,0.10) !important;
+            background: rgba(6,8,23,0.24) !important;
+            border: 1px solid rgba(255,241,184,0.12) !important;
             box-shadow: inset 0 1px 0 rgba(255,255,255,0.045) !important;
             font-size: 0.70rem !important;
             font-weight: 800 !important;
@@ -518,14 +516,14 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
         }}
         .kp-side-nav-item.active {{
             color: #fff1b8 !important;
-            background: rgba(217,183,110,0.17) !important;
-            border-color: rgba(255,241,184,0.30) !important;
+            background: rgba(217,183,110,0.22) !important;
+            border-color: rgba(255,241,184,0.34) !important;
             box-shadow: inset 0 1px 0 rgba(255,255,255,0.08) !important;
         }}
         .kp-side-nav-link:hover {{
             color: #fff1b8 !important;
-            background: rgba(217,183,110,0.11) !important;
-            border-color: rgba(255,241,184,0.24) !important;
+            background: rgba(217,183,110,0.16) !important;
+            border-color: rgba(255,241,184,0.28) !important;
             text-decoration: none !important;
             transform: none !important;
         }}
