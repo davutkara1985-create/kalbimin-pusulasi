@@ -1217,7 +1217,7 @@ def render_home_video_background() -> None:
             margin: 0.75rem auto 3.1rem;
             padding: 0 0.45rem;
             color: rgba(255, 246, 221, 0.92);
-            font-family: "Monotype Corsiva", "Segoe Script", "Lucida Handwriting", "Brush Script MT", "Apple Chancery", cursive;
+            font-family: "Segoe Script", "Lucida Handwriting", "Apple Chancery", cursive;
             font-size: clamp(1.02rem, 2.6vw, 1.28rem);
             line-height: 1.70;
             letter-spacing: 0.01em;
