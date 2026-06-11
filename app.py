@@ -142,12 +142,21 @@ st.set_page_config(
 st.markdown(
     """
     <style id="kp-no-flash">
-    html, body, .stApp, [data-testid="stAppViewContainer"] {
-        background: #060817 !important;
+    html, body, #root, .stApp, [data-testid="stAppViewContainer"] {
+        background: #030613 !important;
+        background-color: #030613 !important;
         color: #fff8e8 !important;
     }
     [data-testid="stAppViewContainer"] > .main {
         background: transparent !important;
+    }
+    html.kp-page-changing::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        background: #030613;
+        z-index: 2147483647;
+        pointer-events: none;
     }
     </style>
     """,
@@ -191,6 +200,62 @@ def prevent_browser_translate() -> None:
                         params.set('kp_auth', storedToken);
                         if (!params.get('kp_page')) params.set('kp_page', 'home');
                         parentWin.location.replace(parentWin.location.pathname + '?' + params.toString() + parentWin.location.hash);
+                    }
+                } catch (e) {}
+            }
+
+            function installNoWhiteFlashGuard() {
+                try {
+                    if (!doc || !doc.documentElement) return;
+                    let style = doc.getElementById('kp-no-white-flash-guard');
+                    if (!style && doc.head) {
+                        style = doc.createElement('style');
+                        style.id = 'kp-no-white-flash-guard';
+                        style.textContent = `
+                            html, body, #root, .stApp, [data-testid="stAppViewContainer"] {
+                                background: #030613 !important;
+                                background-color: #030613 !important;
+                            }
+                            html.kp-page-changing::before {
+                                content: "";
+                                position: fixed;
+                                inset: 0;
+                                background: #030613;
+                                z-index: 2147483647;
+                                pointer-events: none;
+                            }
+                        `;
+                        doc.head.appendChild(style);
+                    }
+                    const clearGuard = () => {
+                        try {
+                            doc.documentElement.classList.remove('kp-page-changing');
+                            parentWin.sessionStorage.removeItem('kp_page_changing');
+                        } catch (e) {}
+                    };
+                    if (parentWin.sessionStorage.getItem('kp_page_changing') === '1') {
+                        doc.documentElement.classList.add('kp-page-changing');
+                        setTimeout(clearGuard, 550);
+                    }
+                    if (!parentWin.__kpNoWhiteFlashGuardV1) {
+                        parentWin.__kpNoWhiteFlashGuardV1 = true;
+                        doc.addEventListener('click', function(event) {
+                            try {
+                                const target = event.target;
+                                if (!target || !target.closest) return;
+                                const link = target.closest('a[href]');
+                                if (!link) return;
+                                const href = link.getAttribute('href') || '';
+                                const targetAttr = (link.getAttribute('target') || '').toLowerCase();
+                                if (targetAttr === '_blank' || href.startsWith('#') || href.startsWith('mailto:') || href.startsWith('tel:')) return;
+                                if (href.startsWith('?') || href.indexOf('kp_page=') !== -1 || link.className.indexOf('kp-side-nav') !== -1 || link.className.indexOf('kp-top-account') !== -1 || link.className.indexOf('kp-mobile-menu') !== -1) {
+                                    parentWin.sessionStorage.setItem('kp_page_changing', '1');
+                                    doc.documentElement.classList.add('kp-page-changing');
+                                }
+                            } catch (e) {}
+                        }, true);
+                        parentWin.addEventListener('pageshow', function() { setTimeout(clearGuard, 150); });
+                        setTimeout(clearGuard, 1200);
                     }
                 } catch (e) {}
             }
@@ -275,6 +340,7 @@ def prevent_browser_translate() -> None:
             }
 
             syncRememberedAuth();
+            installNoWhiteFlashGuard();
             applyNoTranslate();
             setTimeout(applyNoTranslate, 700);
 
@@ -1268,7 +1334,7 @@ def render_home_video_background() -> None:
     st.markdown(
         """
         <style>
-        html, body, .stApp {
+        html, body, #root, .stApp {
             background: #030613 !important;
         }
         [data-testid="stAppViewContainer"],
@@ -1290,16 +1356,16 @@ def render_home_video_background() -> None:
             height: 100%;
             object-fit: cover;
             object-position: center center;
-            opacity: 0.72;
-            filter: brightness(0.70);
+            opacity: 0.92;
+            filter: brightness(0.96) contrast(1.04) saturate(1.08);
         }
         .kp-home-video-bg::after {
             content: "";
             position: absolute;
             inset: 0;
             background:
-                linear-gradient(180deg, rgba(2,4,14,0.26), rgba(2,4,14,0.40) 56%, rgba(2,4,14,0.72)),
-                radial-gradient(circle at 50% 92%, rgba(28, 47, 92, 0.34), transparent 42%);
+                linear-gradient(180deg, rgba(2,4,14,0.08), rgba(2,4,14,0.16) 56%, rgba(2,4,14,0.38)),
+                radial-gradient(circle at 50% 92%, rgba(28, 47, 92, 0.16), transparent 42%);
         }
         [data-testid="stAppViewContainer"] > .main,
         [data-testid="stAppViewContainer"] .block-container {
@@ -1359,8 +1425,9 @@ def render_home_video_background() -> None:
         }
         @media (max-width: 760px) {
             .kp-home-video-bg video {
-                opacity: 0.66;
+                opacity: 0.86;
                 object-position: center center;
+                filter: brightness(0.94) contrast(1.04) saturate(1.06);
             }
             .kp-home-story-image-wrap {
                 width: min(92vw, 390px);
@@ -3525,25 +3592,21 @@ def page_admin(user: Dict[str, Any], prompts: Dict[str, str], module_settings: D
     if not is_admin(user):
         st.error("Bu sayfaya sadece admin erişebilir.")
         return
-    render_section_header("Admin Paneli", "Sayfalar, promptlar, içerikler, talepler ve tasarım ayarlarını yönet.", kicker="Yönetim")
-    tabs = st.tabs(["Genel", "Sayfalar", "Promptlar", "İçerikler", "Talepler", "İstek/Öneri/Şikayetler", "Tasarım", "Kullanıcılar", "Puanlar"])
+    render_section_header("Admin Paneli", "Promptlar, içerikler, talepler, geri bildirimler ve kullanıcıları yönet.", kicker="Yönetim")
+    tabs = st.tabs(["Genel", "Promptlar", "İçerikler", "Talepler", "İstek/Öneri/Şikayetler", "Kullanıcılar", "Puanlar"])
     with tabs[0]:
         admin_overview()
     with tabs[1]:
-        admin_module_status(module_settings)
-    with tabs[2]:
         admin_prompts(prompts)
-    with tabs[3]:
+    with tabs[2]:
         admin_content()
-    with tabs[4]:
+    with tabs[3]:
         admin_requests(user)
-    with tabs[5]:
+    with tabs[4]:
         admin_feedback(user)
-    with tabs[6]:
-        admin_style()
-    with tabs[7]:
+    with tabs[5]:
         admin_users()
-    with tabs[8]:
+    with tabs[6]:
         admin_ratings()
 
 
