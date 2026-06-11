@@ -1980,7 +1980,7 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
     min-height: 175px !important;
     border-radius: 22px !important;
     padding: 14px 13px 14px !important;
-    margin: -0.35rem auto 0.95rem auto !important;
+    margin: -1.15rem auto 0.75rem auto !important;
 }}
             .kp-hero-top {{ gap: 8px; margin-bottom: 8px; }}
             .kp-avatar-wrap {{ width: 42px; height: 42px; }}
