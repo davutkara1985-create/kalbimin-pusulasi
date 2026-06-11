@@ -1217,7 +1217,12 @@ def render_home_video_background() -> None:
             margin: 0.75rem auto 3.1rem;
             padding: 0 0.45rem;
             color: rgba(255, 246, 221, 0.92);
-            font-family: "Monotype Corsiva", "Segoe Script", "Lucida Handwriting", "Brush Script MT", "Apple Chancery", cursive;
+           .kp-home-story,
+.kp-home-story p,
+.kp-home-story span,
+.kp-home-story div {
+    font-family: "Dancing Script", "Segoe Script", "Lucida Handwriting", cursive !important;
+}
             font-size: clamp(0.92rem, 2.2vw, 1.12rem);
             line-height: 1.55;
             letter-spacing: 0.01em;
