@@ -158,6 +158,21 @@ st.markdown(
         z-index: 2147483647;
         pointer-events: none;
     }
+    .element-container:has(input[aria-label="kp_nav_signal"]),
+    .element-container:has(input[placeholder="kp_nav_signal"]),
+    div[data-testid="stTextInput"]:has(input[aria-label="kp_nav_signal"]),
+    div[data-testid="stTextInput"]:has(input[placeholder="kp_nav_signal"]) {
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        height: 0 !important;
+        min-height: 0 !important;
+        max-height: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        overflow: hidden !important;
+        pointer-events: none !important;
+    }
     </style>
     """,
     unsafe_allow_html=True,
@@ -272,6 +287,9 @@ def prevent_browser_translate() -> None:
                                 const href = link.getAttribute('href') || '';
                                 const targetAttr = (link.getAttribute('target') || '').toLowerCase();
                                 if (targetAttr === '_blank' || href.startsWith('#') || href.startsWith('mailto:') || href.startsWith('tel:')) return;
+                                // data-kp-page bağlantıları artık tarayıcı reload yapmadan Streamlit state ile geçer.
+                                // Bu yüzden eski geçiş örtüsünü burada açmayız; aksi halde hızlı geçiş koyu perdeye takılır.
+                                if (link.getAttribute('data-kp-page')) return;
                                 if (href.startsWith('?') || href.indexOf('kp_page=') !== -1 || link.className.indexOf('kp-side-nav') !== -1 || link.className.indexOf('kp-top-account') !== -1 || link.className.indexOf('kp-mobile-menu') !== -1) {
                                     showPageTransitionCover();
                                 }
@@ -386,9 +404,93 @@ def prevent_browser_translate() -> None:
         width=0,
     )
 
+
+
+def install_fast_internal_navigation() -> None:
+    """Intercept internal navigation links and route them through Streamlit state.
+
+    This keeps the existing HTML/CSS menu and top account design unchanged, but
+    prevents browser-level reloads that cause the white-screen transition.
+    """
+    components.html(
+        """
+        <script>
+        try {
+            const parentWin = window.parent || window;
+            const doc = parentWin.document || document;
+
+            function findNavInput() {
+                try {
+                    return doc.querySelector('input[aria-label="kp_nav_signal"]') ||
+                           doc.querySelector('input[placeholder="kp_nav_signal"]');
+                } catch (e) { return null; }
+            }
+
+            function setNativeInputValue(input, value) {
+                try {
+                    const setter = Object.getOwnPropertyDescriptor(parentWin.HTMLInputElement.prototype, 'value').set;
+                    setter.call(input, value);
+                } catch (e) {
+                    input.value = value;
+                }
+                try { input.dispatchEvent(new Event('input', { bubbles: true })); } catch (e) {}
+                try { input.dispatchEvent(new Event('change', { bubbles: true })); } catch (e) {}
+                try {
+                    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true }));
+                    input.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', bubbles: true }));
+                } catch (e) {}
+            }
+
+            function routeToPage(pageKey, href) {
+                const input = findNavInput();
+                if (!input || !pageKey) return false;
+                try {
+                    if (href) parentWin.history.pushState({kp_page: pageKey}, '', href);
+                } catch (e) {}
+                const signal = String(pageKey) + '|' + String(Date.now()) + '|' + String(Math.random()).slice(2);
+                setNativeInputValue(input, signal);
+                return true;
+            }
+
+            if (!parentWin.__kpFastInternalNavigationV4) {
+                parentWin.__kpFastInternalNavigationV4 = true;
+                doc.addEventListener('click', function(event) {
+                    try {
+                        const target = event.target;
+                        if (!target || !target.closest) return;
+                        const link = target.closest('a[data-kp-page]');
+                        if (!link) return;
+                        const pageKey = link.getAttribute('data-kp-page') || '';
+                        const href = link.getAttribute('href') || '';
+                        const targetAttr = (link.getAttribute('target') || '').toLowerCase();
+                        if (!pageKey || targetAttr === '_blank') return;
+                        if (routeToPage(pageKey, href)) {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            if (event.stopImmediatePropagation) event.stopImmediatePropagation();
+                        }
+                    } catch (e) {}
+                }, true);
+
+                parentWin.addEventListener('popstate', function() {
+                    try {
+                        const params = new URLSearchParams(parentWin.location.search || '');
+                        const pageKey = params.get('kp_page') || 'home';
+                        routeToPage(pageKey, '');
+                    } catch (e) {}
+                });
+            }
+        } catch (e) {}
+        </script>
+        """,
+        height=0,
+        width=0,
+    )
+
 # Clear caches kısayolunu ve tarayıcı çeviri müdahalesini her rerun'da güvenli şekilde bastır.
 # JS tarafında tek seferlik işaret kullanıldığı için tekrar dinleyici birikmez.
 prevent_browser_translate()
+install_fast_internal_navigation()
 st.session_state["_kp_browser_setup_done"] = True
 
 # Performans: açılışta Firestore'dan tasarım ayarı çekilmez.
@@ -749,8 +851,8 @@ def render_top_account(user: Dict[str, Any]) -> None:
         f"""
         <div class="kp-top-account-floating">
             <span class="kp-top-account-name">{html_escape(display_name)}</span>
-            <a class="kp-top-account-link kp-top-message-link" href="{html_escape(inbox_href, quote=True)}" target="_self">✉ Mesajlar{badge_html}</a>
-            <a class="kp-top-account-link" href="{html_escape(account_href, quote=True)}" target="_self">Hesabım</a>
+            <a class="kp-top-account-link kp-top-message-link" href="{html_escape(inbox_href, quote=True)}" data-kp-page="inbox" target="_self">✉ Mesajlar{badge_html}</a>
+            <a class="kp-top-account-link" href="{html_escape(account_href, quote=True)}" data-kp-page="account" target="_self">Hesabım</a>
         </div>
         """,
         unsafe_allow_html=True,
@@ -1066,12 +1168,22 @@ def navigation(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]])
     valid_pages = valid_pages_for(user, module_settings)
     requested_page = _query_get(PAGE_QUERY_KEY, "home")
 
-    # URL ile doğrudan açılış desteklenir; normal menü HTML satırları tasarıma gömülü kalır.
+    # URL ile doğrudan açılış desteklenir. Normal uygulama içi geçişlerde ise
+    # URL yeniden yüklenmez; aşağıdaki gizli sinyal input'u session_state'i günceller.
     if "current_page" not in st.session_state:
         st.session_state["current_page"] = requested_page if requested_page in valid_pages else "home"
 
-    if requested_page in valid_pages and requested_page != st.session_state.get("current_page"):
-        st.session_state["current_page"] = requested_page
+    nav_signal = st.sidebar.text_input(
+        "kp_nav_signal",
+        key="_kp_nav_signal",
+        label_visibility="collapsed",
+        placeholder="kp_nav_signal",
+    )
+    if nav_signal and nav_signal != st.session_state.get("_kp_nav_last_signal"):
+        target_page = str(nav_signal).split("|", 1)[0].strip()
+        if target_page in valid_pages:
+            st.session_state["current_page"] = target_page
+            st.session_state["_kp_nav_last_signal"] = nav_signal
 
     if st.session_state.get("current_page") not in valid_pages:
         reset_navigation_to_home()
@@ -1096,7 +1208,7 @@ def navigation(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]])
         href = html_escape(_nav_href(page_key, user), quote=True)
         st.sidebar.markdown(
             f"""
-            <a class="kp-side-nav-item kp-side-nav-link" href="{href}" target="_self">
+            <a class="kp-side-nav-item kp-side-nav-link" href="{href}" data-kp-page="{html_escape(page_key, quote=True)}" target="_self">
                 <span class="kp-side-nav-icon">{icon_rendered}</span>
                 <span class="kp-side-nav-text">{label_html}</span>
             </a>
@@ -3716,7 +3828,9 @@ def main() -> None:
 
     render_top_account(user)
     page = navigation(user, module_settings)
-    persist_auth_query(user, page)
+    # Uygulama içi geçişlerde kp_page query parametresini sunucu tarafından
+    # tekrar yazmak tarayıcı/Streamlit tarafında ek rerun ve beyaz ekran hissi
+    # oluşturabiliyor. URL, tıklama anında JS ile güncellenir; burada dokunulmaz.
 
     prompts: Dict[str, str] = {}
     if page in AI_PROMPT_MODULES or page == "admin":
