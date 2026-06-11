@@ -490,21 +490,21 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
             font-size: 0.62rem;
             line-height: 1.25;
         }}
-        .kp-sidebar-home-link {
+        .kp-sidebar-home-link {{
             display: none !important;
-        }
-        .kp-sidebar-home-icon {
+        }}
+        .kp-sidebar-home-icon {{
             display: none !important;
-        }
-        .kp-sidebar-menu-title {
+        }}
+        .kp-sidebar-menu-title {{
             margin: 6px 0 4px !important;
             color: rgba(255, 241, 184, 0.72) !important;
             font-size: 0.58rem !important;
             font-weight: 900 !important;
             letter-spacing: 0.12em !important;
             text-transform: uppercase !important;
-        }
-        .kp-side-nav-item {
+        }}
+        .kp-side-nav-item {{
             display: flex !important;
             align-items: center !important;
             min-height: 30px !important;
@@ -519,50 +519,50 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
             font-size: 0.70rem !important;
             font-weight: 820 !important;
             line-height: 1.12 !important;
-        }
-        .kp-side-nav-item.active {
+        }}
+        .kp-side-nav-item.active {{
             color: #fff1b8 !important;
             background: rgba(217,183,110,0.18) !important;
             border-color: rgba(255,241,184,0.30) !important;
             box-shadow: inset 0 1px 0 rgba(255,255,255,0.08) !important;
-        }
-        .kp-side-nav-text {
+        }}
+        .kp-side-nav-text {{
             display: block !important;
             overflow: hidden !important;
             text-overflow: ellipsis !important;
             white-space: normal !important;
-        }
-        .kp-side-nav-clickrow {
+        }}
+        .kp-side-nav-clickrow {{
             display: none !important;
-        }
-        .kp-side-nav-icon {
+        }}
+        .kp-side-nav-icon {{
             display: none !important;
-        }
-        .kp-side-nav-icon .kp-icon-img {
+        }}
+        .kp-side-nav-icon .kp-icon-img {{
             display: none !important;
-        }
-        .element-container:has(.kp-side-nav-clickrow) {
+        }}
+        .element-container:has(.kp-side-nav-clickrow) {{
             display: none !important;
             height: 0 !important;
             min-height: 0 !important;
             margin: 0 !important;
             padding: 0 !important;
-        }
-        .element-container:has(.kp-side-nav-clickrow) + .element-container {
+        }}
+        .element-container:has(.kp-side-nav-clickrow) + .element-container {{
             height: auto !important;
             min-height: 0 !important;
             margin: 0 !important;
             padding: 0 !important;
             position: relative !important;
             z-index: auto !important;
-        }
-        .element-container:has(.kp-side-nav-clickrow) + .element-container div.stButton {
+        }}
+        .element-container:has(.kp-side-nav-clickrow) + .element-container div.stButton {{
             height: auto !important;
             min-height: 0 !important;
             margin: 0 !important;
             padding: 0 !important;
-        }
-        .element-container:has(.kp-side-nav-clickrow) + .element-container div.stButton > button {
+        }}
+        .element-container:has(.kp-side-nav-clickrow) + .element-container div.stButton > button {{
             height: auto !important;
             min-height: 30px !important;
             margin: 1px 0 !important;
@@ -573,17 +573,17 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
             border: 1px solid rgba(255,241,184,0.10) !important;
             box-shadow: none !important;
             cursor: pointer !important;
-        }
+        }}
 
-        [data-testid="stSidebar"] .element-container:has(div.stButton) {
+        [data-testid="stSidebar"] .element-container:has(div.stButton) {{
             margin: 0 !important;
             padding: 0 !important;
-        }
-        [data-testid="stSidebar"] div.stButton {
+        }}
+        [data-testid="stSidebar"] div.stButton {{
             margin: 0 !important;
             padding: 0 !important;
-        }
-        [data-testid="stSidebar"] div.stButton > button {
+        }}
+        [data-testid="stSidebar"] div.stButton > button {{
             justify-content: flex-start !important;
             width: 100% !important;
             min-height: 30px !important;
@@ -600,15 +600,15 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
             line-height: 1.12 !important;
             text-align: left !important;
             transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease !important;
-        }
+        }}
         [data-testid="stSidebar"] div.stButton > button:hover,
-        [data-testid="stSidebar"] div.stButton > button:focus {
+        [data-testid="stSidebar"] div.stButton > button:focus {{
             transform: none !important;
             border-color: rgba(255,241,184,0.26) !important;
             background: rgba(217,183,110,0.12) !important;
             color: #fff1b8 !important;
             box-shadow: none !important;
-        }
+        }}
 
         .kp-side-nav-link {{
             text-decoration: none !important;
