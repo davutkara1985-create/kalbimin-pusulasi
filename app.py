@@ -1213,13 +1213,13 @@ def render_home_video_background() -> None:
         .kp-home-story {
             position: relative;
             z-index: 3;
-            max-width: 720px;
+            max-width: 620px;
             margin: 0.75rem auto 3.1rem;
             padding: 0 0.45rem;
             color: rgba(255, 246, 221, 0.92);
-            font-family: "Segoe Script", "Lucida Handwriting", "Apple Chancery", cursive;
-            font-size: clamp(1.02rem, 2.6vw, 1.28rem);
-            line-height: 1.70;
+            font-family: "Monotype Corsiva", "Segoe Script", "Lucida Handwriting", "Brush Script MT", "Apple Chancery", cursive;
+            font-size: clamp(0.92rem, 2.2vw, 1.12rem);
+            line-height: 1.55;
             letter-spacing: 0.01em;
             text-align: center;
             text-shadow: 0 2px 11px rgba(0,0,0,0.82), 0 0 18px rgba(255,241,184,0.18);
