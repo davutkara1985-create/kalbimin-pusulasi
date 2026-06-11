@@ -158,21 +158,6 @@ st.markdown(
         z-index: 2147483647;
         pointer-events: none;
     }
-    .element-container:has(input[aria-label="kp_nav_signal"]),
-    .element-container:has(input[placeholder="kp_nav_signal"]),
-    div[data-testid="stTextInput"]:has(input[aria-label="kp_nav_signal"]),
-    div[data-testid="stTextInput"]:has(input[placeholder="kp_nav_signal"]) {
-        display: none !important;
-        visibility: hidden !important;
-        opacity: 0 !important;
-        height: 0 !important;
-        min-height: 0 !important;
-        max-height: 0 !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        overflow: hidden !important;
-        pointer-events: none !important;
-    }
     </style>
     """,
     unsafe_allow_html=True,
@@ -287,9 +272,6 @@ def prevent_browser_translate() -> None:
                                 const href = link.getAttribute('href') || '';
                                 const targetAttr = (link.getAttribute('target') || '').toLowerCase();
                                 if (targetAttr === '_blank' || href.startsWith('#') || href.startsWith('mailto:') || href.startsWith('tel:')) return;
-                                // data-kp-page bağlantıları artık tarayıcı reload yapmadan Streamlit state ile geçer.
-                                // Bu yüzden eski geçiş örtüsünü burada açmayız; aksi halde hızlı geçiş koyu perdeye takılır.
-                                if (link.getAttribute('data-kp-page')) return;
                                 if (href.startsWith('?') || href.indexOf('kp_page=') !== -1 || link.className.indexOf('kp-side-nav') !== -1 || link.className.indexOf('kp-top-account') !== -1 || link.className.indexOf('kp-mobile-menu') !== -1) {
                                     showPageTransitionCover();
                                 }
@@ -404,225 +386,15 @@ def prevent_browser_translate() -> None:
         width=0,
     )
 
-
-
-def install_fast_internal_navigation() -> None:
-    """Intercept internal navigation links and route them through Streamlit state.
-
-    This keeps the existing HTML/CSS menu and top account design unchanged, but
-    prevents browser-level reloads that cause the white-screen transition.
-    """
-    components.html(
-        """
-        <script>
-        try {
-            const parentWin = window.parent || window;
-            const doc = parentWin.document || document;
-
-            function findNavInput() {
-                try {
-                    return doc.querySelector('input[aria-label="kp_nav_signal"]') ||
-                           doc.querySelector('input[placeholder="kp_nav_signal"]');
-                } catch (e) { return null; }
-            }
-
-            function setNativeInputValue(input, value) {
-                try {
-                    const setter = Object.getOwnPropertyDescriptor(parentWin.HTMLInputElement.prototype, 'value').set;
-                    setter.call(input, value);
-                } catch (e) {
-                    input.value = value;
-                }
-                try { input.dispatchEvent(new Event('input', { bubbles: true })); } catch (e) {}
-                try { input.dispatchEvent(new Event('change', { bubbles: true })); } catch (e) {}
-                try {
-                    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true }));
-                    input.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', bubbles: true }));
-                } catch (e) {}
-            }
-
-            function routeToPage(pageKey, href) {
-                const input = findNavInput();
-                if (!input || !pageKey) return false;
-                try {
-                    if (href) parentWin.history.pushState({kp_page: pageKey}, '', href);
-                } catch (e) {}
-                const signal = String(pageKey) + '|' + String(Date.now()) + '|' + String(Math.random()).slice(2);
-                setNativeInputValue(input, signal);
-                return true;
-            }
-
-            if (!parentWin.__kpFastInternalNavigationV4) {
-                parentWin.__kpFastInternalNavigationV4 = true;
-                doc.addEventListener('click', function(event) {
-                    try {
-                        const target = event.target;
-                        if (!target || !target.closest) return;
-                        const link = target.closest('a[data-kp-page]');
-                        if (!link) return;
-                        const pageKey = link.getAttribute('data-kp-page') || '';
-                        const href = link.getAttribute('href') || '';
-                        const targetAttr = (link.getAttribute('target') || '').toLowerCase();
-                        if (!pageKey || targetAttr === '_blank') return;
-                        if (routeToPage(pageKey, href)) {
-                            event.preventDefault();
-                            event.stopPropagation();
-                            if (event.stopImmediatePropagation) event.stopImmediatePropagation();
-                        }
-                    } catch (e) {}
-                }, true);
-
-                parentWin.addEventListener('popstate', function() {
-                    try {
-                        const params = new URLSearchParams(parentWin.location.search || '');
-                        const pageKey = params.get('kp_page') || 'home';
-                        routeToPage(pageKey, '');
-                    } catch (e) {}
-                });
-            }
-        } catch (e) {}
-        </script>
-        """,
-        height=0,
-        width=0,
-    )
-
 # Clear caches kısayolunu ve tarayıcı çeviri müdahalesini her rerun'da güvenli şekilde bastır.
 # JS tarafında tek seferlik işaret kullanıldığı için tekrar dinleyici birikmez.
 prevent_browser_translate()
-# install_fast_internal_navigation()  # devre disi: Streamlit input sinyali Cloud'da guvenilir calismadi
 st.session_state["_kp_browser_setup_done"] = True
 
 # Performans: açılışta Firestore'dan tasarım ayarı çekilmez.
 # Admin Tasarım sekmesinde güncel ayarlar ayrıca yüklenir.
 PUBLIC_SETTINGS = {"style": {}}
 inject_css(PUBLIC_SETTINGS.get("style", {}))
-
-
-# Tasarımı değiştirmeden güvenilir Streamlit buton tıklaması için şeffaf hit-layer.
-st.markdown(
-    """
-    <style id="kp-navigation-click-hotfix">
-    /* Sol menü: görünen satır aynı kalır, hemen altındaki Streamlit buton şeffaf tıklama katmanı olur. */
-    [data-testid="stSidebar"] .element-container:has(.kp-side-nav-clickrow) {
-        position: relative !important;
-        z-index: 2 !important;
-        height: 35px !important;
-        min-height: 35px !important;
-        margin: 2px 0 !important;
-        padding: 0 !important;
-        overflow: visible !important;
-    }
-    [data-testid="stSidebar"] .kp-side-nav-clickrow {
-        pointer-events: none !important;
-        width: 100% !important;
-        box-sizing: border-box !important;
-    }
-    [data-testid="stSidebar"] .element-container:has(.kp-side-nav-clickrow) + .element-container:has(div.stButton) {
-        position: relative !important;
-        z-index: 4 !important;
-        height: 35px !important;
-        min-height: 35px !important;
-        margin: -37px 0 2px 0 !important;
-        padding: 0 !important;
-        overflow: visible !important;
-    }
-    [data-testid="stSidebar"] .element-container:has(.kp-side-nav-clickrow) + .element-container:has(div.stButton) div.stButton,
-    [data-testid="stSidebar"] .element-container:has(.kp-side-nav-clickrow) + .element-container:has(div.stButton) div.stButton > button {
-        width: 100% !important;
-        height: 35px !important;
-        min-height: 35px !important;
-        margin: 0 !important;
-        padding: 0 !important;
-    }
-    [data-testid="stSidebar"] .element-container:has(.kp-side-nav-clickrow) + .element-container:has(div.stButton) div.stButton > button {
-        opacity: 0.01 !important;
-        color: transparent !important;
-        background: transparent !important;
-        border: none !important;
-        box-shadow: none !important;
-        cursor: pointer !important;
-        font-size: 0 !important;
-        line-height: 0 !important;
-    }
-    [data-testid="stSidebar"] .element-container:has(.kp-side-nav-clickrow) + .element-container:has(div.stButton) div.stButton > button * {
-        color: transparent !important;
-        font-size: 0 !important;
-        line-height: 0 !important;
-    }
-
-    /* Sağ üst Mesajlar / Hesabım: görünüm HTML'de kalır, şeffaf Streamlit butonlar üstüne oturur. */
-    .element-container:has(.kp-top-account-button-marker) {
-        position: fixed !important;
-        top: 0 !important;
-        right: 0 !important;
-        width: 0 !important;
-        height: 0 !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        overflow: visible !important;
-        z-index: 1000002 !important;
-    }
-    .element-container:has(.kp-top-account-button-marker) + .element-container,
-    .element-container:has(.kp-top-account-button-marker) + .element-container + .element-container {
-        position: fixed !important;
-        top: 12px !important;
-        height: 34px !important;
-        min-height: 34px !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        z-index: 1000003 !important;
-        overflow: hidden !important;
-    }
-    .element-container:has(.kp-top-account-button-marker) + .element-container {
-        right: 92px !important;
-        width: 116px !important;
-    }
-    .element-container:has(.kp-top-account-button-marker) + .element-container + .element-container {
-        right: 18px !important;
-        width: 72px !important;
-    }
-    .element-container:has(.kp-top-account-button-marker) + .element-container div.stButton,
-    .element-container:has(.kp-top-account-button-marker) + .element-container + .element-container div.stButton,
-    .element-container:has(.kp-top-account-button-marker) + .element-container div.stButton > button,
-    .element-container:has(.kp-top-account-button-marker) + .element-container + .element-container div.stButton > button {
-        width: 100% !important;
-        height: 34px !important;
-        min-height: 34px !important;
-        margin: 0 !important;
-        padding: 0 !important;
-    }
-    .element-container:has(.kp-top-account-button-marker) + .element-container div.stButton > button,
-    .element-container:has(.kp-top-account-button-marker) + .element-container + .element-container div.stButton > button {
-        opacity: 0.01 !important;
-        color: transparent !important;
-        background: transparent !important;
-        border: none !important;
-        box-shadow: none !important;
-        cursor: pointer !important;
-        font-size: 0 !important;
-        line-height: 0 !important;
-    }
-    @media (max-width: 760px) {
-        .element-container:has(.kp-top-account-button-marker) + .element-container,
-        .element-container:has(.kp-top-account-button-marker) + .element-container + .element-container {
-            top: 8px !important;
-            height: 30px !important;
-            min-height: 30px !important;
-        }
-        .element-container:has(.kp-top-account-button-marker) + .element-container {
-            right: 76px !important;
-            width: 98px !important;
-        }
-        .element-container:has(.kp-top-account-button-marker) + .element-container + .element-container {
-            right: 10px !important;
-            width: 62px !important;
-        }
-    }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
 
 
 BASE_MENU_GROUPS = [
@@ -969,27 +741,20 @@ def render_top_account(user: Dict[str, Any]) -> None:
     if not user or user.get("is_guest"):
         return
     display_name = str(user.get("display_name") or user.get("email", "Kullanıcı").split("@")[0]).strip()
+    account_href = _nav_href("account", user)
+    inbox_href = _nav_href("inbox", user)
     message_count = inbox_message_count(user)
     badge_html = f'<span class="kp-top-account-badge">{message_count}</span>' if message_count > 0 else ""
     st.markdown(
         f"""
         <div class="kp-top-account-floating">
             <span class="kp-top-account-name">{html_escape(display_name)}</span>
-            <span class="kp-top-account-link kp-top-message-link">✉ Mesajlar{badge_html}</span>
-            <span class="kp-top-account-link">Hesabım</span>
+            <a class="kp-top-account-link kp-top-message-link" href="{html_escape(inbox_href, quote=True)}" target="_self">✉ Mesajlar{badge_html}</a>
+            <a class="kp-top-account-link" href="{html_escape(account_href, quote=True)}" target="_self">Hesabım</a>
         </div>
         """,
         unsafe_allow_html=True,
     )
-    # Görünüm yukarıdaki HTML ile birebir kalır. Aşağıdaki iki şeffaf Streamlit
-    # butonu yalnızca tıklamayı yakalar; tarayıcı reload yapmadan sayfa değiştirir.
-    st.markdown('<div class="kp-top-account-button-marker"></div>', unsafe_allow_html=True)
-    if st.button("Mesajlar", key="kp_top_nav_inbox", help="Gelen kutusu"):
-        go_to_page("inbox", user)
-        st.rerun()
-    if st.button("Hesabım", key="kp_top_nav_account", help="Hesabım"):
-        go_to_page("account", user)
-        st.rerun()
 
 
 def unread_inbox_count(user: Optional[Dict[str, Any]]) -> int:
@@ -1210,32 +975,21 @@ def valid_pages_for(user: Dict[str, Any], module_settings: Dict[str, Dict[str, A
     return pages
 
 
-def go_to_page(
-    page_key: str,
-    user: Optional[Dict[str, Any]] = None,
-    module_settings: Optional[Dict[str, Dict[str, Any]]] = None,
-    persist_url: bool = False,
-) -> None:
-    """Change page inside the current Streamlit session.
-
-    Page clicks must not rewrite query params by default; doing so was the main
-    reason for browser-like refreshes, slow transitions and white-screen flashes.
-    URL persistence is kept only for explicit flows such as login when requested.
-    """
+def go_to_page(page_key: str, user: Optional[Dict[str, Any]] = None, module_settings: Optional[Dict[str, Dict[str, Any]]] = None) -> None:
     if user and module_settings:
         valid = valid_pages_for(user, module_settings)
         if page_key not in valid:
             page_key = "home"
     st.session_state["current_page"] = page_key
-    if persist_url:
-        if user:
-            persist_auth_query(user, page_key)
-        else:
-            _query_set(PAGE_QUERY_KEY, page_key)
+    if user:
+        persist_auth_query(user, page_key)
+    else:
+        _query_set(PAGE_QUERY_KEY, page_key)
 
 
 def reset_navigation_to_home() -> None:
     st.session_state["current_page"] = "home"
+    _query_set(PAGE_QUERY_KEY, "home")
 
 
 
@@ -1312,10 +1066,12 @@ def navigation(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]])
     valid_pages = valid_pages_for(user, module_settings)
     requested_page = _query_get(PAGE_QUERY_KEY, "home")
 
-    # URL sadece ilk açılışta okunur. Menü tıklamalarında query param yazılmaz;
-    # böylece tarayıcı seviyesinde yenileme ve beyaz ekran oluşmaz.
+    # URL ile doğrudan açılış desteklenir; normal menü HTML satırları tasarıma gömülü kalır.
     if "current_page" not in st.session_state:
         st.session_state["current_page"] = requested_page if requested_page in valid_pages else "home"
+
+    if requested_page in valid_pages and requested_page != st.session_state.get("current_page"):
+        st.session_state["current_page"] = requested_page
 
     if st.session_state.get("current_page") not in valid_pages:
         reset_navigation_to_home()
@@ -1325,20 +1081,28 @@ def navigation(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]])
     def render_sidebar_link(page_key: str, label: str, icon: str = "✦") -> None:
         icon_rendered = sidebar_icon_html(page_key, icon)
         label_html = html_escape(str(label))
-        active_class = " active" if current_page == page_key else ""
+        if current_page == page_key:
+            st.sidebar.markdown(
+                f"""
+                <div class="kp-side-nav-item active">
+                    <span class="kp-side-nav-icon">{icon_rendered}</span>
+                    <span class="kp-side-nav-text">{label_html}</span>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+            return
+
+        href = html_escape(_nav_href(page_key, user), quote=True)
         st.sidebar.markdown(
             f"""
-            <div class="kp-side-nav-item kp-side-nav-clickrow{active_class}">
+            <a class="kp-side-nav-item kp-side-nav-link" href="{href}" target="_self">
                 <span class="kp-side-nav-icon">{icon_rendered}</span>
                 <span class="kp-side-nav-text">{label_html}</span>
-            </div>
+            </a>
             """,
             unsafe_allow_html=True,
         )
-        if current_page != page_key:
-            if st.sidebar.button(str(label), key=f"sidebar_nav_click_{page_key}", use_container_width=True):
-                go_to_page(page_key, user, module_settings)
-                st.rerun()
 
     render_sidebar_link("home", "Ana Sayfa", "⌂")
 
@@ -1574,21 +1338,15 @@ Ve gerçekten kendine şunu sor: “Kalbim bana ne anlatmak istiyor?”
 
 @st.cache_data(ttl=86400, show_spinner=False)
 def _home_video_data_uri() -> str:
-    """Return the original high quality home video without changing design.
+    """Return the original high quality home video as a data URI.
 
-    To keep page transitions light, prefer Streamlit static serving when the
-    committed static/kp_home_landing.mp4 file exists. If the static file is not
-    present, safely fall back to the old base64 data URI so the background never
-    disappears.
+    Fast/low-size background video caused visible quality loss, so the app now
+    prefers the original kp_home_landing.mp4 again. The fast video remains only
+    as a fallback if the original file is missing.
     """
-    app_dir = Path(__file__).resolve().parent
-    static_video = app_dir / "static" / "kp_home_landing.mp4"
-    if static_video.exists() and static_video.is_file():
-        return "app/static/kp_home_landing.mp4"
-
-    background_dir = app_dir / "assets" / "backgrounds"
-    original_video = background_dir / "kp_home_landing.mp4"
-    fast_video = background_dir / "kp_home_landing_fast.mp4"
+    base_dir = Path(__file__).resolve().parent / "assets" / "backgrounds"
+    original_video = base_dir / "kp_home_landing.mp4"
+    fast_video = base_dir / "kp_home_landing_fast.mp4"
     video_path = original_video if original_video.exists() else fast_video
     if not video_path.exists():
         return ""
@@ -3952,9 +3710,7 @@ def main() -> None:
 
     render_top_account(user)
     page = navigation(user, module_settings)
-    # Uygulama içi geçişlerde kp_page query parametresini sunucu tarafından
-    # tekrar yazmak tarayıcı/Streamlit tarafında ek rerun ve beyaz ekran hissi
-    # oluşturabiliyor. URL, tıklama anında JS ile güncellenir; burada dokunulmaz.
+    persist_auth_query(user, page)
 
     prompts: Dict[str, str] = {}
     if page in AI_PROMPT_MODULES or page == "admin":
