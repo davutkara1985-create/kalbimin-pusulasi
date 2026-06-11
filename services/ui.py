@@ -1094,23 +1094,24 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
 
         .kp-hero, .kp-card, .kp-plan, .kp-metric, .kp-safe, .kp-notice, .kp-admin-card, .kp-inbox-card {{ animation: kpFadeUp 0.55s ease both; }}
         .kp-hero {{
-            min-height: 205px;
-            padding: 15px 16px 14px;
-            border-radius: 26px;
-            background:
-                linear-gradient(145deg, rgba(255,255,255,0.10), rgba(255,255,255,0.035)),
-                radial-gradient(circle at 22% 15%, rgba(38, 112, 183, 0.34), transparent 34%),
-                radial-gradient(circle at 88% 10%, rgba(217, 183, 110, 0.22), transparent 28%),
-                radial-gradient(circle at 62% 76%, rgba(123, 75, 214, 0.42), transparent 45%),
-                rgba(10, 12, 36, 0.78);
-            border: 1px solid var(--kp-border);
-            box-shadow: 0 30px 80px rgba(0,0,0,0.48), inset 0 1px 0 rgba(255,255,255,0.13);
-            position: relative;
-            overflow: hidden;
-            backdrop-filter: blur(18px);
-            margin-top: -0.110rem;
-            margin-bottom: 10px;
-        }}
+    max-width: 440px !important;
+    width: min(440px, calc(100vw - 32px)) !important;
+    min-height: 190px !important;
+    padding: 16px 17px 15px !important;
+    border-radius: 24px !important;
+    background:
+        linear-gradient(145deg, rgba(255,255,255,0.10), rgba(255,255,255,0.035)),
+        radial-gradient(circle at 22% 15%, rgba(38, 112, 183, 0.34), transparent 34%),
+        radial-gradient(circle at 88% 10%, rgba(217, 183, 110, 0.22), transparent 28%),
+        radial-gradient(circle at 62% 76%, rgba(123, 75, 214, 0.42), transparent 45%),
+        rgba(10, 12, 36, 0.78);
+    border: 1px solid var(--kp-border);
+    box-shadow: 0 22px 54px rgba(0,0,0,0.42), inset 0 1px 0 rgba(255,255,255,0.13);
+    position: relative;
+    overflow: hidden;
+    backdrop-filter: blur(24px);
+    margin: -0.55rem auto 1.05rem auto !important;
+}}
         .kp-hero::after {{
             content: "☉     ☽     ✧     ◇     ♀     ♃";
             position: absolute;
