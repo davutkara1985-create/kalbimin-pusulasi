@@ -237,8 +237,32 @@ def prevent_browser_translate() -> None:
                         doc.documentElement.classList.add('kp-page-changing');
                         setTimeout(clearGuard, 550);
                     }
-                    if (!parentWin.__kpNoWhiteFlashGuardV1) {
-                        parentWin.__kpNoWhiteFlashGuardV1 = true;
+                    function showPageTransitionCover() {
+                        try {
+                            parentWin.sessionStorage.setItem('kp_page_changing', '1');
+                            doc.documentElement.classList.add('kp-page-changing');
+                            doc.documentElement.style.backgroundColor = '#030613';
+                            if (doc.body) doc.body.style.backgroundColor = '#030613';
+
+                            let cover = doc.getElementById('kp-page-transition-cover');
+                            if (!cover && doc.body) {
+                                cover = doc.createElement('div');
+                                cover.id = 'kp-page-transition-cover';
+                                cover.setAttribute('aria-hidden', 'true');
+                                cover.style.cssText = 'position:fixed;inset:0;background:#030613;z-index:2147483647;pointer-events:none;opacity:1;';
+                                doc.body.appendChild(cover);
+                            }
+                        } catch (e) {}
+                    }
+                    function hidePageTransitionCover() {
+                        try {
+                            const cover = doc.getElementById('kp-page-transition-cover');
+                            if (cover && cover.parentNode) cover.parentNode.removeChild(cover);
+                        } catch (e) {}
+                        clearGuard();
+                    }
+                    if (!parentWin.__kpNoWhiteFlashGuardV2) {
+                        parentWin.__kpNoWhiteFlashGuardV2 = true;
                         doc.addEventListener('click', function(event) {
                             try {
                                 const target = event.target;
@@ -249,13 +273,12 @@ def prevent_browser_translate() -> None:
                                 const targetAttr = (link.getAttribute('target') || '').toLowerCase();
                                 if (targetAttr === '_blank' || href.startsWith('#') || href.startsWith('mailto:') || href.startsWith('tel:')) return;
                                 if (href.startsWith('?') || href.indexOf('kp_page=') !== -1 || link.className.indexOf('kp-side-nav') !== -1 || link.className.indexOf('kp-top-account') !== -1 || link.className.indexOf('kp-mobile-menu') !== -1) {
-                                    parentWin.sessionStorage.setItem('kp_page_changing', '1');
-                                    doc.documentElement.classList.add('kp-page-changing');
+                                    showPageTransitionCover();
                                 }
                             } catch (e) {}
                         }, true);
-                        parentWin.addEventListener('pageshow', function() { setTimeout(clearGuard, 150); });
-                        setTimeout(clearGuard, 1200);
+                        parentWin.addEventListener('pageshow', function() { setTimeout(hidePageTransitionCover, 150); });
+                        setTimeout(hidePageTransitionCover, 1200);
                     }
                 } catch (e) {}
             }
@@ -1315,11 +1338,16 @@ Ve gerçekten kendine şunu sor: “Kalbim bana ne anlatmak istiyor?”
 
 @st.cache_data(ttl=86400, show_spinner=False)
 def _home_video_data_uri() -> str:
-    """Return optimized home video as a data URI so Streamlit Cloud can serve it without extra static routing."""
+    """Return the original high quality home video as a data URI.
+
+    Fast/low-size background video caused visible quality loss, so the app now
+    prefers the original kp_home_landing.mp4 again. The fast video remains only
+    as a fallback if the original file is missing.
+    """
     base_dir = Path(__file__).resolve().parent / "assets" / "backgrounds"
-    fast_video = base_dir / "kp_home_landing_fast.mp4"
     original_video = base_dir / "kp_home_landing.mp4"
-    video_path = fast_video if fast_video.exists() else original_video
+    fast_video = base_dir / "kp_home_landing_fast.mp4"
+    video_path = original_video if original_video.exists() else fast_video
     if not video_path.exists():
         return ""
     encoded = base64.b64encode(video_path.read_bytes()).decode("utf-8")
@@ -1356,16 +1384,17 @@ def render_home_video_background() -> None:
             height: 100%;
             object-fit: cover;
             object-position: center center;
-            opacity: 0.92;
-            filter: brightness(0.96) contrast(1.04) saturate(1.08);
+            opacity: 0.78;
+            filter: saturate(1.08) contrast(1.05) brightness(0.72);
+            transform: scale(1.018);
         }
         .kp-home-video-bg::after {
             content: "";
             position: absolute;
             inset: 0;
             background:
-                linear-gradient(180deg, rgba(2,4,14,0.08), rgba(2,4,14,0.16) 56%, rgba(2,4,14,0.38)),
-                radial-gradient(circle at 50% 92%, rgba(28, 47, 92, 0.16), transparent 42%);
+                linear-gradient(180deg, rgba(2,4,14,0.26), rgba(2,4,14,0.40) 56%, rgba(2,4,14,0.72)),
+                radial-gradient(circle at 50% 92%, rgba(28, 47, 92, 0.34), transparent 42%);
         }
         [data-testid="stAppViewContainer"] > .main,
         [data-testid="stAppViewContainer"] .block-container {
@@ -1425,9 +1454,8 @@ def render_home_video_background() -> None:
         }
         @media (max-width: 760px) {
             .kp-home-video-bg video {
-                opacity: 0.86;
+                opacity: 0.70;
                 object-position: center center;
-                filter: brightness(0.94) contrast(1.04) saturate(1.06);
             }
             .kp-home-story-image-wrap {
                 width: min(92vw, 390px);
