@@ -1104,7 +1104,7 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
         radial-gradient(circle at 22% 15%, rgba(38, 112, 183, 0.14), transparent 34%),
         radial-gradient(circle at 88% 10%, rgba(217, 183, 110, 0.08), transparent 28%),
         radial-gradient(circle at 62% 76%, rgba(123, 75, 214, 0.14), transparent 45%),
-        rgba(10, 12, 36, 0.36) !important;
+        rgba(10, 12, 36, 0.15) !important;
     border: 1px solid rgba(217, 183, 110, 0.18) !important;
     box-shadow: 0 14px 34px rgba(0,0,0,0.26), inset 0 1px 0 rgba(255,255,255,0.08) !important;
     position: relative;
