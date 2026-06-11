@@ -977,7 +977,7 @@ def navigation(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]])
     valid_pages = valid_pages_for(user, module_settings)
     requested_page = _query_get(PAGE_QUERY_KEY, "home")
 
-    # URL ile doğrudan açılış desteklenir; normal menü geçişlerinde session_state önceliklidir.
+    # URL ile doğrudan açılış desteklenir; normal menü HTML satırları tasarıma gömülü kalır.
     if "current_page" not in st.session_state:
         st.session_state["current_page"] = requested_page if requested_page in valid_pages else "home"
 
@@ -989,31 +989,38 @@ def navigation(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]])
 
     current_page = st.session_state.get("current_page", "home")
 
-    def render_sidebar_nav_item(page_key: str, label: str, button_key: str) -> None:
-        """Compact embedded sidebar navigation.
-
-        Eski görünmez buton overlay sistemi metinlerin alta kaymasına neden oluyordu.
-        Bu yapı menüyü doğrudan tasarıma gömer: aktif satır sadece renk değiştirir,
-        pasif satırlar ise normal Streamlit butonu olarak çalışır.
-        """
-        safe_label = html_escape(str(label))
+    def render_sidebar_link(page_key: str, label: str, icon: str = "✦") -> None:
+        icon_rendered = sidebar_icon_html(page_key, icon)
+        label_html = html_escape(str(label))
         if current_page == page_key:
             st.sidebar.markdown(
-                f'<div class="kp-side-nav-item active"><span class="kp-side-nav-text">{safe_label}</span></div>',
+                f"""
+                <div class="kp-side-nav-item active">
+                    <span class="kp-side-nav-icon">{icon_rendered}</span>
+                    <span class="kp-side-nav-text">{label_html}</span>
+                </div>
+                """,
                 unsafe_allow_html=True,
             )
             return
 
-        if st.sidebar.button(str(label), key=button_key, use_container_width=True):
-            go_to_page(page_key, user, module_settings)
-            st.rerun()
+        href = html_escape(_nav_href(page_key, user), quote=True)
+        st.sidebar.markdown(
+            f"""
+            <a class="kp-side-nav-item kp-side-nav-link" href="{href}" target="_self">
+                <span class="kp-side-nav-icon">{icon_rendered}</span>
+                <span class="kp-side-nav-text">{label_html}</span>
+            </a>
+            """,
+            unsafe_allow_html=True,
+        )
 
-    render_sidebar_nav_item("home", "Ana Sayfa", "sidebar_nav_home")
+    render_sidebar_link("home", "Ana Sayfa", "⌂")
 
     st.sidebar.markdown("<div class='kp-sidebar-menu-title'>Menü</div>", unsafe_allow_html=True)
     for _group_title, _group_icon, items in build_menu_groups(user, module_settings):
-        for page_key, label, _icon in items:
-            render_sidebar_nav_item(page_key, label, f"sidebar_nav_{page_key}")
+        for page_key, label, icon in items:
+            render_sidebar_link(page_key, label, icon)
 
     render_mobile_navigation(user, module_settings, current_page)
     return st.session_state.get("current_page", "home")
