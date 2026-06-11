@@ -12,6 +12,7 @@ import re
 import time
 import unicodedata
 from urllib.parse import urlencode
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import streamlit as st
@@ -101,7 +102,8 @@ def prevent_browser_translate() -> None:
         """
         <script>
         try {
-            const doc = window.parent.document;
+            const parentWin = window.parent || window;
+            const doc = parentWin.document || document;
 
             function applyNoTranslate() {
                 if (!doc || !doc.documentElement) return;
@@ -135,41 +137,67 @@ def prevent_browser_translate() -> None:
                 doc.documentElement.style.setProperty('-webkit-text-size-adjust', '100%');
             }
 
+            function isEditableTarget(target) {
+                const tag = target && target.tagName ? target.tagName.toUpperCase() : '';
+                return !!(target && (
+                    tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target.isContentEditable
+                ));
+            }
+
+            function blockClearCacheShortcut(event) {
+                const key = (event.key || '').toLowerCase();
+                const code = (event.code || '').toLowerCase();
+                const isC = (key === 'c' || code === 'keyc');
+                if (!isC) return true;
+
+                // Form alanlarında normal harf yazımı etkilenmesin.
+                if (isEditableTarget(event.target) && !(event.ctrlKey || event.metaKey)) return true;
+
+                // Ctrl/Cmd+C kopyalama çalışsın; ancak Streamlit'in Clear caches kısayoluna yayılmasın.
+                if (event.ctrlKey || event.metaKey) {
+                    event.stopPropagation();
+                    if (event.stopImmediatePropagation) event.stopImmediatePropagation();
+                    return true;
+                }
+
+                // Düz "c" Streamlit'te Clear caches penceresini açabildiği için engellenir.
+                event.preventDefault();
+                event.stopPropagation();
+                if (event.stopImmediatePropagation) event.stopImmediatePropagation();
+                return false;
+            }
+
+            function closeClearCacheDialog() {
+                const needle = "Are you sure you want to clear the app's function caches";
+                const dialogs = Array.from(doc.querySelectorAll('[role="dialog"], [data-testid="stDialog"], div'));
+                for (const el of dialogs) {
+                    const txt = (el.innerText || '');
+                    if (txt.includes(needle)) {
+                        const buttons = Array.from(el.querySelectorAll('button'));
+                        const cancel = buttons.find(btn => /cancel|hayır|vazgeç|no/i.test(btn.innerText || ''));
+                        if (cancel) cancel.click();
+                        else doc.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', bubbles: true}));
+                        el.style.display = 'none';
+                        return true;
+                    }
+                }
+                return false;
+            }
+
             applyNoTranslate();
             setTimeout(applyNoTranslate, 700);
 
-            if (!window.parent.__kpDisableClearCacheShortcutV3) {
-                window.parent.__kpDisableClearCacheShortcutV3 = true;
-                const blockClearCacheShortcut = function(event) {
-                    const key = (event.key || '').toLowerCase();
-                    const code = (event.code || '').toLowerCase();
-                    const target = event.target;
-                    const tag = target && target.tagName ? target.tagName.toUpperCase() : '';
-                    const editable = target && (
-                        tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target.isContentEditable
-                    );
-                    const isC = (key === 'c' || code === 'keyc');
-                    if (!isC) return;
-
-                    // Ctrl/Cmd+C gerçek kopyalamayı sürdürür; sadece Streamlit'in Clear caches kısayoluna gitmesini engeller.
-                    if (event.ctrlKey || event.metaKey) {
-                        event.stopPropagation();
-                        event.stopImmediatePropagation();
-                        return true;
-                    }
-
-                    // Metin alanına normal c yazmayı bozma.
-                    if (editable) return;
-
-                    // Düz c tuşu Streamlit'te Clear caches penceresini açtığı için tamamen engellenir.
-                    event.preventDefault();
-                    event.stopPropagation();
-                    event.stopImmediatePropagation();
-                    return false;
-                };
-                doc.addEventListener('keydown', blockClearCacheShortcut, true);
-                doc.addEventListener('keypress', blockClearCacheShortcut, true);
-                doc.addEventListener('keyup', blockClearCacheShortcut, true);
+            if (!parentWin.__kpDisableClearCacheShortcutV5) {
+                parentWin.__kpDisableClearCacheShortcutV5 = true;
+                const targets = [doc, parentWin, window].filter(Boolean);
+                for (const target of targets) {
+                    target.addEventListener('keydown', blockClearCacheShortcut, true);
+                    target.addEventListener('keypress', blockClearCacheShortcut, true);
+                    target.addEventListener('keyup', blockClearCacheShortcut, true);
+                }
+                const observer = new MutationObserver(closeClearCacheDialog);
+                if (doc.body) observer.observe(doc.body, {childList: true, subtree: true});
+                setInterval(closeClearCacheDialog, 1200);
             }
         } catch (e) {}
         </script>
@@ -178,9 +206,10 @@ def prevent_browser_translate() -> None:
         width=0,
     )
 
-if not st.session_state.get("_kp_browser_setup_done"):
-    prevent_browser_translate()
-    st.session_state["_kp_browser_setup_done"] = True
+# Clear caches kısayolunu ve tarayıcı çeviri müdahalesini her rerun'da güvenli şekilde bastır.
+# JS tarafında tek seferlik işaret kullanıldığı için tekrar dinleyici birikmez.
+prevent_browser_translate()
+st.session_state["_kp_browser_setup_done"] = True
 
 # Performans: açılışta Firestore'dan tasarım ayarı çekilmez.
 # Admin Tasarım sekmesinde güncel ayarlar ayrıca yüklenir.
@@ -1089,27 +1118,122 @@ def render_back_home_button(page: str) -> None:
     st.markdown('</div>', unsafe_allow_html=True)
 
 
+HOME_STORY_TEXT = """Bazen bazı duygular vardır… Ne tam anlatabilirsin, ne de içinden atabilirsin. Sanki kalbin bir şey söylemek ister ama kelimeler yetmez. İçinde kalan bir soru, yarım kalmış bir hikâye ya da adını koyamadığın bir his… İşte tam da bu yüzden buradasın. Çünkü bazı cevaplar dışarıda değil… Senin içinde, hislerinde ve enerjinde saklıdır. Bu alan sadece bir uygulama değil. Burası; hislerini anlamlandırdığın, iç sesini gerçekten duyduğun, Ve sana söylenmeyeni fark ettiğin bir yolculuk. Belki kalbinde kapanmamış bir konu var… Belki aklından çıkmayan biri… Belki de nedenini bilmeden hissettiğin bir ağırlık. Bazen bir mesaj gecikir ama gelmesi kaçınılmazdır… Bazen bir bağ kopmaz, sadece sessizce bekler… Ve bazen… Sen fark etmeden bir şeyler değişmeye başlar. Şu an bulunduğun yer bir tesadüf değil. Buraya gelişinin bir nedeni var. Çünkü içinden geçen o küçük ses seni buraya getirdi. Belki bugün duymaya hazır olduğun bir şey var. Belki uzun zamandır beklediğin bir cevap… Artık kendini göstermeye hazırlanıyor. Acele etme… Bir an dur… Derin bir nefes al… Ve gerçekten kendine şunu sor: “Kalbim bana ne anlatmak istiyor?” Çünkü cevaplar burada… ve sandığından çok daha yakın."""
+
+
+@st.cache_data(ttl=86400, show_spinner=False)
+def _home_video_data_uri() -> str:
+    """Return optimized home video as a data URI so Streamlit Cloud can serve it without extra static routing."""
+    video_path = Path(__file__).resolve().parent / "assets" / "backgrounds" / "kp_home_landing.mp4"
+    if not video_path.exists():
+        return ""
+    encoded = base64.b64encode(video_path.read_bytes()).decode("utf-8")
+    return f"data:video/mp4;base64,{encoded}"
+
+
+def render_home_video_background() -> None:
+    video_uri = _home_video_data_uri()
+    if not video_uri:
+        return
+    safe_uri = html_escape(video_uri, quote=True)
+    st.markdown(
+        """
+        <style>
+        .stApp {
+            background: #030613 !important;
+        }
+        [data-testid="stAppViewContainer"] {
+            background: transparent !important;
+        }
+        .kp-home-video-bg {
+            position: fixed;
+            inset: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 0;
+            overflow: hidden;
+            pointer-events: none;
+            background: radial-gradient(circle at 50% 18%, rgba(40, 54, 120, 0.42), transparent 38%), #020414;
+        }
+        .kp-home-video-bg video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            object-position: center center;
+            opacity: 0.78;
+            filter: saturate(1.08) contrast(1.05) brightness(0.72);
+            transform: scale(1.018);
+        }
+        .kp-home-video-bg::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background:
+                linear-gradient(180deg, rgba(2,4,14,0.26), rgba(2,4,14,0.40) 56%, rgba(2,4,14,0.72)),
+                radial-gradient(circle at 50% 92%, rgba(28, 47, 92, 0.34), transparent 42%);
+        }
+        [data-testid="stAppViewContainer"] > .main,
+        [data-testid="stAppViewContainer"] .block-container {
+            position: relative;
+            z-index: 2;
+            background: transparent !important;
+        }
+        [data-testid="stAppViewContainer"] .block-container {
+            padding-top: 0.35rem !important;
+        }
+        .kp-home-story {
+            position: relative;
+            z-index: 3;
+            max-width: 620px;
+            margin: 0.75rem auto 3.1rem;
+            padding: 0 0.45rem;
+            color: rgba(255, 246, 221, 0.92);
+            font-family: "Monotype Corsiva", "Segoe Script", "Lucida Handwriting", "Brush Script MT", "Apple Chancery", cursive;
+            font-size: clamp(1.02rem, 2.6vw, 1.28rem);
+            line-height: 1.55;
+            letter-spacing: 0.01em;
+            text-align: center;
+            text-shadow: 0 2px 11px rgba(0,0,0,0.82), 0 0 18px rgba(255,241,184,0.18);
+        }
+        .kp-home-story strong {
+            color: #fff1b8;
+            font-weight: 700;
+            text-shadow: 0 2px 12px rgba(0,0,0,0.86), 0 0 18px rgba(255,241,184,0.28);
+        }
+        @media (max-width: 760px) {
+            .kp-home-video-bg video {
+                opacity: 0.70;
+                object-position: center center;
+            }
+            .kp-home-story {
+                font-size: 1.03rem;
+                line-height: 1.48;
+                margin-top: 0.55rem;
+                padding: 0 0.35rem;
+            }
+        }
+        </style>
+        <div class="kp-home-video-bg" aria-hidden="true">
+            <video autoplay muted loop playsinline preload="auto">
+                <source src="__VIDEO_URI__" type="video/mp4" />
+            </video>
+        </div>
+        """.replace("__VIDEO_URI__", safe_uri),
+        unsafe_allow_html=True,
+    )
+
+
+def render_home_story_text() -> None:
+    story_html = html_escape(HOME_STORY_TEXT).replace("Kalbim bana ne anlatmak istiyor?", "<strong>Kalbim bana ne anlatmak istiyor?</strong>")
+    st.markdown(f"<div class='kp-home-story'>{story_html}</div>", unsafe_allow_html=True)
+
+
 def page_home(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]]) -> None:
+    # Ana sayfada yalnızca video arka plan, marka kutusu ve gömülü hikâye metni gösterilir.
+    # Modüllere erişim sol/mobil menüden yapılır; kartlar ve Freemium plan bloğu özellikle kaldırıldı.
+    render_home_video_background()
     render_hero(user)
-
-    render_section_header("AŞK ODAĞIN", "Kalbimin Pusulası fısıldar, ruhun hatırlar", kicker="")
-    priority_keys = ["relationship", "message_analysis", "love_fortune", "daily_energy", "mini_tarot", "coffee_text"]
-    visible_keys = [key for key in priority_keys if key in MODULES and module_active(key, module_settings)]
-    for start in range(0, len(visible_keys), 2):
-        cols = st.columns(2)
-        for col, key in zip(cols, visible_keys[start : start + 2]):
-            meta = module_meta(key, module_settings)
-            required_plan = str(meta.get("min_plan", "free"))
-            locked = False
-            with col:
-                render_module_card(key, meta, locked=locked)
-                if st.button("Bu bölüme git →", key=f"home_open_{key}", use_container_width=True):
-                    go_to_page(key, user, module_settings)
-                    st.rerun()
-
-    render_section_header("Freemium plan", "Ücretsiz dene; detaylı ve özel yorumlar için Premium'a geç.", kicker="Plan")
-    render_plan_cards(user.get("plan", "free"))
-
+    render_home_story_text()
 
 def page_subscription(user: Dict[str, Any]) -> None:
     if user.get("is_guest"):
