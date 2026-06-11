@@ -397,6 +397,154 @@ PUBLIC_SETTINGS = {"style": {}}
 inject_css(PUBLIC_SETTINGS.get("style", {}))
 
 
+def inject_fast_navigation_css() -> None:
+    """Small overrides for fast in-app navigation without changing the visual design."""
+    st.markdown(
+        """
+        <style id="kp-fast-navigation-overrides">
+        /* Sol menü: tasarım satırı aynı kalır, tıklama Streamlit butonuyla yapılır. */
+        .kp-side-nav-clickrow {
+            display: flex !important;
+            align-items: center !important;
+            gap: 7px !important;
+            pointer-events: none !important;
+        }
+        [data-testid="stSidebar"] .element-container:has(.kp-side-nav-clickrow) {
+            height: 35px !important;
+            min-height: 35px !important;
+            margin: 0 0 -35px 0 !important;
+            padding: 0 !important;
+            position: relative !important;
+            z-index: 1 !important;
+            pointer-events: none !important;
+        }
+        [data-testid="stSidebar"] .element-container:has(.kp-side-nav-clickrow) + .element-container {
+            height: 35px !important;
+            min-height: 35px !important;
+            margin: 0 0 2px 0 !important;
+            padding: 0 !important;
+            position: relative !important;
+            z-index: 3 !important;
+        }
+        [data-testid="stSidebar"] .element-container:has(.kp-side-nav-clickrow) + .element-container div.stButton,
+        [data-testid="stSidebar"] .element-container:has(.kp-side-nav-clickrow) + .element-container div.stButton > button {
+            width: 100% !important;
+            height: 35px !important;
+            min-height: 35px !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            border: none !important;
+            outline: none !important;
+            box-shadow: none !important;
+            background: transparent !important;
+            color: transparent !important;
+            opacity: 0 !important;
+            cursor: pointer !important;
+        }
+        [data-testid="stSidebar"] .element-container:has(.kp-side-nav-clickrow) + .element-container div.stButton > button * {
+            color: transparent !important;
+            opacity: 0 !important;
+        }
+
+        /* Sağ üst hesap/mesaj alanı: eski görünüme yakın, ama tıklama Streamlit butonuyla yapılır. */
+        .element-container:has(.kp-top-account-native-anchor) {
+            height: 0 !important;
+            min-height: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: visible !important;
+        }
+        div[data-testid="stHorizontalBlock"]:has(.kp-top-account-name-native) {
+            position: fixed !important;
+            top: 12px !important;
+            right: 18px !important;
+            left: auto !important;
+            z-index: 999999 !important;
+            width: auto !important;
+            max-width: min(360px, calc(100vw - var(--kp-sidebar-width) - 28px)) !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: flex-end !important;
+            gap: 8px !important;
+            margin: 0 !important;
+            padding: 6px 8px !important;
+            border-radius: 999px !important;
+            background: rgba(6, 8, 23, 0.62) !important;
+            border: 1px solid rgba(255, 241, 184, 0.18) !important;
+            box-shadow: 0 12px 28px rgba(0,0,0,0.22), inset 0 1px 0 rgba(255,255,255,0.08) !important;
+        }
+        div[data-testid="stHorizontalBlock"]:has(.kp-top-account-name-native) > div[data-testid="column"] {
+            width: auto !important;
+            flex: 0 0 auto !important;
+            min-width: 0 !important;
+            padding: 0 !important;
+        }
+        .kp-top-account-name-native {
+            color: var(--kp-gold-2) !important;
+            font-size: 0.76rem !important;
+            font-weight: 900 !important;
+            line-height: 26px !important;
+            max-width: 170px !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+            white-space: nowrap !important;
+            padding: 0 2px !important;
+        }
+        div[data-testid="stHorizontalBlock"]:has(.kp-top-account-name-native) div.stButton,
+        div[data-testid="stHorizontalBlock"]:has(.kp-top-account-name-native) div.stButton > button {
+            margin: 0 !important;
+            width: auto !important;
+        }
+        div[data-testid="stHorizontalBlock"]:has(.kp-top-account-name-native) div.stButton > button {
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            min-height: 26px !important;
+            height: 26px !important;
+            padding: 0 10px !important;
+            border-radius: 999px !important;
+            background: linear-gradient(135deg, rgba(217,183,110,0.96), rgba(154,112,52,0.96)) !important;
+            color: #120d23 !important;
+            border: 1px solid rgba(255,241,184,0.32) !important;
+            font-size: 0.72rem !important;
+            font-weight: 900 !important;
+            text-decoration: none !important;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.28) !important;
+            white-space: nowrap !important;
+            line-height: 1 !important;
+        }
+        div[data-testid="stHorizontalBlock"]:has(.kp-top-account-name-native) div.stButton > button:hover {
+            filter: brightness(1.06) !important;
+            transform: none !important;
+        }
+        @media (max-width: 760px) {
+            div[data-testid="stHorizontalBlock"]:has(.kp-top-account-name-native) {
+                top: 8px !important;
+                right: 10px !important;
+                max-width: calc(100vw - 20px) !important;
+                gap: 5px !important;
+                padding: 5px 6px !important;
+            }
+            .kp-top-account-name-native {
+                max-width: 120px !important;
+                font-size: 0.70rem !important;
+                line-height: 24px !important;
+            }
+            div[data-testid="stHorizontalBlock"]:has(.kp-top-account-name-native) div.stButton > button {
+                min-height: 24px !important;
+                height: 24px !important;
+                padding: 0 7px !important;
+                font-size: 0.66rem !important;
+            }
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+inject_fast_navigation_css()
+
+
 BASE_MENU_GROUPS = [
     (
         "Romantik Fal",
@@ -741,21 +889,26 @@ def render_top_account(user: Dict[str, Any]) -> None:
     if not user or user.get("is_guest"):
         return
     display_name = str(user.get("display_name") or user.get("email", "Kullanıcı").split("@")[0]).strip()
-    account_href = _nav_href("account", user)
-    inbox_href = _nav_href("inbox", user)
     message_count = inbox_message_count(user)
-    badge_html = f'<span class="kp-top-account-badge">{message_count}</span>' if message_count > 0 else ""
-    st.markdown(
-        f"""
-        <div class="kp-top-account-floating">
-            <span class="kp-top-account-name">{html_escape(display_name)}</span>
-            <a class="kp-top-account-link kp-top-message-link" href="{html_escape(inbox_href, quote=True)}" target="_self">✉ Mesajlar{badge_html}</a>
-            <a class="kp-top-account-link" href="{html_escape(account_href, quote=True)}" target="_self">Hesabım</a>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+    message_label = f"✉ Mesajlar {message_count}" if message_count > 0 else "✉ Mesajlar"
 
+    # HTML linkler tarayıcı seviyesinde sayfayı yenilediği için beyaz ekran oluşturuyordu.
+    # Aynı görünüm korunur; tıklama artık Streamlit state üzerinden yapılır.
+    st.markdown('<div class="kp-top-account-native-anchor"></div>', unsafe_allow_html=True)
+    name_col, inbox_col, account_col = st.columns([1.35, 1.0, 0.82], gap="small")
+    with name_col:
+        st.markdown(
+            f'<div class="kp-top-account-name-native">{html_escape(display_name)}</div>',
+            unsafe_allow_html=True,
+        )
+    with inbox_col:
+        if st.button(message_label, key="top_nav_inbox", use_container_width=True):
+            go_to_page("inbox", user)
+            st.rerun()
+    with account_col:
+        if st.button("Hesabım", key="top_nav_account", use_container_width=True):
+            go_to_page("account", user)
+            st.rerun()
 
 def unread_inbox_count(user: Optional[Dict[str, Any]]) -> int:
     if not user or user.get("is_guest"):
@@ -1066,7 +1219,7 @@ def navigation(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]])
     valid_pages = valid_pages_for(user, module_settings)
     requested_page = _query_get(PAGE_QUERY_KEY, "home")
 
-    # URL ile doğrudan açılış desteklenir; normal menü HTML satırları tasarıma gömülü kalır.
+    # URL ile doğrudan açılış desteklenir; normal menü geçişleri artık Streamlit state ile yapılır.
     if "current_page" not in st.session_state:
         st.session_state["current_page"] = requested_page if requested_page in valid_pages else "home"
 
@@ -1081,28 +1234,23 @@ def navigation(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]])
     def render_sidebar_link(page_key: str, label: str, icon: str = "✦") -> None:
         icon_rendered = sidebar_icon_html(page_key, icon)
         label_html = html_escape(str(label))
-        if current_page == page_key:
-            st.sidebar.markdown(
-                f"""
-                <div class="kp-side-nav-item active">
-                    <span class="kp-side-nav-icon">{icon_rendered}</span>
-                    <span class="kp-side-nav-text">{label_html}</span>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-            return
-
-        href = html_escape(_nav_href(page_key, user), quote=True)
-        st.sidebar.markdown(
-            f"""
-            <a class="kp-side-nav-item kp-side-nav-link" href="{href}" target="_self">
+        row_class = "active" if current_page == page_key else "kp-side-nav-clickrow"
+        visual_html = f"""
+            <div class="kp-side-nav-item {row_class}">
                 <span class="kp-side-nav-icon">{icon_rendered}</span>
                 <span class="kp-side-nav-text">{label_html}</span>
-            </a>
-            """,
-            unsafe_allow_html=True,
-        )
+            </div>
+        """
+        st.sidebar.markdown(visual_html, unsafe_allow_html=True)
+
+        if current_page == page_key:
+            return
+
+        # Boş ve görünmez Streamlit butonu aynı satırın üzerine oturur.
+        # Böylece tasarım HTML kalır, geçiş ise tarayıcı reload olmadan hızlanır.
+        if st.sidebar.button(" ", key=f"sidebar_nav_{page_key}", use_container_width=True):
+            go_to_page(page_key, user, module_settings)
+            st.rerun()
 
     render_sidebar_link("home", "Ana Sayfa", "⌂")
 
@@ -1338,21 +1486,31 @@ Ve gerçekten kendine şunu sor: “Kalbim bana ne anlatmak istiyor?”
 
 @st.cache_data(ttl=86400, show_spinner=False)
 def _home_video_data_uri() -> str:
-    """Return the original high quality home video as a data URI.
+    """Return the high quality home video using static serving when possible.
 
-    Fast/low-size background video caused visible quality loss, so the app now
-    prefers the original kp_home_landing.mp4 again. The fast video remains only
-    as a fallback if the original file is missing.
+    Sending the MP4 as a base64 data URI on every rerun makes page transitions slow.
+    This keeps the original video quality but serves it as a normal static file.
+    If static serving is unavailable, the old data URI fallback is still used.
     """
-    base_dir = Path(__file__).resolve().parent / "assets" / "backgrounds"
-    original_video = base_dir / "kp_home_landing.mp4"
-    fast_video = base_dir / "kp_home_landing_fast.mp4"
+    base_dir = Path(__file__).resolve().parent
+    background_dir = base_dir / "assets" / "backgrounds"
+    original_video = background_dir / "kp_home_landing.mp4"
+    fast_video = background_dir / "kp_home_landing_fast.mp4"
     video_path = original_video if original_video.exists() else fast_video
     if not video_path.exists():
         return ""
-    encoded = base64.b64encode(video_path.read_bytes()).decode("utf-8")
-    return f"data:video/mp4;base64,{encoded}"
 
+    try:
+        static_dir = base_dir / "static"
+        static_dir.mkdir(parents=True, exist_ok=True)
+        target = static_dir / "kp_home_landing.mp4"
+        source_stat = video_path.stat()
+        if (not target.exists()) or target.stat().st_size != source_stat.st_size:
+            target.write_bytes(video_path.read_bytes())
+        return "/app/static/kp_home_landing.mp4"
+    except Exception:
+        encoded = base64.b64encode(video_path.read_bytes()).decode("utf-8")
+        return f"data:video/mp4;base64,{encoded}"
 
 def render_home_video_background() -> None:
     video_uri = _home_video_data_uri()
