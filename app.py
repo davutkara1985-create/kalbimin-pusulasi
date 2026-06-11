@@ -48,22 +48,25 @@ from services.db import (
     get_all_module_settings,
     get_all_prompts,
     get_content_items,
+    get_inbox_count,
     get_or_create_user,
     get_public_settings,
     get_usage,
     list_inbox,
     list_manual_requests,
+    list_user_feedback,
     list_users,
-    mark_inbox_read,
     record_usage,
     save_module_setting,
     save_prompt,
     save_reading,
     save_style_settings,
+    send_feedback_response,
     send_manual_response,
     submit_email_lead,
     submit_manual_request,
     submit_upgrade_request,
+    submit_user_feedback,
     update_content_item,
 )
 from services.ui import (
@@ -96,6 +99,23 @@ st.set_page_config(
     menu_items={"Get help": None, "Report a bug": None, "About": None},
 )
 
+# Sayfa geçişlerinde görülen beyaz parlamayı azaltmak için en erken aşamada
+# koyu arka plan basılır; ana CSS daha sonra detaylı tasarımı yükler.
+st.markdown(
+    """
+    <style id="kp-no-flash">
+    html, body, .stApp, [data-testid="stAppViewContainer"] {
+        background: #060817 !important;
+        color: #fff8e8 !important;
+    }
+    [data-testid="stAppViewContainer"] > .main {
+        background: transparent !important;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 
 def prevent_browser_translate() -> None:
     components.html(
@@ -104,6 +124,38 @@ def prevent_browser_translate() -> None:
         try {
             const parentWin = window.parent || window;
             const doc = parentWin.document || document;
+            const KP_AUTH_STORAGE_KEY = 'kp_auth_token_v1';
+
+            function syncRememberedAuth() {
+                try {
+                    const params = new URLSearchParams(parentWin.location.search || '');
+                    if (params.get('kp_logout') === '1') {
+                        parentWin.localStorage.removeItem(KP_AUTH_STORAGE_KEY);
+                        params.delete('kp_logout');
+                        const cleaned = params.toString();
+                        parentWin.history.replaceState({}, '', parentWin.location.pathname + (cleaned ? '?' + cleaned : '') + parentWin.location.hash);
+                        return;
+                    }
+
+                    const token = params.get('kp_auth') || '';
+                    const remember = params.get('kp_remember') === '1';
+                    if (token && remember) {
+                        parentWin.localStorage.setItem(KP_AUTH_STORAGE_KEY, token);
+                        return;
+                    }
+                    if (token && !remember) {
+                        parentWin.localStorage.removeItem(KP_AUTH_STORAGE_KEY);
+                        return;
+                    }
+
+                    const storedToken = parentWin.localStorage.getItem(KP_AUTH_STORAGE_KEY);
+                    if (storedToken) {
+                        params.set('kp_auth', storedToken);
+                        if (!params.get('kp_page')) params.set('kp_page', 'home');
+                        parentWin.location.replace(parentWin.location.pathname + '?' + params.toString() + parentWin.location.hash);
+                    }
+                } catch (e) {}
+            }
 
             function applyNoTranslate() {
                 if (!doc || !doc.documentElement) return;
@@ -184,6 +236,7 @@ def prevent_browser_translate() -> None:
                 return false;
             }
 
+            syncRememberedAuth();
             applyNoTranslate();
             setTimeout(applyNoTranslate, 700);
 
@@ -322,6 +375,8 @@ def normalize_email(email: str) -> str:
 
 AUTH_QUERY_KEY = "kp_auth"
 PAGE_QUERY_KEY = "kp_page"
+REMEMBER_QUERY_KEY = "kp_remember"
+LOGOUT_QUERY_KEY = "kp_logout"
 
 
 def _query_get(key: str, default: str = "") -> str:
@@ -421,8 +476,14 @@ def persist_auth_query(user: Dict[str, Any], page: str = "home") -> None:
         token = _auth_token_for_user(user)
         if token:
             _query_set(AUTH_QUERY_KEY, token)
+        if bool(st.session_state.get("remember_me", False)):
+            _query_set(REMEMBER_QUERY_KEY, "1")
+        else:
+            _query_delete(REMEMBER_QUERY_KEY)
+        _query_delete(LOGOUT_QUERY_KEY)
     else:
         _query_delete(AUTH_QUERY_KEY)
+        _query_delete(REMEMBER_QUERY_KEY)
 
     if page:
         _query_set(PAGE_QUERY_KEY, page)
@@ -437,6 +498,8 @@ def restore_auth_from_query() -> Optional[Dict[str, Any]]:
         st.session_state["auth_user"] = user
         # Token üzerinden geri dönüşte mevcut seçim korunur; yoksa güvenli şekilde aktif kabul edilir.
         st.session_state.setdefault("remember_me", True)
+        _query_set(REMEMBER_QUERY_KEY, "1")
+        _query_delete(LOGOUT_QUERY_KEY)
         return user
     except Exception:
         return None
@@ -446,7 +509,9 @@ def logout() -> None:
     for key in ["auth_user", "current_page", "active_email", "remember_me"]:
         st.session_state.pop(key, None)
     _query_delete(AUTH_QUERY_KEY)
+    _query_delete(REMEMBER_QUERY_KEY)
     _query_delete(PAGE_QUERY_KEY)
+    _query_set(LOGOUT_QUERY_KEY, "1")
 
 
 def auth_sidebar() -> Optional[Dict[str, Any]]:
@@ -553,18 +618,16 @@ def render_top_account(user: Dict[str, Any]) -> None:
     if not user or user.get("is_guest"):
         return
     display_name = str(user.get("display_name") or user.get("email", "Kullanıcı").split("@")[0]).strip()
-    token = _auth_token_for_user(user)
-    params = {PAGE_QUERY_KEY: "account"}
-    if token:
-        params[AUTH_QUERY_KEY] = token
-    account_href = "?" + urlencode(params)
-    unread = unread_inbox_count(user)
-    badge_html = f'<span class="kp-top-account-badge">{unread}</span>' if unread > 0 else ""
+    account_href = _nav_href("account", user)
+    inbox_href = _nav_href("inbox", user)
+    message_count = inbox_message_count(user)
+    badge_html = f'<span class="kp-top-account-badge">{message_count}</span>' if message_count > 0 else ""
     st.markdown(
         f"""
         <div class="kp-top-account-floating">
             <span class="kp-top-account-name">{html_escape(display_name)}</span>
-            <a class="kp-top-account-link" href="{html_escape(account_href, quote=True)}" target="_self">Hesabım{badge_html}</a>
+            <a class="kp-top-account-link kp-top-message-link" href="{html_escape(inbox_href, quote=True)}" target="_self">✉ Mesajlar{badge_html}</a>
+            <a class="kp-top-account-link" href="{html_escape(account_href, quote=True)}" target="_self">Hesabım</a>
         </div>
         """,
         unsafe_allow_html=True,
@@ -580,29 +643,19 @@ def unread_inbox_count(user: Optional[Dict[str, Any]]) -> int:
     return _cached_unread_inbox_count(user_id)
 
 
+def inbox_message_count(user: Optional[Dict[str, Any]]) -> int:
+    if not user or user.get("is_guest"):
+        return 0
+    user_id = str(user.get("id", "") or "")
+    if not user_id:
+        return 0
+    return _cached_inbox_message_count(user_id)
+
+
 def render_user_message_notification(user: Dict[str, Any], current_page: str) -> None:
-    count = unread_inbox_count(user)
-    if count <= 0 or current_page in {"account", "inbox", "admin"}:
-        return
-
-    toast_key = f"kp_unread_toast_seen_{count}"
-    if not st.session_state.get(toast_key):
-        st.session_state[toast_key] = True
-        try:
-            st.toast(f"Yeni admin mesajın var: {count}", icon="🔔")
-        except Exception:
-            pass
-
-    inbox_href = html_escape(_nav_href("inbox", user), quote=True)
-    st.markdown(
-        f"""
-        <a class="kp-message-notice" href="{inbox_href}" target="_self">
-            <span class="kp-message-notice-dot">🔔</span>
-            <span><strong>{count} yeni admin mesajın var.</strong> Görmek için dokun.</span>
-        </a>
-        """,
-        unsafe_allow_html=True,
-    )
+    # Mesaj erişimi üst sağdaki Mesajlar kutusuna taşındı.
+    # Sayfa içinde sürekli bildirim göstermek, mobilde alan kaybı ve tekrar hissi oluşturuyordu.
+    return
 
 
 
@@ -776,13 +829,15 @@ def build_menu_groups(user: Dict[str, Any], module_settings: Dict[str, Dict[str,
                 continue
             visible_items.append((page_key, default_label, icon))
 
+    if user and not user.get("is_guest"):
+        visible_items.append(("feedback", "İstek / Öneri / Şikayet", "✍"))
     if is_admin(user):
         visible_items.append(("admin", "Admin Paneli", "⚙"))
     return [("", "", visible_items)]
 
 
 def valid_pages_for(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]]) -> set[str]:
-    pages = {"home", "subscription", "account", "inbox"}
+    pages = {"home", "subscription", "account", "inbox", "feedback"}
     for _, _, items in build_menu_groups(user, module_settings):
         pages.update(page_key for page_key, _, _ in items)
     return pages
@@ -834,6 +889,8 @@ def _nav_href(page_key: str, user: Optional[Dict[str, Any]] = None) -> str:
     token = _auth_token_for_user(user) or _query_get(AUTH_QUERY_KEY)
     if read_auth_token(token):
         params[AUTH_QUERY_KEY] = token
+    if bool(st.session_state.get("remember_me", False)):
+        params[REMEMBER_QUERY_KEY] = "1"
     return "?" + urlencode(params)
 
 
@@ -845,7 +902,12 @@ def render_mobile_navigation(user: Dict[str, Any], module_settings: Dict[str, Di
     if not items:
         return
 
-    links = []
+    home_href = html_escape(_nav_href("home", user), quote=True)
+    home_active_class = " active" if current_page == "home" else ""
+    links = [
+        f'<a class="kp-mobile-menu-link kp-mobile-menu-home{home_active_class}" href="{home_href}" target="_self">'
+        f'<span class="kp-mobile-menu-icon">⌂</span><span>Ana Sayfa</span></a>'
+    ]
     for page_key, label, icon in items:
         icon_rendered = sidebar_icon_html(page_key, icon)
         active_class = " active" if current_page == page_key else ""
@@ -881,8 +943,17 @@ def navigation(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]])
     if st.session_state.get("current_page") not in valid_pages:
         reset_navigation_to_home()
 
-    st.sidebar.markdown("<div class='kp-sidebar-menu-title'>Menü</div>", unsafe_allow_html=True)
     current_page = st.session_state.get("current_page", "home")
+    home_href = html_escape(_nav_href("home", user), quote=True)
+    st.sidebar.markdown(
+        f"""
+        <a class="kp-sidebar-home-link{' active' if current_page == 'home' else ''}" href="{home_href}" target="_self">
+            <span class="kp-sidebar-home-icon">⌂</span><span>Ana Sayfa</span>
+        </a>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.sidebar.markdown("<div class='kp-sidebar-menu-title'>Menü</div>", unsafe_allow_html=True)
     for _group_title, _group_icon, items in build_menu_groups(user, module_settings):
         for page_key, label, icon in items:
             icon_rendered = sidebar_icon_html(page_key, icon)
@@ -2734,11 +2805,10 @@ def render_inbox_message_list(user: Dict[str, Any], context_key: str = "inbox") 
     for idx, item in enumerate(items, start=1):
         title = str(item.get("title") or "Admin mesajı")
         message = str(item.get("message") or "")
-        status = "Okunmadı" if not item.get("read") else "Okundu"
         preview = message.strip().replace("\n", " ")[:90]
-        label = f"{'🔔' if not item.get('read') else '✓'} {title} · {status}"
+        label = f"✉ {title}"
         with st.expander(label, expanded=False):
-            st.caption(f"Mesaj #{idx} · {status}")
+            st.caption(f"Mesaj #{idx}")
             if preview:
                 suffix = "..." if len(message) > 90 else ""
                 st.markdown(
@@ -2748,7 +2818,7 @@ def render_inbox_message_list(user: Dict[str, Any], context_key: str = "inbox") 
             st.markdown(
                 f"""
                 <div class="kp-inbox-card kp-inbox-card-detail">
-                    <span class="kp-tag">{html_escape(status)}</span>
+                    <span class="kp-tag">Admin mesajı</span>
                     <h3>{html_escape(title)}</h3>
                     <p>{html_escape(message)}</p>
                 </div>
@@ -2759,13 +2829,52 @@ def render_inbox_message_list(user: Dict[str, Any], context_key: str = "inbox") 
             response_module_key = str(item.get("request_type") or "")
             if response_module_key in MODULES:
                 render_page_rating(response_module_key, user, context_id=str(item.get("id", "")))
-            if not item.get("read") and st.button("Okundu olarak işaretle", key=f"{context_key}_read_{item['id']}"):
-                mark_inbox_read(user, item["id"])
-                try:
-                    _cached_unread_inbox_count.clear()
-                except Exception:
-                    pass
-                st.rerun()
+
+
+
+def page_feedback(user: Dict[str, Any]) -> None:
+    if not require_account(user):
+        return
+
+    render_section_header(
+        "İstek / Öneri / Şikayet",
+        "Uygulamayla ilgili mesajını doğrudan admine iletebilirsin.",
+        kicker="Geri Bildirim",
+    )
+    st.markdown(
+        """
+        <div class="kp-admin-card">
+            <strong>Mesajın admin paneline düşer.</strong><br>
+            Admin inceledikten sonra yanıtı gelen kutuna gönderir.
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    category = st.selectbox(
+        "Konu türü",
+        ["İstek", "Öneri", "Şikayet"],
+        key="feedback_category",
+    )
+    subject = st.text_input(
+        "Kısa başlık",
+        key="feedback_subject",
+        placeholder="Örn: Ana sayfa menüsü hakkında",
+    )
+    message = st.text_area(
+        "Mesajın",
+        height=150,
+        key="feedback_message",
+        placeholder="İsteğini, önerini veya şikayetini buraya yazabilirsin.",
+    )
+    if st.button("Admine gönder", key="feedback_submit_btn", use_container_width=True):
+        if not message.strip():
+            st.warning("Mesaj alanı boş olamaz.")
+            return
+        try:
+            feedback_id = submit_user_feedback(user, category, subject, message)
+            st.success(f"Mesajın admine iletildi. Kayıt no: {feedback_id}")
+        except Exception as exc:
+            st.error(f"Mesaj gönderilemedi: {exc}")
 
 
 
@@ -3288,6 +3397,120 @@ def admin_requests(user: Dict[str, Any]) -> None:
         st.rerun()
 
 
+def admin_feedback(user: Dict[str, Any]) -> None:
+    st.markdown("### İstek / Öneri / Şikayetler")
+    status = st.selectbox(
+        "Durum",
+        ["pending", "completed", "all"],
+        format_func=lambda x: {"pending": "Bekleyen", "completed": "Yanıtlanan", "all": "Tümü"}[x],
+        key="admin_feedback_status",
+    )
+    items = list_user_feedback(status=status, limit=120)
+    if not items:
+        st.info("Bu durumda kayıt yok.")
+        st.session_state.pop("admin_selected_feedback_id", None)
+        return
+
+    selected_key = "admin_selected_feedback_id"
+    current_selected = str(st.session_state.get(selected_key, "") or "")
+    available_ids = {str(item.get("id", "")) for item in items}
+    if current_selected not in available_ids:
+        st.session_state.pop(selected_key, None)
+        current_selected = ""
+
+    st.caption("Kullanıcı geri bildirimlerini incelemek ve yanıtlamak için Detay butonuna bas.")
+    st.markdown('<div class="kp-admin-request-list">', unsafe_allow_html=True)
+    for idx, item in enumerate(items, start=1):
+        feedback_id = str(item.get("id", ""))
+        category = str(item.get("category", "Geri Bildirim") or "Geri Bildirim")
+        subject = str(item.get("subject", "") or category)
+        message = str(item.get("message", "") or "")
+        item_status = str(item.get("status", "pending") or "pending")
+        status_label = "Bekliyor" if item_status == "pending" else "Yanıtlandı" if item_status == "completed" else item_status
+        status_class = "pending" if item_status == "pending" else "completed" if item_status == "completed" else "neutral"
+        email = str(item.get("user_email", "") or "")
+        when = _manual_request_time_text(item.get("created_at") or item.get("updated_at"))
+        preview = message.strip().replace("\n", " ")[:90]
+        if len(message.strip()) > 90:
+            preview += "..."
+
+        row_cols = st.columns([0.16, 0.72, 0.12])
+        with row_cols[0]:
+            st.markdown(
+                f"""
+                <div class="kp-admin-request-mini-meta">
+                    <span class="kp-admin-request-number">#{idx}</span>
+                    <span class="kp-admin-request-status {html_escape(status_class)}">{html_escape(status_label)}</span>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+        with row_cols[1]:
+            st.markdown(
+                f"""
+                <div class="kp-admin-request-row{' active' if current_selected == feedback_id else ''}">
+                    <div class="kp-admin-request-title">{html_escape(category)} · {html_escape(subject)}</div>
+                    <div class="kp-admin-request-sub">{html_escape(email)} · {html_escape(when)}</div>
+                    <div class="kp-admin-request-preview">{html_escape(preview)}</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+        with row_cols[2]:
+            if st.button("Detay", key=f"feedback_detail_{feedback_id}", use_container_width=True):
+                st.session_state[selected_key] = feedback_id
+                st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    selected_id = str(st.session_state.get(selected_key, "") or "")
+    if not selected_id:
+        st.info("Bir kayıt seçtiğinde detay ve yanıt alanı burada açılacak.")
+        return
+
+    matched = [item for item in items if str(item.get("id", "")) == selected_id]
+    if not matched:
+        st.session_state.pop(selected_key, None)
+        st.warning("Seçilen kayıt bulunamadı. Listeyi yenileyip tekrar seç.")
+        return
+
+    item = matched[0]
+    st.divider()
+    st.markdown(f"#### Geri Bildirim Detayı: {html_escape(str(item.get('category', '')))}")
+    st.caption(f"Kullanıcı: {item.get('user_email')} | Durum: {item.get('status')} | Kayıt ID: {selected_id}")
+    st.markdown(
+        f"""
+        <div class="kp-admin-card">
+            <span class="kp-tag">{html_escape(str(item.get('category', 'Geri Bildirim')))}</span>
+            <h3>{html_escape(str(item.get('subject', '') or 'Başlıksız'))}</h3>
+            <p>{html_escape(str(item.get('message', '')))}</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    response = item.get("response", {}) or {}
+    if response.get("text"):
+        st.success("Bu kayıt daha önce yanıtlandı.")
+        with st.expander("Gönderilen yanıtı görüntüle", expanded=False):
+            st.write(response.get("text", ""))
+
+    st.divider()
+    response_text = st.text_area("Kullanıcıya gönderilecek mesaj", height=160, key=f"feedback_response_{selected_id}")
+    if st.button("Yanıtı gelen kutusuna gönder", key=f"send_feedback_response_{selected_id}", use_container_width=True):
+        if not response_text.strip():
+            st.warning("Yanıt metni boş olamaz.")
+            return
+        send_feedback_response(selected_id, response_text, user)
+        st.session_state.pop(selected_key, None)
+        try:
+            _cached_inbox_message_count.clear()
+        except Exception:
+            pass
+        st.success("Yanıt gönderildi ve kayıt tamamlandı.")
+        st.rerun()
+
+
+
 def admin_style() -> None:
     st.markdown("### Tasarım Ayarları")
     try:
@@ -3335,7 +3558,7 @@ def page_admin(user: Dict[str, Any], prompts: Dict[str, str], module_settings: D
         st.error("Bu sayfaya sadece admin erişebilir.")
         return
     render_section_header("Admin Paneli", "Sayfalar, promptlar, içerikler, talepler ve tasarım ayarlarını yönet.", kicker="Yönetim")
-    tabs = st.tabs(["Genel", "Sayfalar", "Promptlar", "İçerikler", "Talepler", "Tasarım", "Kullanıcılar", "Puanlar"])
+    tabs = st.tabs(["Genel", "Sayfalar", "Promptlar", "İçerikler", "Talepler", "İstek/Öneri/Şikayetler", "Tasarım", "Kullanıcılar", "Puanlar"])
     with tabs[0]:
         admin_overview()
     with tabs[1]:
@@ -3347,10 +3570,12 @@ def page_admin(user: Dict[str, Any], prompts: Dict[str, str], module_settings: D
     with tabs[4]:
         admin_requests(user)
     with tabs[5]:
-        admin_style()
+        admin_feedback(user)
     with tabs[6]:
-        admin_users()
+        admin_style()
     with tabs[7]:
+        admin_users()
+    with tabs[8]:
         admin_ratings()
 
 
@@ -3368,6 +3593,8 @@ def render_page(page: str, user: Dict[str, Any], prompts: Dict[str, str], module
         page_account(user)
     elif page == "inbox":
         page_inbox(user)
+    elif page == "feedback":
+        page_feedback(user)
     elif page == "admin":
         page_admin(user, prompts, module_settings)
     elif page == "relationship":
