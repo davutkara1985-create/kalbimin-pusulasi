@@ -859,7 +859,7 @@ def render_mobile_navigation(user: Dict[str, Any], module_settings: Dict[str, Di
     st.markdown(
         f"""
       <details class="kp-mobile-menu-panel">
-          <summary class="kp-mobile-menu-summary">☰ Menü</summary>
+          <summary class="kp-mobile-menu-summary"><span class="kp-mobile-menu-title">☰ Menü</span></summary>
           <div class="kp-mobile-menu-list">{links_html}</div>
       </details>
         """,
