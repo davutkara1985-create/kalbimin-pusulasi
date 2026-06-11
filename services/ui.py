@@ -469,7 +469,7 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
         }}
 
         [data-testid="stAppViewContainer"] > .main {{ position: relative; z-index: 1; background: transparent !important; }}
-        [data-testid="stAppViewContainer"] .block-container {{ max-width: 620px; padding-top: 0.65rem; padding-bottom: 6rem; }}
+        [data-testid="stAppViewContainer"] .block-container {{ max-width: 620px; padding-top: 0.65rem; padding-bottom: 3rem; }}
 
         [data-testid="stSidebar"] {{
             width: var(--kp-sidebar-width) !important;
@@ -558,6 +558,38 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
             font-size: 0.62rem;
             line-height: 1.25;
         }}
+        .kp-sidebar-home-link {{
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            min-height: 38px;
+            padding: 6px 9px;
+            margin: 0 0 8px 0;
+            border-radius: 13px;
+            color: var(--kp-gold-2) !important;
+            text-decoration: none !important;
+            background: linear-gradient(135deg, rgba(217,183,110,0.16), rgba(123,75,214,0.11));
+            border: 1px solid rgba(255,241,184,0.22);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
+            font-size: 0.74rem;
+            font-weight: 900;
+        }}
+        .kp-sidebar-home-link:hover, .kp-sidebar-home-link.active {{
+            border-color: rgba(255,241,184,0.38) !important;
+            filter: brightness(1.04);
+        }}
+        .kp-sidebar-home-icon {{
+            width: 26px;
+            height: 26px;
+            display: inline-grid;
+            place-items: center;
+            flex: 0 0 auto;
+            border-radius: 9px;
+            background: rgba(217,183,110,0.12);
+            border: 1px solid rgba(217,183,110,0.18);
+            color: var(--kp-gold-2) !important;
+            font-size: 0.86rem;
+        }}
         .kp-account-mini {{
             display: none !important;
         }}
@@ -611,12 +643,17 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
             filter: brightness(1.06);
             text-decoration: none !important;
         }}
+        .kp-top-message-link {{
+            background: linear-gradient(135deg, rgba(255,241,184,0.96), rgba(217,183,110,0.92)) !important;
+            color: #120d23 !important;
+        }}
         @media (max-width: 760px) {{
             .kp-top-account-floating {{
                 top: 8px;
                 right: 10px;
                 max-width: calc(100vw - 20px);
-                padding: 5px 7px;
+                gap: 5px;
+                padding: 5px 6px;
             }}
             .kp-top-account-name {{
                 max-width: 120px;
@@ -624,8 +661,8 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
             }}
             .kp-top-account-link {{
                 min-height: 24px;
-                padding: 0 8px;
-                font-size: 0.68rem;
+                padding: 0 7px;
+                font-size: 0.66rem;
             }}
         }}
 
@@ -1410,8 +1447,10 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
             font-size: 0.74rem !important;
         }}
         .kp-page-top-spacer {{ height: 10px; }}
-        .kp-bottom-back-home {{ margin: 24px 0 8px; }}
+        .kp-bottom-back-home {{ margin: 10px 0 4px; }}
         .kp-bottom-back-home div.stButton > button {{ max-width: 220px !important; }}
+        div[data-testid="stVerticalBlock"] > div:has(div.stButton) {{ margin-bottom: 0.18rem !important; }}
+        hr {{ margin: 0.75rem 0 !important; }}
         .kp-tag {{ display: inline-flex; padding: 4px 8px; border-radius: 999px; background: rgba(217,183,110,0.10); border: 1px solid rgba(255,241,184,0.16); color: var(--kp-gold-2); font-size: 0.68rem; font-weight: 800; margin: 2px 4px 2px 0; }}
         .kp-card-choice {{ text-align: center; min-height: 96px; display: grid; place-items: center; font-family: var(--kp-font-serif); font-size: 1.05rem; color: var(--kp-gold-2); }}
 
