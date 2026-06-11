@@ -832,37 +832,70 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
                 box-shadow: 0 10px 26px rgba(0,0,0,0.22) !important;
             }}
             .kp-mobile-menu-panel {{
-               display: block;
-               margin: 0 0 4px 0 !important;
-               padding: 0;
-               border-radius: 16px;
-               background: rgba(8, 10, 30, 0.76);
-               border: 1px solid rgba(255, 241, 184, 0.18);
-              box-shadow: 0 8px 20px rgba(0,0,0,0.20);
-              overflow: hidden;
+                display: block !important;
+                visibility: visible !important;
+                opacity: 1 !important;
+                position: relative !important;
+                z-index: 99999 !important;
+                width: min(340px, 88vw) !important;
+                margin: 0.05rem auto 0.30rem auto !important;
+                padding: 0 !important;
+                border-radius: 16px !important;
+                background: rgba(8, 10, 30, 0.88) !important;
+                border: 1px solid rgba(255, 241, 184, 0.30) !important;
+                box-shadow: 0 8px 22px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.08) !important;
+                overflow: hidden !important;
             }}
             .kp-mobile-menu-summary {{
-                list-style: none;
-                cursor: pointer;
-                padding: 12px 13px;
-                color: var(--kp-gold-2);
-                font-weight: 900;
-                font-size: 0.86rem;
-                border-bottom: 1px solid rgba(255, 241, 184, 0.10);
-                user-select: none;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: space-between !important;
+                min-height: 42px !important;
+                padding: 0 13px !important;
+                list-style: none !important;
+                cursor: pointer !important;
+                background: rgba(255, 241, 184, 0.075) !important;
+                border-bottom: 1px solid rgba(255, 241, 184, 0.10) !important;
+                user-select: none !important;
+                color: #fff1b8 !important;
+                -webkit-text-fill-color: #fff1b8 !important;
+                font-weight: 900 !important;
+                font-size: 0.82rem !important;
+                line-height: 1 !important;
+                letter-spacing: 0.02em !important;
+            }}
+            .kp-mobile-menu-title {{
+                display: inline-flex !important;
+                align-items: center !important;
+                gap: 6px !important;
+                color: #fff1b8 !important;
+                -webkit-text-fill-color: #fff1b8 !important;
+                font-weight: 900 !important;
+                font-size: 0.82rem !important;
+                line-height: 1 !important;
+                visibility: visible !important;
+                opacity: 1 !important;
             }}
             .kp-mobile-menu-summary::-webkit-details-marker {{
-                display: none;
+                display: none !important;
             }}
             .kp-mobile-menu-summary::after {{
-                content: "Kapat / Aç";
-                float: right;
-                color: rgba(242,226,202,0.66);
+                content: "Aç";
+                display: inline-flex;
+                align-items: center;
+                color: rgba(242,226,202,0.78) !important;
+                -webkit-text-fill-color: rgba(242,226,202,0.78) !important;
                 font-size: 0.68rem;
                 font-weight: 800;
             }}
-            .kp-mobile-menu-list {{
-                display: grid;
+            .kp-mobile-menu-panel[open] .kp-mobile-menu-summary::after {{
+                content: "Kapat";
+            }}
+            .kp-mobile-menu-panel:not([open]) .kp-mobile-menu-list {{
+                display: none !important;
+            }}
+            .kp-mobile-menu-panel[open] .kp-mobile-menu-list {{
+                display: grid !important;
                 grid-template-columns: 1fr 1fr;
                 gap: 7px;
                 padding: 10px;
@@ -1975,20 +2008,20 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
             [data-testid="stSidebar"], [data-testid="stSidebar"] > div {{ width: 260px !important; min-width: 260px !important; max-width: 260px !important; }}
             [data-testid="stAppViewContainer"] .block-container {{ max-width: 100%; padding-left: 0.85rem; padding-right: 0.85rem; padding-top: 0.45rem; }}
             .kp-hero {{
-    max-width: 92vw !important;
-    width: 92vw !important;
-    min-height: 175px !important;
-    border-radius: 22px !important;
-    padding: 14px 13px 14px !important;
-    margin: -1.45rem auto 0.75rem auto !important;
+    max-width: min(320px, 80vw) !important;
+    width: min(320px, 80vw) !important;
+    min-height: 150px !important;
+    border-radius: 20px !important;
+    padding: 12px 12px 12px !important;
+    margin: 0.20rem auto 0.75rem auto !important;
 }}
             .kp-hero-top {{ gap: 8px; margin-bottom: 8px; }}
             .kp-avatar-wrap {{ width: 42px; height: 42px; }}
             .kp-avatar {{ font-size: 1.18rem; }}
             .kp-eyebrow {{ font-size: 0.52rem; padding: 4px 7px; }}
             .kp-username {{ font-size: 0.72rem; margin-top: 4px; }}
-            .kp-title {{ font-size: clamp(1.62rem, 7vw, 2.05rem); margin: 7px 0 5px; letter-spacing: -0.035em; white-space: nowrap; }}
-            .kp-subtitle {{ font-size: 0.66rem; line-height: 1.28; margin-bottom: 0; letter-spacing: 0.065em; }}
+            .kp-title {{ font-size: clamp(1.32rem, 5.8vw, 1.78rem); margin: 6px 0 5px; letter-spacing: -0.035em; white-space: nowrap; }}
+            .kp-subtitle {{ font-size: 0.60rem; line-height: 1.24; margin-bottom: 0; letter-spacing: 0.055em; }}
             .kp-chip, .kp-element-chip {{ padding: 7px 9px; font-size: 0.72rem; }}
             .kp-section-title {{ font-size: 1.62rem; }}
             .kp-card, .kp-plan, .kp-result-card, .kp-share-card, .kp-lead-card, .kp-upgrade-card {{ border-radius: 20px; }}
