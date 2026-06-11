@@ -32,7 +32,6 @@ from services.catalog import (
     PLAN_CONFIG,
     TAROT_CARDS,
     ZODIAC_SIGNS,
-    calculate_zodiac_compatibility,
     format_card_spread,
     plan_allows,
     select_katina_cards,
@@ -330,7 +329,6 @@ BASE_MENU_GROUPS = [
             ("birth_chart", "Doğum Haritası Analizi", "♈"),
             ("dream", "Rüya Tabirleri", "☾"),
             ("soulmate", "Ruh Eşi Çizimi", "♁"),
-            ("zodiac", "Kişisel Burç ve Uyum", "♓"),
         ],
     ),
     (
@@ -338,9 +336,6 @@ BASE_MENU_GROUPS = [
         "♡",
         [
             ("relationship", "İlişki Yorumu", "♡"),
-            ("message_analysis", "Mesaj Analizi", "✉"),
-            ("daily_energy", "Günlük Aşk Enerjisi", "✺"),
-            ("emotion", "Duygu Analizi", "◌"),
         ],
     ),
     (
@@ -700,7 +695,7 @@ def render_user_message_notification(user: Dict[str, Any], current_page: str) ->
 
 
 
-@st.cache_data(ttl=45, show_spinner=False)
+@st.cache_data(ttl=300, show_spinner=False)
 def _cached_unread_inbox_count(user_id: str) -> int:
     """Small cached unread count; avoids loading full inbox on every page."""
     try:
@@ -710,7 +705,7 @@ def _cached_unread_inbox_count(user_id: str) -> int:
         return 0
 
 
-@st.cache_data(ttl=45, show_spinner=False)
+@st.cache_data(ttl=300, show_spinner=False)
 def _cached_inbox_message_count(user_id: str) -> int:
     """Small cached total inbox count for the top-right message shortcut."""
     try:
@@ -911,7 +906,7 @@ def reset_navigation_to_home() -> None:
 
 MENU_GROUP_ICON_MODULES = {
     "Romantik Fal": "tarot",
-    "Astroloji": "zodiac",
+    "Astroloji": "birth_chart",
     "Aşk & İlişki": "relationship",
     "Ruhsal Çözümler": "meditation",
     "Yönetim": "admin",
@@ -943,88 +938,80 @@ def _nav_href(page_key: str, user: Optional[Dict[str, Any]] = None) -> str:
 
 
 def render_mobile_navigation(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]], current_page: str) -> None:
-    # Mobilde native Streamlit sidebar yerine hafif, açılıp kapanabilen HTML menü kullanılır.
+    # Mobilde URL yenileyen HTML linkler yerine Streamlit-native butonlar kullanılır.
+    # Böylece sayfa geçişinde tam tarayıcı yenilemesi/beyaz ekran riski azaltılır.
     items = []
     for _group_title, _group_icon, group_items in build_menu_groups(user, module_settings):
         items.extend(group_items)
     if not items:
         return
 
-    home_href = html_escape(_nav_href("home", user), quote=True)
-    home_active_class = " active" if current_page == "home" else ""
-    links = [
-        f'<a class="kp-mobile-menu-link kp-mobile-menu-home{home_active_class}" href="{home_href}" target="_self">'
-        f'<span class="kp-mobile-menu-icon">⌂</span><span>Ana Sayfa</span></a>'
-    ]
-    for page_key, label, icon in items:
-        icon_rendered = sidebar_icon_html(page_key, icon)
-        active_class = " active" if current_page == page_key else ""
-        href = html_escape(_nav_href(page_key, user), quote=True)
-        links.append(
-            f'<a class="kp-mobile-menu-link{active_class}" href="{href}" target="_self">'
-            f'<span class="kp-mobile-menu-icon">{icon_rendered}</span><span>{html_escape(label)}</span></a>'
-        )
+    with st.expander("☰ Menü", expanded=False):
+        if current_page == "home":
+            st.markdown("<div class='kp-mobile-active-pill'>⌂ Ana Sayfa</div>", unsafe_allow_html=True)
+        else:
+            if st.button("⌂ Ana Sayfa", key="mobile_nav_home", use_container_width=True):
+                go_to_page("home", user, module_settings)
+                st.rerun()
 
-    links_html = "".join(links)
-    st.markdown(
-        f"""
-      <details class="kp-mobile-menu-panel">
-          <summary class="kp-mobile-menu-summary"><span class="kp-mobile-menu-title">☰ Menü</span></summary>
-          <div class="kp-mobile-menu-list">{links_html}</div>
-      </details>
-        """,
-        unsafe_allow_html=True,
-    )
+        for page_key, label, icon in items:
+            button_label = f"{icon} {label}"
+            if current_page == page_key:
+                st.markdown(f"<div class='kp-mobile-active-pill'>{html_escape(button_label)}</div>", unsafe_allow_html=True)
+            else:
+                if st.button(button_label, key=f"mobile_nav_{page_key}", use_container_width=True):
+                    go_to_page(page_key, user, module_settings)
+                    st.rerun()
 
 
 def navigation(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]]) -> str:
     valid_pages = valid_pages_for(user, module_settings)
     requested_page = _query_get(PAGE_QUERY_KEY, "home")
 
-    # HTML bağlantılarıyla sayfa değişince URL değişir; oturumda eski sayfa kalmasın diye her rerun'da okunur.
-    if requested_page in valid_pages and requested_page != st.session_state.get("current_page"):
-        st.session_state["current_page"] = requested_page
-
+    # URL ile doğrudan açılış desteklenir; normal menü geçişlerinde session_state önceliklidir.
     if "current_page" not in st.session_state:
         st.session_state["current_page"] = requested_page if requested_page in valid_pages else "home"
+
+    if requested_page in valid_pages and requested_page != st.session_state.get("current_page"):
+        st.session_state["current_page"] = requested_page
 
     if st.session_state.get("current_page") not in valid_pages:
         reset_navigation_to_home()
 
     current_page = st.session_state.get("current_page", "home")
-    home_href = html_escape(_nav_href("home", user), quote=True)
-    st.sidebar.markdown(
-        f"""
-        <a class="kp-sidebar-home-link{' active' if current_page == 'home' else ''}" href="{home_href}" target="_self">
-            <span class="kp-sidebar-home-icon">⌂</span><span>Ana Sayfa</span>
-        </a>
-        """,
-        unsafe_allow_html=True,
-    )
+
+    if current_page == "home":
+        st.sidebar.markdown(
+            """
+            <div class="kp-sidebar-home-link active">
+                <span class="kp-sidebar-home-icon">⌂</span><span>Ana Sayfa</span>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+    else:
+        if st.sidebar.button("⌂ Ana Sayfa", key="sidebar_nav_home", use_container_width=True):
+            go_to_page("home", user, module_settings)
+            st.rerun()
+
     st.sidebar.markdown("<div class='kp-sidebar-menu-title'>Menü</div>", unsafe_allow_html=True)
     for _group_title, _group_icon, items in build_menu_groups(user, module_settings):
         for page_key, label, icon in items:
-            icon_rendered = sidebar_icon_html(page_key, icon)
-            label_html = html_escape(label)
+            button_label = f"{icon} {label}"
+            label_html = html_escape(button_label)
             if current_page == page_key:
                 st.sidebar.markdown(
                     f"""
                     <div class="kp-side-nav-item active">
-                        <span class="kp-side-nav-icon">{icon_rendered}</span><span>{label_html}</span>
+                        <span class="kp-side-nav-icon">{html_escape(str(icon))}</span><span>{html_escape(label)}</span>
                     </div>
                     """,
                     unsafe_allow_html=True,
                 )
             else:
-                href = html_escape(_nav_href(page_key, user), quote=True)
-                st.sidebar.markdown(
-                    f"""
-                    <a class="kp-side-nav-item kp-side-nav-link" href="{href}" target="_self">
-                        <span class="kp-side-nav-icon">{icon_rendered}</span><span>{label_html}</span>
-                    </a>
-                    """,
-                    unsafe_allow_html=True,
-                )
+                if st.sidebar.button(button_label, key=f"sidebar_nav_{page_key}", use_container_width=True):
+                    go_to_page(page_key, user, module_settings)
+                    st.rerun()
 
     render_mobile_navigation(user, module_settings, current_page)
     return st.session_state.get("current_page", "home")
@@ -1091,25 +1078,12 @@ PROMPT_FIELD_ALIASES: Dict[str, Dict[str, Any]] = {
         "sure": "ilişki_süresi",
         "iliski_tanimi": "ilişki_tanımı",
     },
-    "message_analysis": {
-        "kisi_tipi": "gönderen",
-        "mesaj": "mesajlar",
-        "istek": "amaç",
-    },
     "love_fortune": {
         "ad_soyad": ("ad", "soyad"),
         "burc": "burç",
         "dogum_yeri": "doğum_yeri",
         "dogum_saati": "doğum_saati",
         "niyet": "niyet",
-    },
-    "daily_energy": {
-        "duygu": "ruh_hali",
-        "odak": "odak",
-    },
-    "emotion": {
-        "hisler": "metin",
-        "duygu_yogunlugu": "yoğunluk",
     },
     "mini_tarot": {
         "dogum_tarihi": "doğum_tarihi",
@@ -1128,11 +1102,6 @@ PROMPT_FIELD_ALIASES: Dict[str, Dict[str, Any]] = {
         "dogum_saati": "doğum_saati",
         "sekiller": "semboller",
         "niyet": "niyet",
-    },
-    "zodiac": {
-        "benim_burcum": "benim_burcum",
-        "karsi_taraf_burcu": "karsi_taraf_burcu",
-        "bag_turu": "bag_turu",
     },
 }
 
@@ -1272,7 +1241,10 @@ Ve gerçekten kendine şunu sor: “Kalbim bana ne anlatmak istiyor?”
 @st.cache_data(ttl=86400, show_spinner=False)
 def _home_video_data_uri() -> str:
     """Return optimized home video as a data URI so Streamlit Cloud can serve it without extra static routing."""
-    video_path = Path(__file__).resolve().parent / "assets" / "backgrounds" / "kp_home_landing.mp4"
+    base_dir = Path(__file__).resolve().parent / "assets" / "backgrounds"
+    fast_video = base_dir / "kp_home_landing_fast.mp4"
+    original_video = base_dir / "kp_home_landing.mp4"
+    video_path = fast_video if fast_video.exists() else original_video
     if not video_path.exists():
         return ""
     encoded = base64.b64encode(video_path.read_bytes()).decode("utf-8")
@@ -1287,7 +1259,6 @@ def render_home_video_background() -> None:
     st.markdown(
         """
         <style>
-        @import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400;500;600;700&display=swap');
         html, body, .stApp {
             background: #030613 !important;
         }
@@ -1310,9 +1281,8 @@ def render_home_video_background() -> None:
             height: 100%;
             object-fit: cover;
             object-position: center center;
-            opacity: 0.78;
-            filter: saturate(1.08) contrast(1.05) brightness(0.72);
-            transform: scale(1.018);
+            opacity: 0.72;
+            filter: brightness(0.70);
         }
         .kp-home-video-bg::after {
             content: "";
@@ -1380,7 +1350,7 @@ def render_home_video_background() -> None:
         }
         @media (max-width: 760px) {
             .kp-home-video-bg video {
-                opacity: 0.70;
+                opacity: 0.66;
                 object-position: center center;
             }
             .kp-home-story-image-wrap {
@@ -1539,18 +1509,6 @@ def page_relationship(user: Dict[str, Any], prompts: Dict[str, str], module_sett
         )
 
 
-def page_message_analysis(user: Dict[str, Any], prompts: Dict[str, str], module_settings: Dict[str, Dict[str, Any]]) -> None:
-    render_module_intro("message_analysis", "free", module_meta("message_analysis", module_settings))
-    sender = st.text_input("Bu mesaj kimden geldi?", placeholder="Sevgilim, flörtüm, eski partnerim...")
-    messages = st.text_area("Analiz edilecek mesajı bizimle paylaş", height=230)
-    goal = st.selectbox("Ne istiyorsun?", ["Alt metni anlamak", "Cevap yazmak", "Kırıcı mı değil mi görmek", "Kararsızlığımı azaltmak"])
-    if st.button("Mesajları analiz et"):
-        if not messages.strip():
-            st.warning("Analiz için mesajları yapıştırmalısın.")
-            return
-        run_ai_free(user, "message_analysis", {"gönderen": sender, "amaç": goal, "mesajlar": messages}, prompts)
-
-
 def page_love_fortune(user: Dict[str, Any], prompts: Dict[str, str], module_settings: Dict[str, Dict[str, Any]]) -> None:
     render_module_intro("love_fortune", "free", module_meta("love_fortune", module_settings))
     col1, col2 = st.columns(2)
@@ -1564,52 +1522,6 @@ def page_love_fortune(user: Dict[str, Any], prompts: Dict[str, str], module_sett
     if st.button("Aşk falımı yorumla"):
         payload = {"ad": first_name, "soyad": last_name, "burç": sign, **birth_details, "niyet": intention}
         run_ai_free(user, "love_fortune", payload, prompts)
-
-
-def page_daily_energy(user: Dict[str, Any], prompts: Dict[str, str], module_settings: Dict[str, Dict[str, Any]]) -> None:
-    render_module_intro("daily_energy", "free", module_meta("daily_energy", module_settings))
-    mood = st.selectbox("Bugün kalbin hangi duyguya yakın?", ["Umutlu", "Kararsız", "Özlemli", "Kırgın", "Heyecanlı", "Sakinleşmeye ihtiyacı var"])
-    focus = st.selectbox("Bugünün odağı", ["Aşk", "Barışma", "Yeni tanışma", "Kendime dönmek", "Beklentiyi bırakmak"])
-    if st.button("Bugünkü aşk enerjimi göster"):
-        run_ai_free(user, "daily_energy", {"ruh_hali": mood, "odak": focus}, prompts)
-
-
-def page_emotion(user: Dict[str, Any], prompts: Dict[str, str], module_settings: Dict[str, Dict[str, Any]]) -> None:
-    render_module_intro("emotion", "free", module_meta("emotion", module_settings))
-    text = st.text_area("Şu an hissettiklerini bizimle paylaş", height=190, placeholder="Ne hissettiğimi tam bilmiyorum ama...")
-    intensity = st.slider("Duygu yoğunluğu", 1, 10, 5)
-    if st.button("Duygumu analiz et"):
-        if not text.strip():
-            st.warning("Duygunu anlamam için birkaç cümle yazmalısın.")
-            return
-        run_ai_free(user, "emotion", {"metin": text, "yoğunluk": intensity}, prompts)
-
-
-def page_zodiac(user: Dict[str, Any], prompts: Dict[str, str], module_settings: Dict[str, Dict[str, Any]]) -> None:
-    render_module_intro("zodiac", "free", module_meta("zodiac", module_settings))
-    col1, col2 = st.columns(2)
-    with col1:
-        user_sign = st.selectbox("Senin burcun", ZODIAC_SIGNS)
-    with col2:
-        partner_sign = st.selectbox("Karşı tarafın burcu", ZODIAC_SIGNS)
-    relation_type = st.selectbox("Bağ türü", ["Flört", "İlişki", "Eski partner", "Platonik", "Karmaşık bağ"])
-    if st.button("Burç uyumunu yorumla"):
-        local_result = calculate_zodiac_compatibility(user_sign, partner_sign, relation_type)
-        run_ai_free(
-            user,
-            "zodiac",
-            {
-                "benim_burcum": user_sign,
-                "karsi_taraf_burcu": partner_sign,
-                "bag_turu": relation_type,
-                "uyum_puani": local_result["score"],
-                "benim_elementim": local_result["user_element"],
-                "karsi_taraf_elementi": local_result["partner_element"],
-                "yerel_kisa_yorum": local_result["detail"],
-            },
-            prompts,
-        )
-
 
 
 BIRTH_CHART_PLANETS = [
@@ -3646,16 +3558,8 @@ def render_page(page: str, user: Dict[str, Any], prompts: Dict[str, str], module
         page_admin(user, prompts, module_settings)
     elif page == "relationship":
         page_relationship(user, prompts, module_settings)
-    elif page == "message_analysis":
-        page_message_analysis(user, prompts, module_settings)
     elif page == "love_fortune":
         page_love_fortune(user, prompts, module_settings)
-    elif page == "daily_energy":
-        page_daily_energy(user, prompts, module_settings)
-    elif page == "emotion":
-        page_emotion(user, prompts, module_settings)
-    elif page == "zodiac":
-        page_zodiac(user, prompts, module_settings)
     elif page == "birth_chart":
         page_birth_chart(user, prompts, module_settings)
     elif page == "mini_tarot":
@@ -3686,10 +3590,10 @@ def render_page(page: str, user: Dict[str, Any], prompts: Dict[str, str], module
 
 
 def main() -> None:
-    user = auth_sidebar()
-    # Tüm uygulamada tek arka plan kullanılır: ana sayfadaki hareketli video.
-    # Sayfa geçişlerinde farklı görsel arka plan yüklenmediği için beyaz/parlak geçiş etkisi azalır.
+    # Arka planı önce bas: Firestore/auth işlemleri başlamadan koyu video katmanı görünür olsun.
+    # Bu, sayfa geçişindeki beyaz/parlak ekran hissini azaltır.
     render_home_video_background()
+    user = auth_sidebar()
 
     if not user:
         hide_sidebar_for_landing()
