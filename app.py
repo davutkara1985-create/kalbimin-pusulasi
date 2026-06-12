@@ -283,6 +283,24 @@ def prevent_browser_translate() -> None:
                 } catch (e) {}
             }
 
+            function syncMobileViewportFlag() {
+                try {
+                    const params = new URLSearchParams(parentWin.location.search || '');
+                    const isMobile = !!(parentWin.matchMedia && parentWin.matchMedia('(max-width: 760px)').matches);
+                    const hasMobileFlag = params.get('kp_mobile') === '1';
+                    if (isMobile && !hasMobileFlag) {
+                        params.set('kp_mobile', '1');
+                        parentWin.location.replace(parentWin.location.pathname + '?' + params.toString() + parentWin.location.hash);
+                        return;
+                    }
+                    if (!isMobile && hasMobileFlag) {
+                        params.delete('kp_mobile');
+                        const cleaned = params.toString();
+                        parentWin.location.replace(parentWin.location.pathname + (cleaned ? '?' + cleaned : '') + parentWin.location.hash);
+                    }
+                } catch (e) {}
+            }
+
             function applyNoTranslate() {
                 if (!doc || !doc.documentElement) return;
                 doc.documentElement.lang = 'tr';
@@ -363,6 +381,7 @@ def prevent_browser_translate() -> None:
             }
 
             syncRememberedAuth();
+            syncMobileViewportFlag();
             installNoWhiteFlashGuard();
             applyNoTranslate();
             setTimeout(applyNoTranslate, 700);
@@ -511,6 +530,7 @@ AUTH_QUERY_KEY = "kp_auth"
 PAGE_QUERY_KEY = "kp_page"
 REMEMBER_QUERY_KEY = "kp_remember"
 LOGOUT_QUERY_KEY = "kp_logout"
+MOBILE_QUERY_KEY = "kp_mobile"
 
 
 def _query_get(key: str, default: str = "") -> str:
@@ -1034,6 +1054,8 @@ def _nav_href(page_key: str, user: Optional[Dict[str, Any]] = None) -> str:
         params[AUTH_QUERY_KEY] = token
     if bool(st.session_state.get("remember_me", False)):
         params[REMEMBER_QUERY_KEY] = "1"
+    if _query_get(MOBILE_QUERY_KEY) == "1":
+        params[MOBILE_QUERY_KEY] = "1"
     return "?" + urlencode(params)
 
 
@@ -1204,8 +1226,13 @@ def inject_native_navigation_css() -> None:
 
 
 def render_mobile_navigation(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]], current_page: str, valid_pages: set[str]) -> None:
-    # Mobilde eski acilir panel hissi korunur; ancak href/URL linkleri kullanilmaz.
-    # Butonlar Streamlit-native oldugu icin mobilde de session_state ile hizli gecis saglanir.
+    # Sadece mobilde render edilir. Desktop'ta orta alanda ikinci bir "Menü" görünmemesi için
+    # mobil durumunu query param üzerinden JS belirler. Bu, desktop sol native menüyü etkilemez.
+    if _query_get(MOBILE_QUERY_KEY) != "1":
+        return
+
+    # Mobilde eski iki sütunlu panel hissi korunur; ancak href/URL linkleri kullanılmaz.
+    # Butonlar Streamlit-native olduğu için mobilde de session_state ile hızlı geçiş sağlanır.
     items = []
     for _group_title, _group_icon, group_items in build_menu_groups(user, module_settings):
         items.extend(group_items)
@@ -1239,8 +1266,11 @@ def render_mobile_navigation(user: Dict[str, Any], module_settings: Dict[str, Di
         """
         <style id="kp-mobile-native-panel-navigation-css">
         @media (min-width: 761px) {
+            .kp-mobile-native-menu-marker,
             .element-container:has(.kp-mobile-native-menu-marker),
-            .element-container:has(.kp-mobile-native-menu-marker) + .element-container {
+            .element-container:has(.kp-mobile-native-menu-marker) + .element-container,
+            div[data-testid="stVerticalBlock"] > div:has(.kp-mobile-native-menu-marker),
+            div[data-testid="stVerticalBlock"] > div:has(.kp-mobile-native-menu-marker) + div {
                 display: none !important;
                 visibility: hidden !important;
                 height: 0 !important;
@@ -1260,8 +1290,8 @@ def render_mobile_navigation(user: Dict[str, Any], module_settings: Dict[str, Di
                 overflow: hidden !important;
             }
             .element-container:has(.kp-mobile-native-menu-marker) + .element-container {
-                width: min(340px, 88vw) !important;
-                margin: 0.05rem auto 0.35rem auto !important;
+                width: min(360px, 92vw) !important;
+                margin: 0.12rem auto 0.42rem auto !important;
                 padding: 0 !important;
                 position: relative !important;
                 z-index: 99999 !important;
@@ -1270,25 +1300,24 @@ def render_mobile_navigation(user: Dict[str, Any], module_settings: Dict[str, Di
                 width: 100% !important;
                 margin: 0 !important;
                 padding: 0 !important;
-                border-radius: 16px !important;
-                background: rgba(8, 10, 30, 0.88) !important;
-                border: 1px solid rgba(255, 241, 184, 0.30) !important;
-                box-shadow: 0 8px 22px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.08) !important;
+                border-radius: 18px !important;
+                background: linear-gradient(145deg, rgba(8, 10, 30, 0.92), rgba(22, 18, 52, 0.88)) !important;
+                border: 1px solid rgba(255, 241, 184, 0.28) !important;
+                box-shadow: 0 10px 24px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.07) !important;
                 overflow: hidden !important;
             }
             .element-container:has(.kp-mobile-native-menu-marker) + .element-container [data-testid="stExpander"] details {
                 border: none !important;
             }
             .element-container:has(.kp-mobile-native-menu-marker) + .element-container [data-testid="stExpander"] summary {
-                min-height: 42px !important;
-                padding: 0 13px !important;
+                min-height: 43px !important;
+                padding: 0 14px !important;
                 background: rgba(255, 241, 184, 0.075) !important;
                 border-bottom: 1px solid rgba(255, 241, 184, 0.10) !important;
                 color: #fff1b8 !important;
                 font-family: var(--kp-font-sans) !important;
                 font-size: 0.82rem !important;
                 font-weight: 560 !important;
-                line-height: 1 !important;
                 letter-spacing: 0.01em !important;
             }
             .element-container:has(.kp-mobile-native-menu-marker) + .element-container [data-testid="stExpander"] summary p {
@@ -1299,52 +1328,62 @@ def render_mobile_navigation(user: Dict[str, Any], module_settings: Dict[str, Di
                 margin: 0 !important;
             }
             .element-container:has(.kp-mobile-native-menu-marker) + .element-container [data-testid="stExpanderDetails"] {
-                padding: 9px 9px 10px 9px !important;
+                padding: 10px 10px 11px 10px !important;
                 background: transparent !important;
             }
             .element-container:has(.kp-mobile-native-menu-marker) + .element-container [data-testid="stHorizontalBlock"] {
-                gap: 7px !important;
-                margin: 0 0 7px 0 !important;
+                gap: 8px !important;
+                margin: 0 0 8px 0 !important;
+            }
+            .element-container:has(.kp-mobile-native-menu-marker) + .element-container [data-testid="column"] {
+                padding: 0 !important;
+            }
+            .element-container:has(.kp-mobile-native-menu-marker) + .element-container div.stButton {
+                margin: 0 !important;
+                padding: 0 !important;
             }
             .element-container:has(.kp-mobile-native-menu-marker) + .element-container div.stButton > button {
-                min-height: 36px !important;
-                height: 36px !important;
-                padding: 4px 7px !important;
-                border-radius: 13px !important;
-                background: rgba(255,255,255,0.055) !important;
+                min-height: 38px !important;
+                height: 38px !important;
+                padding: 5px 8px !important;
+                border-radius: 14px !important;
+                background: rgba(255,255,255,0.052) !important;
                 border: 1px solid rgba(255,241,184,0.13) !important;
-                box-shadow: none !important;
-                color: rgba(255,248,232,0.88) !important;
+                box-shadow: inset 0 1px 0 rgba(255,255,255,0.045) !important;
+                color: rgba(255,248,232,0.90) !important;
                 font-family: var(--kp-font-sans) !important;
                 font-size: 0.68rem !important;
-                font-weight: 520 !important;
-                line-height: 1.1 !important;
+                font-weight: 500 !important;
+                line-height: 1.08 !important;
                 text-align: left !important;
                 justify-content: flex-start !important;
                 align-items: center !important;
                 overflow: hidden !important;
+                transition: none !important;
             }
             .element-container:has(.kp-mobile-native-menu-marker) + .element-container div.stButton > button p,
             .element-container:has(.kp-mobile-native-menu-marker) + .element-container div.stButton > button span,
             .element-container:has(.kp-mobile-native-menu-marker) + .element-container div.stButton > button div {
-                color: rgba(255,248,232,0.88) !important;
+                color: inherit !important;
                 font-size: 0.68rem !important;
-                font-weight: 520 !important;
-                line-height: 1.1 !important;
+                font-weight: 500 !important;
+                line-height: 1.08 !important;
                 text-align: left !important;
                 white-space: nowrap !important;
                 overflow: hidden !important;
                 text-overflow: ellipsis !important;
+                width: 100% !important;
+                justify-content: flex-start !important;
             }
             .element-container:has(.kp-mobile-native-menu-marker) + .element-container div.stButton > button:hover {
-                background: rgba(217,183,110,0.16) !important;
-                border-color: rgba(255,241,184,0.28) !important;
+                background: rgba(217,183,110,0.14) !important;
+                border-color: rgba(255,241,184,0.26) !important;
                 color: #fff1b8 !important;
                 transform: none !important;
             }
             .element-container:has(.kp-mobile-native-menu-marker) + .element-container div.stButton > button:disabled {
-                background: linear-gradient(135deg, rgba(217,183,110,0.20), rgba(123,75,214,0.15)) !important;
-                border-color: rgba(255,241,184,0.34) !important;
+                background: linear-gradient(135deg, rgba(217,183,110,0.22), rgba(123,75,214,0.15)) !important;
+                border-color: rgba(255,241,184,0.36) !important;
                 opacity: 1 !important;
                 cursor: default !important;
                 color: #fff1b8 !important;
