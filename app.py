@@ -1331,12 +1331,33 @@ def render_mobile_navigation(user: Dict[str, Any], module_settings: Dict[str, Di
             }
             .st-key-kp_mobile_native_menu_shell [data-testid="stHorizontalBlock"],
             [class*="st-key-kp_mobile_native_menu_shell"] [data-testid="stHorizontalBlock"] {
-                gap: 8px !important;
-                margin: 0 0 8px 0 !important;
+                display: grid !important;
+                grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+                grid-auto-flow: column !important;
+                align-items: stretch !important;
+                gap: 7px !important;
+                width: 100% !important;
+                max-width: 100% !important;
+                margin: 0 0 7px 0 !important;
+                padding: 0 !important;
+                overflow: visible !important;
+            }
+            .st-key-kp_mobile_native_menu_shell [data-testid="stHorizontalBlock"] > [data-testid="column"],
+            [class*="st-key-kp_mobile_native_menu_shell"] [data-testid="stHorizontalBlock"] > [data-testid="column"] {
+                display: block !important;
+                width: auto !important;
+                min-width: 0 !important;
+                max-width: none !important;
+                flex: none !important;
+                padding: 0 !important;
+                margin: 0 !important;
             }
             .st-key-kp_mobile_native_menu_shell [data-testid="column"],
             [class*="st-key-kp_mobile_native_menu_shell"] [data-testid="column"] {
                 padding: 0 !important;
+                width: auto !important;
+                min-width: 0 !important;
+                max-width: none !important;
             }
             .st-key-kp_mobile_native_menu_shell div.stButton,
             [class*="st-key-kp_mobile_native_menu_shell"] div.stButton {
@@ -1345,10 +1366,10 @@ def render_mobile_navigation(user: Dict[str, Any], module_settings: Dict[str, Di
             }
             .st-key-kp_mobile_native_menu_shell div.stButton > button,
             [class*="st-key-kp_mobile_native_menu_shell"] div.stButton > button {
-                min-height: 38px !important;
-                height: 38px !important;
-                padding: 5px 8px !important;
-                border-radius: 14px !important;
+                min-height: 36px !important;
+                height: 36px !important;
+                padding: 4px 7px !important;
+                border-radius: 12px !important;
                 background: rgba(255,255,255,0.052) !important;
                 border: 1px solid rgba(255,241,184,0.13) !important;
                 box-shadow: inset 0 1px 0 rgba(255,255,255,0.045) !important;
