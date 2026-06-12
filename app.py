@@ -1203,40 +1203,120 @@ def inject_native_navigation_css() -> None:
     )
 
 
-def render_mobile_navigation(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]], current_page: str) -> None:
-    # Mobil menü HTML yapısı şimdilik korunur; bu yamada yalnızca sol sidebar geçişi
-    # native hale getirilir. Mobil menü ve sağ üst alanın görünümü bozulmaz.
+def render_mobile_navigation(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]], current_page: str, valid_pages: set[str]) -> None:
+    # Mobilde eski HTML href menü tam sayfa URL yenilemesi hissi yaratıyordu.
+    # Bu nedenle mobil menü de Streamlit-native selectbox ile session_state üzerinden
+    # sayfa değiştirir. Desktop sol sidebar native buton yapısı aynen korunur.
     items = []
     for _group_title, _group_icon, group_items in build_menu_groups(user, module_settings):
         items.extend(group_items)
     if not items:
         return
 
-    home_href = html_escape(_nav_href("home", user), quote=True)
-    home_active_class = " active" if current_page == "home" else ""
-    links = [
-        f'<a class="kp-mobile-menu-link kp-mobile-menu-home{home_active_class}" href="{home_href}" target="_self">'
-        f'<span class="kp-mobile-menu-icon">⌂</span><span>Ana Sayfa</span></a>'
-    ]
+    mobile_options = [("home", "⌂ Ana Sayfa")]
     for page_key, label, icon in items:
-        icon_rendered = sidebar_icon_html(page_key, icon)
-        active_class = " active" if current_page == page_key else ""
-        href = html_escape(_nav_href(page_key, user), quote=True)
-        links.append(
-            f'<a class="kp-mobile-menu-link{active_class}" href="{href}" target="_self">'
-            f'<span class="kp-mobile-menu-icon">{icon_rendered}</span><span>{html_escape(label)}</span></a>'
-        )
+        if page_key in valid_pages:
+            compact_icons = {
+                "tarot": "✦",
+                "katina": "◆",
+                "coffee_image": "◒",
+                "mini_tarot": "✧",
+                "mini_katina": "◇",
+                "coffee_text": "◒",
+                "love_fortune": "♡",
+                "birth_chart": "♈",
+                "dream": "☾",
+                "soulmate": "∞",
+                "relationship": "♡",
+                "meditation": "◌",
+                "rituals": "✺",
+                "feedback": "✎",
+                "admin": "⚙",
+            }
+            mobile_options.append((page_key, f"{compact_icons.get(page_key, str(icon or '✦'))} {label}"))
 
-    links_html = "".join(links)
+    page_keys = [page_key for page_key, _label in mobile_options]
+    labels = {page_key: label for page_key, label in mobile_options}
+    selected_index = page_keys.index(current_page) if current_page in page_keys else 0
+
     st.markdown(
-        f"""
-      <details class="kp-mobile-menu-panel">
-          <summary class="kp-mobile-menu-summary"><span class="kp-mobile-menu-title">☰ Menü</span></summary>
-          <div class="kp-mobile-menu-list">{links_html}</div>
-      </details>
+        """
+        <style id="kp-mobile-native-navigation-css">
+        @media (min-width: 761px) {
+            .element-container:has(.kp-mobile-native-menu-marker),
+            .element-container:has(.kp-mobile-native-menu-marker) + .element-container {
+                display: none !important;
+                visibility: hidden !important;
+                height: 0 !important;
+                min-height: 0 !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                overflow: hidden !important;
+            }
+        }
+        @media (max-width: 760px) {
+            .element-container:has(.kp-mobile-native-menu-marker) {
+                margin: 0 !important;
+                padding: 0 !important;
+                height: 0 !important;
+                min-height: 0 !important;
+                overflow: hidden !important;
+            }
+            .element-container:has(.kp-mobile-native-menu-marker) + .element-container {
+                width: min(340px, 88vw) !important;
+                margin: 0.05rem auto 0.35rem auto !important;
+                padding: 0 !important;
+                position: relative !important;
+                z-index: 99999 !important;
+            }
+            .element-container:has(.kp-mobile-native-menu-marker) + .element-container [data-testid="stSelectbox"] {
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+            .element-container:has(.kp-mobile-native-menu-marker) + .element-container [data-testid="stWidgetLabel"] {
+                min-height: 0 !important;
+                height: 0 !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                overflow: hidden !important;
+                visibility: hidden !important;
+            }
+            .element-container:has(.kp-mobile-native-menu-marker) + .element-container div[data-baseweb="select"] > div {
+                min-height: 42px !important;
+                border-radius: 16px !important;
+                background: rgba(8, 10, 30, 0.88) !important;
+                border: 1px solid rgba(255, 241, 184, 0.30) !important;
+                box-shadow: 0 8px 22px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.08) !important;
+                color: #fff1b8 !important;
+                font-family: var(--kp-font-sans) !important;
+                font-size: 0.80rem !important;
+                font-weight: 520 !important;
+                text-align: left !important;
+            }
+            .element-container:has(.kp-mobile-native-menu-marker) + .element-container div[data-baseweb="select"] span,
+            .element-container:has(.kp-mobile-native-menu-marker) + .element-container div[data-baseweb="select"] div {
+                color: #fff1b8 !important;
+                text-align: left !important;
+                font-weight: 520 !important;
+            }
+        }
+        </style>
+        <div class="kp-mobile-native-menu-marker" aria-hidden="true"></div>
         """,
         unsafe_allow_html=True,
     )
+
+    selected_page = st.selectbox(
+        "Mobil menü",
+        page_keys,
+        index=selected_index,
+        format_func=lambda value: labels.get(str(value), str(value)),
+        key=f"kp_mobile_native_nav_{current_page}",
+        label_visibility="collapsed",
+    )
+    if selected_page != current_page:
+        _activate_native_page(str(selected_page), valid_pages)
+        st.rerun()
 
 
 def navigation(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]]) -> str:
@@ -1302,7 +1382,7 @@ def navigation(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]])
         for page_key, label, icon in items:
             render_sidebar_native_button(page_key, label, icon)
 
-    render_mobile_navigation(user, module_settings, current_page)
+    render_mobile_navigation(user, module_settings, current_page, valid_pages)
     return st.session_state.get("current_page", "home")
 
 
