@@ -230,13 +230,90 @@ def icon_asset_data_uri(filename: str, max_side: int = 58) -> str:
     return f"data:{mime};base64,{encoded}"
 
 
+PROFESSIONAL_MODULE_ICONS: Dict[str, str] = {
+    "relationship": """
+        <path d="M12 20.3s-6.9-4.05-8.7-8.2C2.2 9.55 3.05 6.7 5.62 5.86c1.62-.52 3.24.08 4.28 1.32C10.94 5.94 12.56 5.34 14.18 5.86c2.57.84 3.42 3.69 2.32 6.24C14.69 16.25 12 20.3 12 20.3Z"/>
+        <path d="M7.5 10.2c1.25 1.15 2.7 1.72 4.5 1.72s3.25-.57 4.5-1.72" opacity=".52"/>
+    """,
+    "love_fortune": """
+        <path d="M12 20.2s-5.9-3.56-7.45-7.08C3.55 10.84 4.34 8.34 6.55 7.63c1.39-.45 2.78.07 3.67 1.13.89-1.06 2.28-1.58 3.67-1.13 2.21.71 3 3.21 2 5.49C14.35 16.64 12 20.2 12 20.2Z"/>
+        <path d="M15.5 3.8a4.8 4.8 0 0 0 3.2 7.8 5.2 5.2 0 0 1-5.9-6.15 4.85 4.85 0 0 1 2.7-1.65Z" opacity=".58"/>
+    """,
+    "birth_chart": """
+        <circle cx="12" cy="12" r="7.2"/>
+        <path d="M12 4.8v14.4M4.8 12h14.4M7.1 7.1l9.8 9.8M16.9 7.1l-9.8 9.8" opacity=".46"/>
+        <circle cx="12" cy="12" r="2.2"/>
+    """,
+    "mini_tarot": """
+        <rect x="7.2" y="4.3" width="9.6" height="15.4" rx="2.1"/>
+        <path d="M12 7.6l1.25 2.65L16 11.5l-2.75 1.22L12 15.4l-1.25-2.68L8 11.5l2.75-1.25L12 7.6Z"/>
+    """,
+    "tarot": """
+        <rect x="6.7" y="3.8" width="10.6" height="16.4" rx="2.2"/>
+        <path d="M12 6.7l1.45 3.05 3.05 1.45-3.05 1.45L12 15.7l-1.45-3.05-3.05-1.45 3.05-1.45L12 6.7Z"/>
+        <path d="M9.2 18h5.6" opacity=".55"/>
+    """,
+    "mini_katina": """
+        <circle cx="8.7" cy="8.7" r="3.2"/>
+        <path d="M11.1 11.1l6.4 6.4M14 14.1l1.55-1.55M16.1 16.2l1.45-1.45"/>
+    """,
+    "katina": """
+        <circle cx="8.4" cy="8.4" r="3.25"/>
+        <path d="M10.8 10.8l7 7M14.2 14.2l1.65-1.65M16.45 16.45l1.5-1.5"/>
+        <path d="M8.4 6.9v.05" opacity=".7"/>
+    """,
+    "coffee_text": """
+        <path d="M5.2 9.1h9.1v3.8a4.55 4.55 0 0 1-9.1 0V9.1Z"/>
+        <path d="M14.3 10.2h1.3a2 2 0 0 1 0 4h-1.3M6.3 18.6h8.8"/>
+        <path d="M8.1 5.4c-.55.7-.55 1.32 0 1.92M11.1 5.1c-.55.74-.55 1.38 0 2" opacity=".58"/>
+    """,
+    "coffee_image": """
+        <path d="M5.2 9.1h9.1v3.8a4.55 4.55 0 0 1-9.1 0V9.1Z"/>
+        <path d="M14.3 10.2h1.3a2 2 0 0 1 0 4h-1.3M6.3 18.6h8.8"/>
+        <path d="M8.1 5.4c-.55.7-.55 1.32 0 1.92M11.1 5.1c-.55.74-.55 1.38 0 2" opacity=".58"/>
+    """,
+    "dream": """
+        <path d="M15.8 4.4a7.7 7.7 0 1 0 3.35 10.35 6.15 6.15 0 1 1-3.35-10.35Z"/>
+        <path d="M8 7.6l.55 1.16 1.2.55-1.2.55L8 11l-.55-1.18-1.2-.55 1.2-.55L8 7.6ZM17.4 14.2l.45.92.95.45-.95.45-.45.92-.45-.92-.95-.45.95-.45.45-.92Z" opacity=".62"/>
+    """,
+    "soulmate": """
+        <circle cx="8.7" cy="10" r="3.35"/>
+        <circle cx="15.3" cy="10" r="3.35"/>
+        <path d="M9.9 13.2c.9 1.4 1.95 2.55 2.1 2.7.15-.15 1.2-1.3 2.1-2.7"/>
+    """,
+    "meditation": """
+        <path d="M12 18.5c-3.55-1.35-5.15-3.55-5.2-6.08 2.2.22 3.95 1.12 5.2 3.22 1.25-2.1 3-3 5.2-3.22-.05 2.53-1.65 4.73-5.2 6.08Z"/>
+        <path d="M12 15.64c-1.08-2.08-1.08-4.46 0-7.14 1.08 2.68 1.08 5.06 0 7.14ZM7.4 18.5h9.2" opacity=".58"/>
+    """,
+    "rituals": """
+        <path d="M12 21c3.1-1.05 5-3.25 5-6 0-2.18-1.22-3.5-2.7-4.85-.98-.9-1.68-1.8-1.68-3.15-2.62 1.78-4.62 4.38-4.62 7.7 0 2.82 1.8 5.15 4 6.3Z"/>
+        <path d="M12.3 18.2c1.25-.62 2.02-1.6 2.02-2.85 0-1.1-.62-1.75-1.25-2.38-.42-.42-.72-.84-.72-1.48-1.25.93-2.18 2.22-2.18 3.82 0 1.35.82 2.42 2.13 2.89Z" opacity=".58"/>
+    """,
+    "admin": """
+        <circle cx="12" cy="12" r="3.1"/>
+        <path d="M12 3.8v2.05M12 18.15v2.05M5.95 5.95l1.45 1.45M16.6 16.6l1.45 1.45M3.8 12h2.05M18.15 12h2.05M5.95 18.05l1.45-1.45M16.6 7.4l1.45-1.45"/>
+    """,
+}
+
+
+def _professional_module_icon_svg(module_key: str, fallback_icon: str) -> str:
+    inner = PROFESSIONAL_MODULE_ICONS.get(module_key, "")
+    if not inner:
+        return f'<span class="kp-icon-fallback">{escape(str(fallback_icon))}</span>'
+    return (
+        '<svg class="kp-icon-svg" viewBox="0 0 24 24" fill="none" '
+        'xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">'
+        f'{inner}'
+        '</svg>'
+    )
+
+
 def module_icon_html(module_key: str, fallback_icon: str) -> str:
-    filename = MODULE_ICON_ASSETS.get(module_key, "")
-    uri = icon_asset_data_uri(filename) if filename else ""
-    if not uri:
-        return escape(str(fallback_icon))
-    alt = escape(str(fallback_icon), quote=True)
-    return f'<img class="kp-icon-img" src="{escape(uri, quote=True)}" alt="{alt}" loading="lazy" />'
+    """Return lightweight professional inline SVG icons instead of PNG data images.
+
+    This keeps the menu/card structure intact while reducing repeated image payloads.
+    """
+    return _professional_module_icon_svg(module_key, fallback_icon)
 
 
 BACKGROUND_EXTENSIONS = (".png", ".jpg", ".jpeg", ".webp")
@@ -1474,6 +1551,150 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
         div[data-baseweb="base-input"] button svg {{
             fill: #8b6425 !important;
             color: #8b6425 !important;
+        }}
+
+        /* Performance-focused professional icons and embedded form fields */
+        .kp-icon-svg {{
+            width: 72% !important;
+            height: 72% !important;
+            display: block !important;
+            color: var(--kp-gold-2) !important;
+            stroke: currentColor !important;
+            stroke-width: 1.72 !important;
+            stroke-linecap: round !important;
+            stroke-linejoin: round !important;
+            fill: none !important;
+            filter: none !important;
+        }}
+        .kp-side-nav-icon .kp-icon-svg,
+        .kp-mobile-menu-icon .kp-icon-svg {{
+            width: 18px !important;
+            height: 18px !important;
+            stroke-width: 1.85 !important;
+        }}
+        .kp-icon.kp-icon-asset,
+        .kp-content-visual-icon-asset {{
+            background:
+                linear-gradient(145deg, rgba(255,241,184,0.12), rgba(123,75,214,0.08)),
+                rgba(6, 8, 23, 0.42) !important;
+            border: 1px solid rgba(255,241,184,0.22) !important;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.08) !important;
+        }}
+        .kp-side-nav-icon,
+        .kp-mobile-menu-icon {{
+            background: rgba(217,183,110,0.075) !important;
+            border-color: rgba(255,241,184,0.13) !important;
+            box-shadow: none !important;
+        }}
+        .kp-icon-fallback {{
+            color: var(--kp-gold-2) !important;
+            font-family: var(--kp-font-serif) !important;
+            font-size: 0.92rem !important;
+            line-height: 1 !important;
+        }}
+
+        [data-testid="stWidgetLabel"],
+        [data-testid="stWidgetLabel"] p,
+        [data-testid="stWidgetLabel"] label,
+        [data-testid="stWidgetLabel"] span,
+        .stTextInput label, .stTextArea label, .stNumberInput label, .stDateInput label, .stTimeInput label,
+        .stSelectbox label, .stFileUploader label, .stSlider label, .stCheckbox label, .stRadio label {{
+            color: rgba(255,241,184,0.88) !important;
+            font-weight: 800 !important;
+            letter-spacing: 0.025em !important;
+            font-size: 0.82rem !important;
+            text-shadow: none !important;
+        }}
+        .stTextInput > div,
+        .stTextArea > div,
+        .stDateInput > div,
+        .stTimeInput > div,
+        .stNumberInput > div,
+        .stSelectbox > div {{
+            margin-top: 0.16rem !important;
+        }}
+        .stTextInput div[data-baseweb="input"],
+        .stDateInput div[data-baseweb="input"],
+        .stTimeInput div[data-baseweb="input"],
+        .stNumberInput div[data-baseweb="input"],
+        div[data-baseweb="base-input"],
+        div[data-baseweb="select"] > div,
+        .stTextArea textarea {{
+            color: #fff8e8 !important;
+            background: rgba(3, 6, 20, 0.38) !important;
+            border: 1px solid rgba(255,241,184,0.18) !important;
+            border-radius: 14px !important;
+            min-height: 42px !important;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.055) !important;
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+            transform: none !important;
+            transition: border-color 120ms ease, background-color 120ms ease !important;
+        }}
+        .stTextInput div[data-baseweb="input"]:focus-within,
+        .stDateInput div[data-baseweb="input"]:focus-within,
+        .stTimeInput div[data-baseweb="input"]:focus-within,
+        .stNumberInput div[data-baseweb="input"]:focus-within,
+        div[data-baseweb="select"] > div:focus-within,
+        .stTextArea textarea:focus {{
+            border-color: rgba(255,241,184,0.58) !important;
+            background: rgba(5, 8, 26, 0.52) !important;
+            box-shadow: inset 0 -1px 0 rgba(255,241,184,0.50) !important;
+            transform: none !important;
+        }}
+        .stTextInput input,
+        .stDateInput input,
+        .stTimeInput input,
+        .stNumberInput input,
+        div[data-baseweb="base-input"] input,
+        div[data-baseweb="select"] input,
+        .stTextArea textarea {{
+            color: #fff8e8 !important;
+            -webkit-text-fill-color: #fff8e8 !important;
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            caret-color: var(--kp-gold-2) !important;
+            font-weight: 650 !important;
+            font-size: 0.92rem !important;
+        }}
+        .stTextArea textarea {{
+            min-height: 104px !important;
+            padding: 0.78rem 0.9rem !important;
+            line-height: 1.5 !important;
+        }}
+        .stTextInput input::placeholder,
+        .stTextArea textarea::placeholder {{
+            color: rgba(255,241,184,0.38) !important;
+            -webkit-text-fill-color: rgba(255,241,184,0.38) !important;
+        }}
+        div[data-baseweb="select"] span,
+        div[data-baseweb="select"] div,
+        div[data-baseweb="select"] svg {{
+            color: #fff8e8 !important;
+            fill: var(--kp-gold-2) !important;
+        }}
+        div[data-baseweb="popover"] ul,
+        div[data-baseweb="menu"] {{
+            background: rgba(6,8,23,0.98) !important;
+            border: 1px solid rgba(255,241,184,0.20) !important;
+            border-radius: 14px !important;
+            box-shadow: 0 16px 36px rgba(0,0,0,0.28) !important;
+        }}
+        div[data-baseweb="popover"] li,
+        div[data-baseweb="menu"] li {{
+            color: #fff8e8 !important;
+            font-weight: 700 !important;
+        }}
+        div[data-baseweb="popover"] li:hover,
+        div[data-baseweb="menu"] li:hover {{
+            background: rgba(217,183,110,0.14) !important;
+        }}
+        [data-testid="stFileUploader"] section {{
+            background: rgba(3,6,20,0.34) !important;
+            border: 1px dashed rgba(255,241,184,0.20) !important;
+            border-radius: 16px !important;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.045) !important;
         }}
 
         .stProgress > div > div > div > div {{ background: linear-gradient(90deg, #7755d7, #d9b76e) !important; }}
