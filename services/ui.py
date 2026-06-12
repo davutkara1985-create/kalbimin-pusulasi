@@ -413,8 +413,8 @@ def _display_name(user: Optional[Dict[str, Any]]) -> str:
 
 def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
     style_settings = style_settings or {}
-    title_font = str(style_settings.get("title_font", "'Cormorant Garamond', Georgia, serif"))
-    content_font = str(style_settings.get("content_font", "'Inter', system-ui, -apple-system, sans-serif"))
+    title_font = str(style_settings.get("title_font", "'Inter Tight', 'Segoe UI Variable Display', 'Aptos Display', 'SF Pro Display', system-ui, -apple-system, sans-serif"))
+    content_font = str(style_settings.get("content_font", "'Inter', 'Segoe UI Variable Text', 'Aptos', 'Roboto', system-ui, -apple-system, sans-serif"))
     font_scale = float(style_settings.get("font_scale", 1.0) or 1.0)
     sidebar_width = int(style_settings.get("sidebar_width", 238) or 238)
     sidebar_width = max(210, min(sidebar_width, 300))
@@ -2131,6 +2131,30 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
             .kp-open-card-grid {{ grid-template-columns: repeat(4, minmax(0, 1fr)); }}
             .kp-admin-user-row {{ grid-template-columns: 52px minmax(0, 1fr) 66px; padding: 6px 7px; }}
         }}
+
+
+        /* Modern ve daha sakin tipografi: ağır bold hissini azaltır, tasarımı sadeleştirir. */
+        h1, h2, h3, h4, h5,
+        .kp-title, .kp-title span, .kp-section-title, .kp-card h3,
+        .kp-sidebar-brand-title, .kp-metric-value, .kp-price,
+        .kp-result-body h3, .kp-auth-title, .kp-content-title {
+            font-family: var(--kp-font-sans) !important;
+            font-weight: 620 !important;
+            letter-spacing: -0.022em !important;
+        }
+        .kp-sidebar-menu-title, .kp-section-kicker, .kp-card-category,
+        .kp-badge, .kp-lock, .kp-top-account-name, .kp-top-account-link,
+        .kp-admin-user-role, .kp-admin-user-plan {
+            font-family: var(--kp-font-sans) !important;
+            font-weight: 620 !important;
+            letter-spacing: 0.045em !important;
+        }
+        .kp-card p, .kp-card li, .kp-safe, .kp-notice, .kp-login-note,
+        .kp-result-body, .kp-inbox-preview, .kp-admin-request-preview {
+            font-family: var(--kp-font-sans) !important;
+            font-weight: 400 !important;
+            letter-spacing: 0 !important;
+        }
         </style>
         """,
         unsafe_allow_html=True,
