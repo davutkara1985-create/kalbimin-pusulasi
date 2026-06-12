@@ -1224,11 +1224,14 @@ def navigation(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]])
 
     def render_sidebar_native_button(page_key: str, label: str, icon: str = "✦") -> None:
         is_current = current_page == page_key
-        button_icon = _native_nav_icon(page_key, icon)
+        # Streamlit 1.58 button(icon=...) yalnizca belli emoji/material adlarini kabul eder.
+        # Bazi module ikonlari veya material adlari StreamlitAPIException uretebildigi icin
+        # icon parametresi kullanilmiyor; ikon metin icinde guvenli sekilde gosteriliyor.
+        safe_icon = str(icon or "✦")
+        button_label = f"{safe_icon} {label}"
         clicked = st.sidebar.button(
-            str(label),
+            button_label,
             key=f"kp_native_nav_{page_key}",
-            icon=button_icon or None,
             use_container_width=True,
             disabled=is_current,
         )
