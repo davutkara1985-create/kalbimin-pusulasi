@@ -363,7 +363,9 @@ def prevent_browser_translate() -> None:
             }
 
             syncRememberedAuth();
-            installNoWhiteFlashGuard();
+            // Sayfa tıklamalarında yapay geçiş perdesi kurulmaz.
+            // Bu perde beyaz ekranı saklamak için eklenmişti; ancak menü geçişlerinde
+            // kullanıcı tarafında gecikme hissini artırabiliyor.
             applyNoTranslate();
             setTimeout(applyNoTranslate, 700);
 
@@ -386,36 +388,17 @@ def prevent_browser_translate() -> None:
         width=0,
     )
 
-# Clear caches kısayolunu ve tarayıcı çeviri müdahalesini her rerun'da güvenli şekilde bastır.
-# JS tarafında tek seferlik işaret kullanıldığı için tekrar dinleyici birikmez.
-prevent_browser_translate()
-st.session_state["_kp_browser_setup_done"] = True
+# Tarayıcı çeviri / Clear caches kısayol koruması yalnızca oturumda bir kez kurulur.
+# Her sayfa geçişinde st.components.v1.html iframe'i yeniden üretmek,
+# özellikle mobilde ve Streamlit Cloud'da geçişleri ağır hissettirebilir.
+if not st.session_state.get("_kp_browser_setup_done"):
+    prevent_browser_translate()
+    st.session_state["_kp_browser_setup_done"] = True
 
 # Performans: açılışta Firestore'dan tasarım ayarı çekilmez.
 # Admin Tasarım sekmesinde güncel ayarlar ayrıca yüklenir.
 PUBLIC_SETTINGS = {"style": {}}
 inject_css(PUBLIC_SETTINGS.get("style", {}))
-
-
-# Geçiş yavaşlığını teşhis etmek için yalnızca Streamlit loglarına süre yazar.
-# Kullanıcı arayüzünde hiçbir şey göstermez; menü, tasarım ve sayfa içeriklerini değiştirmez.
-def _perf_enabled() -> bool:
-    try:
-        value = str(st.secrets.get("KP_PERF_LOG", "1") or "1").strip().lower()
-        return value not in {"0", "false", "no", "off", "kapali", "kapalı"}
-    except Exception:
-        return True
-
-
-def _perf_mark(run_id: str, label: str, start_time: float, page: str = "") -> None:
-    if not _perf_enabled():
-        return
-    try:
-        elapsed_ms = (time.perf_counter() - start_time) * 1000
-        page_part = f" page={page}" if page else ""
-        print(f"[KP_PERF] run={run_id}{page_part} step={label} ms={elapsed_ms:.1f}", flush=True)
-    except Exception:
-        pass
 
 
 BASE_MENU_GROUPS = [
@@ -3692,84 +3675,39 @@ def render_page(page: str, user: Dict[str, Any], prompts: Dict[str, str], module
 
 
 def main() -> None:
-    run_id = f"{int(time.time() * 1000)}-{random.randint(1000, 9999)}"
-    requested_page = _query_get(PAGE_QUERY_KEY, "home")
-    total_start = time.perf_counter()
-
-    # Arka planı önce bas: Firestore/auth işlemleri başlamadan koyu katman görünür olsun.
-    # Bu ölçüm yaması arayüzde hiçbir şey göstermez; süreleri sadece Streamlit loglarına yazar.
-    step_start = time.perf_counter()
+    # Arka planı önce bas: Firestore/auth işlemleri başlamadan koyu video katmanı görünür olsun.
+    # Bu, sayfa geçişindeki beyaz/parlak ekran hissini azaltır.
     render_home_video_background()
-    _perf_mark(run_id, "render_home_background", step_start, requested_page)
-
-    step_start = time.perf_counter()
     user = auth_sidebar()
-    _perf_mark(run_id, "auth_sidebar", step_start, requested_page)
 
     if not user:
-        step_start = time.perf_counter()
         hide_sidebar_for_landing()
-        _perf_mark(run_id, "landing_hide_sidebar", step_start, requested_page)
-
-        step_start = time.perf_counter()
         render_hero()
-        _perf_mark(run_id, "landing_render_hero", step_start, requested_page)
-
-        step_start = time.perf_counter()
         render_landing_auth()
-        _perf_mark(run_id, "landing_render_auth", step_start, requested_page)
-
-        step_start = time.perf_counter()
         render_footer()
-        _perf_mark(run_id, "landing_render_footer", step_start, requested_page)
-        _perf_mark(run_id, "TOTAL", total_start, requested_page)
         return
 
     try:
-        step_start = time.perf_counter()
         module_settings = get_all_module_settings()
-        _perf_mark(run_id, "get_all_module_settings", step_start, requested_page)
     except Exception as exc:
-        _perf_mark(run_id, "get_all_module_settings_ERROR", step_start, requested_page)
         stop_with_setup_error(exc)
         return
 
-    step_start = time.perf_counter()
     render_top_account(user)
-    _perf_mark(run_id, "render_top_account", step_start, requested_page)
-
-    step_start = time.perf_counter()
     page = navigation(user, module_settings)
-    _perf_mark(run_id, "navigation", step_start, page)
-
-    step_start = time.perf_counter()
     persist_auth_query(user, page)
-    _perf_mark(run_id, "persist_auth_query", step_start, page)
 
     prompts: Dict[str, str] = {}
     if page in AI_PROMPT_MODULES or page == "admin":
         try:
-            step_start = time.perf_counter()
             prompts = get_all_prompts()
-            _perf_mark(run_id, "get_all_prompts", step_start, page)
         except Exception as exc:
-            _perf_mark(run_id, "get_all_prompts_ERROR", step_start, page)
             stop_with_setup_error(exc)
             return
 
-    step_start = time.perf_counter()
     render_user_message_notification(user, page)
-    _perf_mark(run_id, "render_user_message_notification", step_start, page)
-
-    step_start = time.perf_counter()
     render_page(page, user, prompts, module_settings)
-    _perf_mark(run_id, f"render_page_{page}", step_start, page)
-
-    step_start = time.perf_counter()
     render_footer()
-    _perf_mark(run_id, "render_footer", step_start, page)
-
-    _perf_mark(run_id, "TOTAL", total_start, page)
 
 
 if __name__ == "__main__":
