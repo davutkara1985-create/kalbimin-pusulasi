@@ -234,6 +234,7 @@ def get_or_create_user(email: str) -> Dict[str, Any]:
         "source": "streamlit",
     }
     ref.set(data)
+    _clear_user_list_cache()
     return {**data, "created_at": now_utc(), "updated_at": now_utc()}
 
 
@@ -271,6 +272,7 @@ def create_user_account(email: str, password: str, display_name: str = "") -> Tu
         "source": existing.get("source", "streamlit_auth"),
     }
     ref.set(data, merge=True)
+    _clear_user_list_cache()
     return True, "Hesabın oluşturuldu.", _public_user(data)
 
 
@@ -326,6 +328,7 @@ def update_user_plan(email: str, plan: str, reason: str = "manual") -> None:
         },
         merge=True,
     )
+    _clear_user_list_cache()
 
 
 def get_usage(email: str) -> int:
@@ -451,7 +454,7 @@ def activate_access_code(email: str, code: str) -> Tuple[bool, str]:
 # Admin-managed app settings
 # -----------------------------
 
-@st.cache_data(ttl=900, show_spinner=False)
+@st.cache_data(ttl=3600, show_spinner=False)
 def get_public_settings() -> Dict[str, Any]:
     db = get_firestore_client()
     snap = db.collection("app_config").document("public_settings").get()
@@ -481,9 +484,10 @@ def save_style_settings(style: Dict[str, Any]) -> None:
     db.collection("app_config").document("public_settings").set(
         {"style": safe_style, "updated_at": firestore.SERVER_TIMESTAMP}, merge=True
     )
+    get_public_settings.clear()
 get_public_settings.clear()
 
-@st.cache_data(ttl=900, show_spinner=False)
+@st.cache_data(ttl=3600, show_spinner=False)
 def get_all_prompts() -> Dict[str, str]:
     db = get_firestore_client()
     snap = db.collection("app_config").document("prompts").get()
@@ -513,7 +517,7 @@ def save_prompt(module_key: str, prompt: str) -> None:
     )
     get_all_prompts.clear()
 
-@st.cache_data(ttl=900, show_spinner=False)
+@st.cache_data(ttl=3600, show_spinner=False)
 def get_all_module_settings() -> Dict[str, Dict[str, Any]]:
     db = get_firestore_client()
     defaults = module_defaults()
@@ -541,7 +545,45 @@ def save_module_setting(module_key: str, setting: Dict[str, Any]) -> None:
     db.collection("app_config").document("modules").set(
         {"settings": {module_key: clean}, "updated_at": firestore.SERVER_TIMESTAMP}, merge=True
     )
+    get_all_module_settings.clear()
 get_all_module_settings.clear()
+
+
+def _clear_cache_safely(fn_name: str) -> None:
+    fn = globals().get(fn_name)
+    clear = getattr(fn, "clear", None)
+    if callable(clear):
+        try:
+            clear()
+        except Exception:
+            pass
+
+
+def _clear_content_cache() -> None:
+    _clear_cache_safely("_cached_content_items")
+
+
+def _clear_manual_request_cache() -> None:
+    _clear_cache_safely("_cached_manual_requests")
+
+
+def _clear_inbox_cache() -> None:
+    _clear_cache_safely("_cached_inbox_items")
+    _clear_cache_safely("_cached_unread_inbox_count_db")
+    _clear_cache_safely("_cached_total_inbox_count_db")
+
+
+def _clear_feedback_cache() -> None:
+    _clear_cache_safely("_cached_user_feedback")
+
+
+def _clear_user_list_cache() -> None:
+    _clear_cache_safely("_cached_users")
+
+
+def _clear_rating_cache() -> None:
+    _clear_cache_safely("_cached_page_ratings")
+
 
 # -----------------------------
 # Admin-managed content
@@ -634,7 +676,8 @@ def _seed_default_content_items_if_needed(content_type: str) -> None:
     )
 
 
-def get_content_items(content_type: str, include_inactive: bool = False) -> List[Dict[str, Any]]:
+@st.cache_data(ttl=600, show_spinner=False)
+def _cached_content_items(content_type: str, include_inactive: bool = False) -> List[Dict[str, Any]]:
     db = get_firestore_client()
     docs = list(db.collection("content_items").where("type", "==", content_type).stream())
 
@@ -656,6 +699,10 @@ def get_content_items(content_type: str, include_inactive: bool = False) -> List
     # _default_items döndürmeyiz. Böylece admin bir içeriği pasifleştirirse
     # kullanıcı tarafında eski varsayılan içerik tekrar belirmez.
     return sorted(items, key=lambda x: str(x.get("created_at", "")), reverse=True)
+
+
+def get_content_items(content_type: str, include_inactive: bool = False) -> List[Dict[str, Any]]:
+    return _cached_content_items(str(content_type), bool(include_inactive))
 
 
 CONTENT_ITEM_ALLOWED_FIELDS = {
@@ -701,6 +748,7 @@ def create_content_item(
     if extra:
         data.update({k: v for k, v in extra.items() if k in CONTENT_ITEM_ALLOWED_FIELDS})
     ref.set(data)
+    _clear_content_cache()
     return ref.id
 
 
@@ -709,11 +757,13 @@ def update_content_item(item_id: str, values: Dict[str, Any]) -> None:
     clean = {k: v for k, v in values.items() if k in CONTENT_ITEM_ALLOWED_FIELDS}
     clean["updated_at"] = firestore.SERVER_TIMESTAMP
     db.collection("content_items").document(item_id).set(clean, merge=True)
+    _clear_content_cache()
 
 
 def delete_content_item(item_id: str) -> None:
     db = get_firestore_client()
     db.collection("content_items").document(item_id).delete()
+    _clear_content_cache()
 
 
 # -----------------------------
@@ -738,15 +788,17 @@ def submit_manual_request(user: Dict[str, Any], request_type: str, payload: Dict
             "updated_at": firestore.SERVER_TIMESTAMP,
         }
     )
+    _clear_manual_request_cache()
     return ref.id
 
 
-def list_manual_requests(status: str = "pending", limit: int = 80) -> List[Dict[str, Any]]:
+@st.cache_data(ttl=120, show_spinner=False)
+def _cached_manual_requests(status: str = "pending", limit: int = 80) -> List[Dict[str, Any]]:
     db = get_firestore_client()
     query = db.collection("manual_requests")
     if status != "all":
         query = query.where("status", "==", status)
-    docs = query.limit(limit).stream()
+    docs = query.limit(int(limit)).stream()
     results: List[Dict[str, Any]] = []
     for doc in docs:
         data = doc.to_dict() or {}
@@ -754,6 +806,10 @@ def list_manual_requests(status: str = "pending", limit: int = 80) -> List[Dict[
         results.append(data)
     results.sort(key=lambda item: str(item.get("created_at", "")), reverse=True)
     return results
+
+
+def list_manual_requests(status: str = "pending", limit: int = 80) -> List[Dict[str, Any]]:
+    return _cached_manual_requests(str(status or "pending"), int(limit))
 
 
 def send_manual_response(
@@ -798,18 +854,19 @@ def send_manual_response(
             "created_at": firestore.SERVER_TIMESTAMP,
         }
     )
+    _clear_manual_request_cache()
+    _clear_inbox_cache()
 
 
-def list_inbox(user: Dict[str, Any], limit: int = 60) -> List[Dict[str, Any]]:
-    if not user or user.get("is_guest"):
-        return []
+@st.cache_data(ttl=120, show_spinner=False)
+def _cached_inbox_items(user_id: str, limit: int = 60) -> List[Dict[str, Any]]:
     db = get_firestore_client()
     docs = (
         db.collection("users")
-        .document(user["id"])
+        .document(user_id)
         .collection("inbox")
         .order_by("created_at", direction=firestore.Query.DESCENDING)
-        .limit(limit)
+        .limit(int(limit))
         .stream()
     )
     items: List[Dict[str, Any]] = []
@@ -818,6 +875,26 @@ def list_inbox(user: Dict[str, Any], limit: int = 60) -> List[Dict[str, Any]]:
         data["id"] = doc.id
         items.append(data)
     return items
+
+
+def list_inbox(user: Dict[str, Any], limit: int = 60) -> List[Dict[str, Any]]:
+    if not user or user.get("is_guest"):
+        return []
+    return _cached_inbox_items(str(user["id"]), int(limit))
+
+
+@st.cache_data(ttl=180, show_spinner=False)
+def _cached_unread_inbox_count_db(user_id: str, limit: int = 20) -> int:
+    db = get_firestore_client()
+    docs = (
+        db.collection("users")
+        .document(user_id)
+        .collection("inbox")
+        .where("read", "==", False)
+        .limit(int(limit))
+        .stream()
+    )
+    return sum(1 for _ in docs)
 
 
 def get_unread_inbox_count(user: Dict[str, Any], limit: int = 20) -> int:
@@ -829,32 +906,28 @@ def get_unread_inbox_count(user: Dict[str, Any], limit: int = 20) -> int:
     """
     if not user or user.get("is_guest"):
         return 0
+    return int(_cached_unread_inbox_count_db(str(user["id"]), int(limit)))
+
+
+
+@st.cache_data(ttl=180, show_spinner=False)
+def _cached_total_inbox_count_db(user_id: str, limit: int = 99) -> int:
     db = get_firestore_client()
     docs = (
         db.collection("users")
-        .document(user["id"])
+        .document(user_id)
         .collection("inbox")
-        .where("read", "==", False)
         .limit(int(limit))
         .stream()
     )
     return sum(1 for _ in docs)
-
 
 
 def get_inbox_count(user: Dict[str, Any], limit: int = 99) -> int:
     """Return a lightweight total inbox count for the top message shortcut."""
     if not user or user.get("is_guest"):
         return 0
-    db = get_firestore_client()
-    docs = (
-        db.collection("users")
-        .document(user["id"])
-        .collection("inbox")
-        .limit(int(limit))
-        .stream()
-    )
-    return sum(1 for _ in docs)
+    return int(_cached_total_inbox_count_db(str(user["id"]), int(limit)))
 
 
 
@@ -865,6 +938,7 @@ def mark_inbox_read(user: Dict[str, Any], message_id: str) -> None:
     db.collection("users").document(user["id"]).collection("inbox").document(message_id).set(
         {"read": True, "read_at": firestore.SERVER_TIMESTAMP}, merge=True
     )
+    _clear_inbox_cache()
 
 
 def submit_user_feedback(user: Dict[str, Any], category: str, subject: str, message: str) -> str:
@@ -891,10 +965,12 @@ def submit_user_feedback(user: Dict[str, Any], category: str, subject: str, mess
             "updated_at": firestore.SERVER_TIMESTAMP,
         }
     )
+    _clear_feedback_cache()
     return ref.id
 
 
-def list_user_feedback(status: str = "pending", limit: int = 100) -> List[Dict[str, Any]]:
+@st.cache_data(ttl=120, show_spinner=False)
+def _cached_user_feedback(status: str = "pending", limit: int = 100) -> List[Dict[str, Any]]:
     db = get_firestore_client()
     query = db.collection("user_feedback")
     if status != "all":
@@ -907,6 +983,10 @@ def list_user_feedback(status: str = "pending", limit: int = 100) -> List[Dict[s
         results.append(data)
     results.sort(key=lambda item: str(item.get("created_at", "")), reverse=True)
     return results
+
+
+def list_user_feedback(status: str = "pending", limit: int = 100) -> List[Dict[str, Any]]:
+    return _cached_user_feedback(str(status or "pending"), int(limit))
 
 
 def send_feedback_response(feedback_id: str, response_text: str, admin_user: Dict[str, Any]) -> None:
@@ -946,17 +1026,24 @@ def send_feedback_response(feedback_id: str, response_text: str, admin_user: Dic
             "created_at": firestore.SERVER_TIMESTAMP,
         }
     )
+    _clear_feedback_cache()
+    _clear_inbox_cache()
 
 
-def list_users(limit: int = 150) -> List[Dict[str, Any]]:
+@st.cache_data(ttl=300, show_spinner=False)
+def _cached_users(limit: int = 150) -> List[Dict[str, Any]]:
     db = get_firestore_client()
-    docs = db.collection("users").limit(limit).stream()
+    docs = db.collection("users").limit(int(limit)).stream()
     users: List[Dict[str, Any]] = []
     for doc in docs:
         data = _public_user(doc.to_dict() or {})
         data["id"] = doc.id
         users.append(data)
     return users
+
+
+def list_users(limit: int = 150) -> List[Dict[str, Any]]:
+    return _cached_users(int(limit))
 
 
 # -----------------------------
@@ -982,10 +1069,12 @@ def save_page_rating(user: Dict[str, Any], module_key: str, rating: int, note: s
             "created_at": firestore.SERVER_TIMESTAMP,
         }
     )
+    _clear_rating_cache()
     return ref.id
 
 
-def list_page_ratings(limit: int = 1000) -> List[Dict[str, Any]]:
+@st.cache_data(ttl=300, show_spinner=False)
+def _cached_page_ratings(limit: int = 1000) -> List[Dict[str, Any]]:
     db = get_firestore_client()
     docs = (
         db.collection("page_ratings")
@@ -1000,3 +1089,6 @@ def list_page_ratings(limit: int = 1000) -> List[Dict[str, Any]]:
         items.append(data)
     return items
 
+
+def list_page_ratings(limit: int = 1000) -> List[Dict[str, Any]]:
+    return _cached_page_ratings(int(limit))
