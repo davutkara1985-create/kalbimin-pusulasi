@@ -158,6 +158,63 @@ st.markdown(
         z-index: 2147483647;
         pointer-events: none;
     }
+
+    /* Internal sidebar navigation overlay: visible menu HTML stays unchanged;
+       invisible Streamlit buttons catch clicks to avoid full browser reload. */
+    .element-container:has(.kp-fast-nav-marker) {
+        height: 0 !important;
+        min-height: 0 !important;
+        max-height: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        overflow: visible !important;
+        line-height: 0 !important;
+    }
+    .element-container:has(.kp-fast-nav-marker) + .element-container {
+        height: 35px !important;
+        min-height: 35px !important;
+        max-height: 35px !important;
+        margin: -35px 0 0 0 !important;
+        padding: 0 !important;
+        position: relative !important;
+        z-index: 1000000 !important;
+        pointer-events: auto !important;
+    }
+    .element-container:has(.kp-fast-nav-marker) + .element-container div.stButton {
+        height: 35px !important;
+        min-height: 35px !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+    .element-container:has(.kp-fast-nav-marker) + .element-container div.stButton > button {
+        width: 100% !important;
+        height: 35px !important;
+        min-height: 35px !important;
+        max-height: 35px !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        border: none !important;
+        outline: none !important;
+        box-shadow: none !important;
+        background: transparent !important;
+        color: transparent !important;
+        font-size: 0 !important;
+        line-height: 0 !important;
+        opacity: 0.01 !important;
+        cursor: pointer !important;
+    }
+    .element-container:has(.kp-fast-nav-marker) + .element-container div.stButton > button * {
+        display: none !important;
+        visibility: hidden !important;
+    }
+    .element-container:has(.kp-fast-nav-marker) + .element-container div.stButton > button:hover,
+    .element-container:has(.kp-fast-nav-marker) + .element-container div.stButton > button:focus,
+    .element-container:has(.kp-fast-nav-marker) + .element-container div.stButton > button:active {
+        border: none !important;
+        outline: none !important;
+        box-shadow: none !important;
+        background: transparent !important;
+    }
     </style>
     """,
     unsafe_allow_html=True,
@@ -620,9 +677,8 @@ def restore_auth_from_query() -> Optional[Dict[str, Any]]:
         user = get_or_create_user(email)
         st.session_state["auth_user"] = user
         # Token üzerinden geri dönüşte mevcut seçim korunur; yoksa güvenli şekilde aktif kabul edilir.
-        # URL'yi burada yeniden yazmak, tarayıcı seviyesinde ikinci bir yükleme/rerun
-        # hissi oluşturabildiği için yalnızca session_state güncellenir.
         st.session_state.setdefault("remember_me", True)
+        _query_set(REMEMBER_QUERY_KEY, "1")
         _query_delete(LOGOUT_QUERY_KEY)
         return user
     except Exception:
@@ -993,6 +1049,16 @@ def reset_navigation_to_home() -> None:
     _query_set(PAGE_QUERY_KEY, "home")
 
 
+def _internal_sidebar_nav(page_key: str) -> None:
+    """Switch pages inside the existing Streamlit session without browser reload.
+
+    This keeps the visible HTML menu unchanged while avoiding the slow full page
+    refresh caused by href-based sidebar links.
+    """
+    st.session_state["current_page"] = str(page_key or "home")
+    st.session_state["_kp_internal_navigation_active"] = True
+
+
 
 MENU_GROUP_ICON_MODULES = {
     "Romantik Fal": "tarot",
@@ -1067,12 +1133,14 @@ def navigation(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]])
     valid_pages = valid_pages_for(user, module_settings)
     requested_page = _query_get(PAGE_QUERY_KEY, "home")
 
-    # URL ile doğrudan açılış desteklenir; normal menü HTML satırları tasarıma gömülü kalır.
+    # URL ile doğrudan açılış desteklenir. Menü tıklamalarında ise sayfa
+    # session_state ile değişir; her rerun'da URL'yi tekrar state'e basmak
+    # iç navigasyonu eski sayfaya döndürüp geçişi yavaşlatabilir.
     if "current_page" not in st.session_state:
         st.session_state["current_page"] = requested_page if requested_page in valid_pages else "home"
-
-    if requested_page in valid_pages and requested_page != st.session_state.get("current_page"):
-        st.session_state["current_page"] = requested_page
+    elif not st.session_state.get("_kp_internal_navigation_active"):
+        if requested_page in valid_pages and requested_page != st.session_state.get("current_page"):
+            st.session_state["current_page"] = requested_page
 
     if st.session_state.get("current_page") not in valid_pages:
         reset_navigation_to_home()
@@ -1103,6 +1171,17 @@ def navigation(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]])
             </a>
             """,
             unsafe_allow_html=True,
+        )
+        st.sidebar.markdown(
+            f'<span class="kp-fast-nav-marker" data-page="{html_escape(str(page_key), quote=True)}"></span>',
+            unsafe_allow_html=True,
+        )
+        st.sidebar.button(
+            " ",
+            key=f"kp_fast_sidebar_nav_{page_key}",
+            on_click=_internal_sidebar_nav,
+            args=(page_key,),
+            use_container_width=True,
         )
 
     render_sidebar_link("home", "Ana Sayfa", "⌂")
@@ -1339,17 +1418,11 @@ Ve gerçekten kendine şunu sor: “Kalbim bana ne anlatmak istiyor?”
 
 @st.cache_data(ttl=86400, show_spinner=False)
 def _home_background_image_uri() -> str:
-    """Return the home background image source without touching page design.
+    """Return the static home background image as a cached data URI.
 
-    Prefer Streamlit static serving so the browser can cache the image between
-    menu clicks. If static serving is unavailable, fall back to the old data URI
-    path so the background never disappears.
+    Video background is intentionally replaced with a lightweight image to reduce
+    page transition load without changing menus, text, layout or visual structure.
     """
-    app_dir = Path(__file__).resolve().parent
-    static_image = app_dir / "static" / "kp_home_background.jpg"
-    if static_image.exists() and static_image.is_file():
-        version = int(static_image.stat().st_mtime)
-        return f"app/static/kp_home_background.jpg?v={version}"
     return asset_data_uri("kp_home_background.jpg", max_side=1920, quality=82)
 
 
@@ -3698,9 +3771,8 @@ def main() -> None:
 
     render_top_account(user)
     page = navigation(user, module_settings)
-    # Menü/üst bağlantılar zaten doğru kp_page ve auth token içeren href üretir.
-    # Her rerun'da st.query_params yazmak sayfa geçişlerinde ek yenileme maliyeti
-    # oluşturabildiği için burada URL tekrar yazılmaz.
+    if not st.session_state.get("_kp_internal_navigation_active"):
+        persist_auth_query(user, page)
 
     prompts: Dict[str, str] = {}
     if page in AI_PROMPT_MODULES or page == "admin":
