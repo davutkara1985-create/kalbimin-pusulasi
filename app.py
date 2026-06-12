@@ -1282,9 +1282,9 @@ def render_mobile_navigation(user: Dict[str, Any], module_settings: Dict[str, Di
                 display: block !important;
                 visibility: visible !important;
                 opacity: 1 !important;
-                width: min(360px, 92vw) !important;
-                max-width: 92vw !important;
-                margin: 0.12rem auto 0.42rem auto !important;
+                width: min(350px, 94vw) !important;
+                max-width: 94vw !important;
+                margin: 0.05rem auto 0.25rem auto !important;
                 padding: 0 !important;
                 position: relative !important;
                 z-index: 99999 !important;
@@ -1294,10 +1294,10 @@ def render_mobile_navigation(user: Dict[str, Any], module_settings: Dict[str, Di
                 width: 100% !important;
                 margin: 0 !important;
                 padding: 0 !important;
-                border-radius: 18px !important;
+                border-radius: 14px !important;
                 background: linear-gradient(145deg, rgba(8, 10, 30, 0.92), rgba(22, 18, 52, 0.88)) !important;
                 border: 1px solid rgba(255, 241, 184, 0.28) !important;
-                box-shadow: 0 10px 24px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.07) !important;
+                box-shadow: 0 6px 14px rgba(0,0,0,0.24), inset 0 1px 0 rgba(255,255,255,0.06) !important;
                 overflow: hidden !important;
             }
             .st-key-kp_mobile_native_menu_shell [data-testid="stExpander"] details,
@@ -1306,28 +1306,33 @@ def render_mobile_navigation(user: Dict[str, Any], module_settings: Dict[str, Di
             }
             .st-key-kp_mobile_native_menu_shell [data-testid="stExpander"] summary,
             [class*="st-key-kp_mobile_native_menu_shell"] [data-testid="stExpander"] summary {
-                min-height: 43px !important;
-                padding: 0 14px !important;
+                min-height: 31px !important;
+                padding: 0 10px !important;
                 background: rgba(255, 241, 184, 0.075) !important;
                 border-bottom: 1px solid rgba(255, 241, 184, 0.10) !important;
                 color: #fff1b8 !important;
                 font-family: var(--kp-font-sans) !important;
-                font-size: 0.82rem !important;
+                font-size: 0.76rem !important;
                 font-weight: 560 !important;
                 letter-spacing: 0.01em !important;
             }
             .st-key-kp_mobile_native_menu_shell [data-testid="stExpander"] summary p,
             [class*="st-key-kp_mobile_native_menu_shell"] [data-testid="stExpander"] summary p {
                 color: #fff1b8 !important;
-                font-size: 0.82rem !important;
+                font-size: 0.76rem !important;
                 font-weight: 560 !important;
                 line-height: 1 !important;
                 margin: 0 !important;
             }
             .st-key-kp_mobile_native_menu_shell [data-testid="stExpanderDetails"],
             [class*="st-key-kp_mobile_native_menu_shell"] [data-testid="stExpanderDetails"] {
-                padding: 10px 10px 11px 10px !important;
+                padding: 6px 6px 7px 6px !important;
                 background: transparent !important;
+            }
+            .st-key-kp_mobile_native_menu_shell [data-testid="stExpanderDetails"] > div,
+            [class*="st-key-kp_mobile_native_menu_shell"] [data-testid="stExpanderDetails"] > div {
+                gap: 3px !important;
+                row-gap: 3px !important;
             }
             .st-key-kp_mobile_native_menu_shell [data-testid="stHorizontalBlock"],
             [class*="st-key-kp_mobile_native_menu_shell"] [data-testid="stHorizontalBlock"] {
@@ -1335,10 +1340,10 @@ def render_mobile_navigation(user: Dict[str, Any], module_settings: Dict[str, Di
                 grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
                 grid-auto-flow: column !important;
                 align-items: stretch !important;
-                gap: 7px !important;
+                gap: 3px !important;
                 width: 100% !important;
                 max-width: 100% !important;
-                margin: 0 0 7px 0 !important;
+                margin: 0 0 3px 0 !important;
                 padding: 0 !important;
                 overflow: visible !important;
             }
@@ -1366,18 +1371,18 @@ def render_mobile_navigation(user: Dict[str, Any], module_settings: Dict[str, Di
             }
             .st-key-kp_mobile_native_menu_shell div.stButton > button,
             [class*="st-key-kp_mobile_native_menu_shell"] div.stButton > button {
-                min-height: 36px !important;
-                height: 36px !important;
-                padding: 4px 7px !important;
-                border-radius: 12px !important;
+                min-height: 31px !important;
+                height: 31px !important;
+                padding: 2px 5px !important;
+                border-radius: 9px !important;
                 background: rgba(255,255,255,0.052) !important;
                 border: 1px solid rgba(255,241,184,0.13) !important;
                 box-shadow: inset 0 1px 0 rgba(255,255,255,0.045) !important;
                 color: rgba(255,248,232,0.90) !important;
                 font-family: var(--kp-font-sans) !important;
-                font-size: 0.68rem !important;
+                font-size: 0.63rem !important;
                 font-weight: 500 !important;
-                line-height: 1.08 !important;
+                line-height: 1.02 !important;
                 text-align: left !important;
                 justify-content: flex-start !important;
                 align-items: center !important;
@@ -1391,9 +1396,9 @@ def render_mobile_navigation(user: Dict[str, Any], module_settings: Dict[str, Di
             [class*="st-key-kp_mobile_native_menu_shell"] div.stButton > button span,
             [class*="st-key-kp_mobile_native_menu_shell"] div.stButton > button div {
                 color: inherit !important;
-                font-size: 0.68rem !important;
+                font-size: 0.63rem !important;
                 font-weight: 500 !important;
-                line-height: 1.08 !important;
+                line-height: 1.02 !important;
                 text-align: left !important;
                 white-space: nowrap !important;
                 overflow: hidden !important;
@@ -1430,7 +1435,7 @@ def render_mobile_navigation(user: Dict[str, Any], module_settings: Dict[str, Di
         unsafe_allow_html=True,
     )
 
-    with st.container(key="kp_mobile_native_menu_shell"):
+    with st.container(key=f"kp_mobile_native_menu_shell_{current_page}"):
         with st.expander("☰ Menü", expanded=False):
             for row_start in range(0, len(mobile_options), 2):
                 cols = st.columns(2, gap="small")
@@ -3125,7 +3130,7 @@ def page_coffee_image(user: Dict[str, Any], module_settings: Dict[str, Dict[str,
             color: transparent !important;
             width: 56px !important;
             height: 56px !important;
-            border-radius: 18px !important;
+            border-radius: 14px !important;
             padding: 0 !important;
         }
         [data-testid="stFileUploader"] section button::after {
