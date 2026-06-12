@@ -620,8 +620,9 @@ def restore_auth_from_query() -> Optional[Dict[str, Any]]:
         user = get_or_create_user(email)
         st.session_state["auth_user"] = user
         # Token üzerinden geri dönüşte mevcut seçim korunur; yoksa güvenli şekilde aktif kabul edilir.
+        # URL'yi burada yeniden yazmak, tarayıcı seviyesinde ikinci bir yükleme/rerun
+        # hissi oluşturabildiği için yalnızca session_state güncellenir.
         st.session_state.setdefault("remember_me", True)
-        _query_set(REMEMBER_QUERY_KEY, "1")
         _query_delete(LOGOUT_QUERY_KEY)
         return user
     except Exception:
@@ -1338,11 +1339,17 @@ Ve gerçekten kendine şunu sor: “Kalbim bana ne anlatmak istiyor?”
 
 @st.cache_data(ttl=86400, show_spinner=False)
 def _home_background_image_uri() -> str:
-    """Return the static home background image as a cached data URI.
+    """Return the home background image source without touching page design.
 
-    Video background is intentionally replaced with a lightweight image to reduce
-    page transition load without changing menus, text, layout or visual structure.
+    Prefer Streamlit static serving so the browser can cache the image between
+    menu clicks. If static serving is unavailable, fall back to the old data URI
+    path so the background never disappears.
     """
+    app_dir = Path(__file__).resolve().parent
+    static_image = app_dir / "static" / "kp_home_background.jpg"
+    if static_image.exists() and static_image.is_file():
+        version = int(static_image.stat().st_mtime)
+        return f"app/static/kp_home_background.jpg?v={version}"
     return asset_data_uri("kp_home_background.jpg", max_side=1920, quality=82)
 
 
@@ -3691,7 +3698,9 @@ def main() -> None:
 
     render_top_account(user)
     page = navigation(user, module_settings)
-    persist_auth_query(user, page)
+    # Menü/üst bağlantılar zaten doğru kp_page ve auth token içeren href üretir.
+    # Her rerun'da st.query_params yazmak sayfa geçişlerinde ek yenileme maliyeti
+    # oluşturabildiği için burada URL tekrar yazılmaz.
 
     prompts: Dict[str, str] = {}
     if page in AI_PROMPT_MODULES or page == "admin":
