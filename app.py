@@ -1204,44 +1204,40 @@ def inject_native_navigation_css() -> None:
 
 
 def render_mobile_navigation(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]], current_page: str, valid_pages: set[str]) -> None:
-    # Mobilde eski HTML href menü tam sayfa URL yenilemesi hissi yaratıyordu.
-    # Bu nedenle mobil menü de Streamlit-native selectbox ile session_state üzerinden
-    # sayfa değiştirir. Desktop sol sidebar native buton yapısı aynen korunur.
+    # Mobilde eski acilir panel hissi korunur; ancak href/URL linkleri kullanilmaz.
+    # Butonlar Streamlit-native oldugu icin mobilde de session_state ile hizli gecis saglanir.
     items = []
     for _group_title, _group_icon, group_items in build_menu_groups(user, module_settings):
         items.extend(group_items)
     if not items:
         return
 
-    mobile_options = [("home", "⌂ Ana Sayfa")]
+    compact_icons = {
+        "home": "⌂",
+        "tarot": "✦",
+        "katina": "◆",
+        "coffee_image": "◒",
+        "mini_tarot": "✧",
+        "mini_katina": "◇",
+        "coffee_text": "◒",
+        "love_fortune": "♡",
+        "birth_chart": "♈",
+        "dream": "☾",
+        "soulmate": "∞",
+        "relationship": "♡",
+        "meditation": "◌",
+        "rituals": "✺",
+        "feedback": "✎",
+        "admin": "⚙",
+    }
+    mobile_options = [("home", "Ana Sayfa", "⌂")]
     for page_key, label, icon in items:
         if page_key in valid_pages:
-            compact_icons = {
-                "tarot": "✦",
-                "katina": "◆",
-                "coffee_image": "◒",
-                "mini_tarot": "✧",
-                "mini_katina": "◇",
-                "coffee_text": "◒",
-                "love_fortune": "♡",
-                "birth_chart": "♈",
-                "dream": "☾",
-                "soulmate": "∞",
-                "relationship": "♡",
-                "meditation": "◌",
-                "rituals": "✺",
-                "feedback": "✎",
-                "admin": "⚙",
-            }
-            mobile_options.append((page_key, f"{compact_icons.get(page_key, str(icon or '✦'))} {label}"))
-
-    page_keys = [page_key for page_key, _label in mobile_options]
-    labels = {page_key: label for page_key, label in mobile_options}
-    selected_index = page_keys.index(current_page) if current_page in page_keys else 0
+            mobile_options.append((page_key, str(label), compact_icons.get(page_key, str(icon or "✦"))))
 
     st.markdown(
         """
-        <style id="kp-mobile-native-navigation-css">
+        <style id="kp-mobile-native-panel-navigation-css">
         @media (min-width: 761px) {
             .element-container:has(.kp-mobile-native-menu-marker),
             .element-container:has(.kp-mobile-native-menu-marker) + .element-container {
@@ -1252,6 +1248,7 @@ def render_mobile_navigation(user: Dict[str, Any], module_settings: Dict[str, Di
                 margin: 0 !important;
                 padding: 0 !important;
                 overflow: hidden !important;
+                pointer-events: none !important;
             }
         }
         @media (max-width: 760px) {
@@ -1269,35 +1266,93 @@ def render_mobile_navigation(user: Dict[str, Any], module_settings: Dict[str, Di
                 position: relative !important;
                 z-index: 99999 !important;
             }
-            .element-container:has(.kp-mobile-native-menu-marker) + .element-container [data-testid="stSelectbox"] {
+            .element-container:has(.kp-mobile-native-menu-marker) + .element-container [data-testid="stExpander"] {
+                width: 100% !important;
                 margin: 0 !important;
                 padding: 0 !important;
-            }
-            .element-container:has(.kp-mobile-native-menu-marker) + .element-container [data-testid="stWidgetLabel"] {
-                min-height: 0 !important;
-                height: 0 !important;
-                margin: 0 !important;
-                padding: 0 !important;
-                overflow: hidden !important;
-                visibility: hidden !important;
-            }
-            .element-container:has(.kp-mobile-native-menu-marker) + .element-container div[data-baseweb="select"] > div {
-                min-height: 42px !important;
                 border-radius: 16px !important;
                 background: rgba(8, 10, 30, 0.88) !important;
                 border: 1px solid rgba(255, 241, 184, 0.30) !important;
                 box-shadow: 0 8px 22px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.08) !important;
+                overflow: hidden !important;
+            }
+            .element-container:has(.kp-mobile-native-menu-marker) + .element-container [data-testid="stExpander"] details {
+                border: none !important;
+            }
+            .element-container:has(.kp-mobile-native-menu-marker) + .element-container [data-testid="stExpander"] summary {
+                min-height: 42px !important;
+                padding: 0 13px !important;
+                background: rgba(255, 241, 184, 0.075) !important;
+                border-bottom: 1px solid rgba(255, 241, 184, 0.10) !important;
                 color: #fff1b8 !important;
                 font-family: var(--kp-font-sans) !important;
-                font-size: 0.80rem !important;
-                font-weight: 520 !important;
-                text-align: left !important;
+                font-size: 0.82rem !important;
+                font-weight: 560 !important;
+                line-height: 1 !important;
+                letter-spacing: 0.01em !important;
             }
-            .element-container:has(.kp-mobile-native-menu-marker) + .element-container div[data-baseweb="select"] span,
-            .element-container:has(.kp-mobile-native-menu-marker) + .element-container div[data-baseweb="select"] div {
+            .element-container:has(.kp-mobile-native-menu-marker) + .element-container [data-testid="stExpander"] summary p {
                 color: #fff1b8 !important;
-                text-align: left !important;
+                font-size: 0.82rem !important;
+                font-weight: 560 !important;
+                line-height: 1 !important;
+                margin: 0 !important;
+            }
+            .element-container:has(.kp-mobile-native-menu-marker) + .element-container [data-testid="stExpanderDetails"] {
+                padding: 9px 9px 10px 9px !important;
+                background: transparent !important;
+            }
+            .element-container:has(.kp-mobile-native-menu-marker) + .element-container [data-testid="stHorizontalBlock"] {
+                gap: 7px !important;
+                margin: 0 0 7px 0 !important;
+            }
+            .element-container:has(.kp-mobile-native-menu-marker) + .element-container div.stButton > button {
+                min-height: 36px !important;
+                height: 36px !important;
+                padding: 4px 7px !important;
+                border-radius: 13px !important;
+                background: rgba(255,255,255,0.055) !important;
+                border: 1px solid rgba(255,241,184,0.13) !important;
+                box-shadow: none !important;
+                color: rgba(255,248,232,0.88) !important;
+                font-family: var(--kp-font-sans) !important;
+                font-size: 0.68rem !important;
                 font-weight: 520 !important;
+                line-height: 1.1 !important;
+                text-align: left !important;
+                justify-content: flex-start !important;
+                align-items: center !important;
+                overflow: hidden !important;
+            }
+            .element-container:has(.kp-mobile-native-menu-marker) + .element-container div.stButton > button p,
+            .element-container:has(.kp-mobile-native-menu-marker) + .element-container div.stButton > button span,
+            .element-container:has(.kp-mobile-native-menu-marker) + .element-container div.stButton > button div {
+                color: rgba(255,248,232,0.88) !important;
+                font-size: 0.68rem !important;
+                font-weight: 520 !important;
+                line-height: 1.1 !important;
+                text-align: left !important;
+                white-space: nowrap !important;
+                overflow: hidden !important;
+                text-overflow: ellipsis !important;
+            }
+            .element-container:has(.kp-mobile-native-menu-marker) + .element-container div.stButton > button:hover {
+                background: rgba(217,183,110,0.16) !important;
+                border-color: rgba(255,241,184,0.28) !important;
+                color: #fff1b8 !important;
+                transform: none !important;
+            }
+            .element-container:has(.kp-mobile-native-menu-marker) + .element-container div.stButton > button:disabled {
+                background: linear-gradient(135deg, rgba(217,183,110,0.20), rgba(123,75,214,0.15)) !important;
+                border-color: rgba(255,241,184,0.34) !important;
+                opacity: 1 !important;
+                cursor: default !important;
+                color: #fff1b8 !important;
+            }
+            .element-container:has(.kp-mobile-native-menu-marker) + .element-container div.stButton > button:disabled p,
+            .element-container:has(.kp-mobile-native-menu-marker) + .element-container div.stButton > button:disabled span,
+            .element-container:has(.kp-mobile-native-menu-marker) + .element-container div.stButton > button:disabled div {
+                color: #fff1b8 !important;
             }
         }
         </style>
@@ -1306,18 +1361,22 @@ def render_mobile_navigation(user: Dict[str, Any], module_settings: Dict[str, Di
         unsafe_allow_html=True,
     )
 
-    selected_page = st.selectbox(
-        "Mobil menü",
-        page_keys,
-        index=selected_index,
-        format_func=lambda value: labels.get(str(value), str(value)),
-        key=f"kp_mobile_native_nav_{current_page}",
-        label_visibility="collapsed",
-    )
-    if selected_page != current_page:
-        _activate_native_page(str(selected_page), valid_pages)
-        st.rerun()
-
+    with st.expander("☰ Menü", expanded=False):
+        for row_start in range(0, len(mobile_options), 2):
+            cols = st.columns(2, gap="small")
+            row_items = mobile_options[row_start: row_start + 2]
+            for col, (page_key, label, icon) in zip(cols, row_items):
+                with col:
+                    is_current = current_page == page_key
+                    button_label = f"{icon} {label}"
+                    if st.button(
+                        button_label,
+                        key=f"kp_mobile_native_panel_nav_{page_key}",
+                        use_container_width=True,
+                        disabled=is_current,
+                    ):
+                        _activate_native_page(page_key, valid_pages)
+                        st.rerun()
 
 def navigation(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]]) -> str:
     valid_pages = valid_pages_for(user, module_settings)
