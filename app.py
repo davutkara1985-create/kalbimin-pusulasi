@@ -363,7 +363,7 @@ def prevent_browser_translate() -> None:
             }
 
             syncRememberedAuth();
-            installNoWhiteFlashGuard();
+            // Geçiş perdesi kapalı: menü tıklamalarında ek bekleme yaratmaması için installNoWhiteFlashGuard çağrılmıyor.
             applyNoTranslate();
             setTimeout(applyNoTranslate, 700);
 
@@ -1338,11 +1338,16 @@ Ve gerçekten kendine şunu sor: “Kalbim bana ne anlatmak istiyor?”
 
 @st.cache_data(ttl=86400, show_spinner=False)
 def _home_background_image_uri() -> str:
-    """Return the static home background image as a cached data URI.
+    """Return the home background source without changing its appearance.
 
-    Video background is intentionally replaced with a lightweight image to reduce
-    page transition load without changing menus, text, layout or visual structure.
+    Prefer Streamlit static serving when the same background file exists under
+    /static. This keeps the CSS visually identical but avoids embedding a large
+    base64 image into every rerun. If static serving/file is unavailable, fall
+    back to the existing cached data URI path.
     """
+    static_file = Path(__file__).resolve().parent / "static" / "kp_home_background.jpg"
+    if static_file.exists():
+        return "app/static/kp_home_background.jpg"
     return asset_data_uri("kp_home_background.jpg", max_side=1920, quality=82)
 
 
@@ -3691,7 +3696,25 @@ def main() -> None:
 
     render_top_account(user)
     page = navigation(user, module_settings)
-    persist_auth_query(user, page)
+
+    # URL/query param yazımı Streamlit'te ek rerun hissi yaratabildiği için
+    # yalnızca gerçekten senkron değilse yapılır. Menü görünümü ve href yapısı aynen korunur.
+    expected_email = normalize_email(str(user.get("email", ""))) if user and not user.get("is_guest") else ""
+    current_token_email = _token_email(_query_get(AUTH_QUERY_KEY))
+    query_page = _query_get(PAGE_QUERY_KEY, "")
+    remember_expected = bool(st.session_state.get("remember_me", False))
+    remember_query = _query_get(REMEMBER_QUERY_KEY, "")
+    needs_query_sync = (query_page != page)
+    if expected_email and current_token_email != expected_email:
+        needs_query_sync = True
+    if remember_expected and remember_query != "1":
+        needs_query_sync = True
+    if (not remember_expected) and remember_query:
+        needs_query_sync = True
+    if _query_get(LOGOUT_QUERY_KEY, ""):
+        needs_query_sync = True
+    if needs_query_sync:
+        persist_auth_query(user, page)
 
     prompts: Dict[str, str] = {}
     if page in AI_PROMPT_MODULES or page == "admin":
