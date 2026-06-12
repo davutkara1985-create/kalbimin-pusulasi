@@ -1345,36 +1345,23 @@ def _home_background_image_uri() -> str:
     """
     return asset_data_uri("kp_home_background.jpg", max_side=1920, quality=82)
 
-    Fast/low-size background video caused visible quality loss, so the app now
-    prefers the original kp_home_landing.mp4 again. The fast video remains only
-    as a fallback if the original file is missing.
-    """
-    base_dir = Path(__file__).resolve().parent / "assets" / "backgrounds"
-    original_video = base_dir / "kp_home_landing.mp4"
-    fast_video = base_dir / "kp_home_landing_fast.mp4"
-    video_path = original_video if original_video.exists() else fast_video
-    if not video_path.exists():
-        return ""
-    encoded = base64.b64encode(video_path.read_bytes()).decode("utf-8")
-    return f"data:video/mp4;base64,{encoded}"
-
 
 def render_home_video_background() -> None:
     image_uri = _home_background_image_uri()
-if not image_uri:
-    return
-safe_uri = html_escape(image_uri, quote=True)
+    if not image_uri:
+        return
+    safe_uri = html_escape(image_uri, quote=True)
     st.markdown(
-        """
+        f"""
         <style>
-        html, body, #root, .stApp {
+        html, body, #root, .stApp {{
             background: #030613 !important;
-        }
+        }}
         [data-testid="stAppViewContainer"],
-        [data-testid="stAppViewContainer"] > .main {
+        [data-testid="stAppViewContainer"] > .main {{
             background: transparent !important;
-        }
-        .kp-home-video-bg {
+        }}
+        .kp-home-video-bg {{
             position: fixed;
             inset: 0;
             width: 100vw;
@@ -1382,35 +1369,29 @@ safe_uri = html_escape(image_uri, quote=True)
             z-index: 0;
             overflow: hidden;
             pointer-events: none;
-            background: radial-gradient(circle at 50% 18%, rgba(40, 54, 120, 0.42), transparent 38%), #020414;
-        }
-        .kp-home-video-bg video {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            object-position: center center;
-            opacity: 0.78;
-            filter: saturate(1.08) contrast(1.05) brightness(0.72);
-            transform: scale(1.018);
-        }
-        .kp-home-video-bg::after {
+            background:
+                radial-gradient(circle at 50% 18%, rgba(40, 54, 120, 0.26), transparent 38%),
+                url("{safe_uri}") center center / cover no-repeat,
+                #020414;
+        }}
+        .kp-home-video-bg::after {{
             content: "";
             position: absolute;
             inset: 0;
             background:
                 linear-gradient(180deg, rgba(2,4,14,0.26), rgba(2,4,14,0.40) 56%, rgba(2,4,14,0.72)),
                 radial-gradient(circle at 50% 92%, rgba(28, 47, 92, 0.34), transparent 42%);
-        }
+        }}
         [data-testid="stAppViewContainer"] > .main,
-        [data-testid="stAppViewContainer"] .block-container {
+        [data-testid="stAppViewContainer"] .block-container {{
             position: relative;
             z-index: 2;
             background: transparent !important;
-        }
-        [data-testid="stAppViewContainer"] .block-container {
+        }}
+        [data-testid="stAppViewContainer"] .block-container {{
             padding-top: 0.35rem !important;
-        }
-        .kp-home-story-image-wrap {
+        }}
+        .kp-home-story-image-wrap {{
             position: relative;
             z-index: 3;
             width: min(640px, 94vw);
@@ -1418,8 +1399,8 @@ safe_uri = html_escape(image_uri, quote=True)
             margin: 0.45rem auto 3.1rem;
             padding: 0;
             text-align: center;
-        }
-        .kp-home-story-image {
+        }}
+        .kp-home-story-image {{
             display: block;
             width: 100%;
             height: auto;
@@ -1429,8 +1410,8 @@ safe_uri = html_escape(image_uri, quote=True)
             filter: drop-shadow(0 20px 36px rgba(0,0,0,0.46));
             user-select: none;
             -webkit-user-drag: none;
-        }
-        .kp-home-story {
+        }}
+        .kp-home-story {{
             position: relative;
             z-index: 3;
             max-width: 620px;
@@ -1443,48 +1424,43 @@ safe_uri = html_escape(image_uri, quote=True)
             letter-spacing: 0.01em;
             text-align: center;
             text-shadow: 0 2px 11px rgba(0,0,0,0.82), 0 0 18px rgba(255,241,184,0.18);
-        }
+        }}
         .kp-home-story p,
         .kp-home-story span,
-        .kp-home-story div {
+        .kp-home-story div {{
             font-family: "Dancing Script", "Segoe Script", "Lucida Handwriting", "Brush Script MT", "Apple Chancery", cursive !important;
-        }
-        .kp-home-story p {
+        }}
+        .kp-home-story p {{
             margin: 0 0 0.78rem;
-        }
-        .kp-home-story strong {
+        }}
+        .kp-home-story strong {{
             color: #fff1b8;
             font-weight: 700;
             text-shadow: 0 2px 12px rgba(0,0,0,0.86), 0 0 18px rgba(255,241,184,0.28);
-        }
-        @media (max-width: 760px) {
-            .kp-home-video-bg video {
-                opacity: 0.70;
-                object-position: center center;
-            }
-            .kp-home-story-image-wrap {
+        }}
+        @media (max-width: 760px) {{
+            .kp-home-video-bg {{
+                background-position: center center;
+            }}
+            .kp-home-story-image-wrap {{
                 width: min(92vw, 390px);
                 max-width: 390px;
                 margin-top: 0.30rem;
                 margin-bottom: 2.2rem;
-            }
-            .kp-home-story-image {
+            }}
+            .kp-home-story-image {{
                 filter: drop-shadow(0 14px 24px rgba(0,0,0,0.42));
-            }
-            .kp-home-story {
+            }}
+            .kp-home-story {{
                 font-size: 1.03rem;
                 line-height: 1.48;
                 margin-top: 0.55rem;
                 padding: 0 0.35rem;
-            }
-        }
+            }}
+        }}
         </style>
-        <div class="kp-home-video-bg" aria-hidden="true">
-            <video autoplay muted loop playsinline preload="auto">
-                <source src="__VIDEO_URI__" type="video/mp4" />
-            </video>
-        </div>
-        """.replace("__VIDEO_URI__", safe_uri),
+        <div class="kp-home-video-bg" aria-hidden="true"></div>
+        """,
         unsafe_allow_html=True,
     )
 
