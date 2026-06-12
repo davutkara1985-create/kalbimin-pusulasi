@@ -1226,13 +1226,9 @@ def inject_native_navigation_css() -> None:
 
 
 def render_mobile_navigation(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]], current_page: str, valid_pages: set[str]) -> None:
-    # Sadece mobilde render edilir. Desktop'ta orta alanda ikinci bir "Menü" görünmemesi için
-    # mobil durumunu query param üzerinden JS belirler. Bu, desktop sol native menüyü etkilemez.
-    if _query_get(MOBILE_QUERY_KEY) != "1":
-        return
-
-    # Mobilde eski iki sütunlu panel hissi korunur; ancak href/URL linkleri kullanılmaz.
-    # Butonlar Streamlit-native olduğu için mobilde de session_state ile hızlı geçiş sağlanır.
+    # Mobil menü artık query param / JS genişlik algısına bağlı değildir.
+    # Bu sayede mobilde menünün görünmemesi sorunu çözülür.
+    # Desktop'ta aynı menünün ortada görünmemesi için Streamlit container key sınıfı CSS ile gizlenir.
     items = []
     for _group_title, _group_icon, group_items in build_menu_groups(user, module_settings):
         items.extend(group_items)
@@ -1264,17 +1260,16 @@ def render_mobile_navigation(user: Dict[str, Any], module_settings: Dict[str, Di
 
     st.markdown(
         """
-        <style id="kp-mobile-native-panel-navigation-css">
+        <style id="kp-mobile-native-panel-visible-fix-css">
         @media (min-width: 761px) {
-            .kp-mobile-native-menu-marker,
-            .element-container:has(.kp-mobile-native-menu-marker),
-            .element-container:has(.kp-mobile-native-menu-marker) + .element-container,
-            div[data-testid="stVerticalBlock"] > div:has(.kp-mobile-native-menu-marker),
-            div[data-testid="stVerticalBlock"] > div:has(.kp-mobile-native-menu-marker) + div {
+            .st-key-kp_mobile_native_menu_shell,
+            [class*="st-key-kp_mobile_native_menu_shell"] {
                 display: none !important;
                 visibility: hidden !important;
+                opacity: 0 !important;
                 height: 0 !important;
                 min-height: 0 !important;
+                max-height: 0 !important;
                 margin: 0 !important;
                 padding: 0 !important;
                 overflow: hidden !important;
@@ -1282,21 +1277,20 @@ def render_mobile_navigation(user: Dict[str, Any], module_settings: Dict[str, Di
             }
         }
         @media (max-width: 760px) {
-            .element-container:has(.kp-mobile-native-menu-marker) {
-                margin: 0 !important;
-                padding: 0 !important;
-                height: 0 !important;
-                min-height: 0 !important;
-                overflow: hidden !important;
-            }
-            .element-container:has(.kp-mobile-native-menu-marker) + .element-container {
+            .st-key-kp_mobile_native_menu_shell,
+            [class*="st-key-kp_mobile_native_menu_shell"] {
+                display: block !important;
+                visibility: visible !important;
+                opacity: 1 !important;
                 width: min(360px, 92vw) !important;
+                max-width: 92vw !important;
                 margin: 0.12rem auto 0.42rem auto !important;
                 padding: 0 !important;
                 position: relative !important;
                 z-index: 99999 !important;
             }
-            .element-container:has(.kp-mobile-native-menu-marker) + .element-container [data-testid="stExpander"] {
+            .st-key-kp_mobile_native_menu_shell [data-testid="stExpander"],
+            [class*="st-key-kp_mobile_native_menu_shell"] [data-testid="stExpander"] {
                 width: 100% !important;
                 margin: 0 !important;
                 padding: 0 !important;
@@ -1306,10 +1300,12 @@ def render_mobile_navigation(user: Dict[str, Any], module_settings: Dict[str, Di
                 box-shadow: 0 10px 24px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.07) !important;
                 overflow: hidden !important;
             }
-            .element-container:has(.kp-mobile-native-menu-marker) + .element-container [data-testid="stExpander"] details {
+            .st-key-kp_mobile_native_menu_shell [data-testid="stExpander"] details,
+            [class*="st-key-kp_mobile_native_menu_shell"] [data-testid="stExpander"] details {
                 border: none !important;
             }
-            .element-container:has(.kp-mobile-native-menu-marker) + .element-container [data-testid="stExpander"] summary {
+            .st-key-kp_mobile_native_menu_shell [data-testid="stExpander"] summary,
+            [class*="st-key-kp_mobile_native_menu_shell"] [data-testid="stExpander"] summary {
                 min-height: 43px !important;
                 padding: 0 14px !important;
                 background: rgba(255, 241, 184, 0.075) !important;
@@ -1320,29 +1316,35 @@ def render_mobile_navigation(user: Dict[str, Any], module_settings: Dict[str, Di
                 font-weight: 560 !important;
                 letter-spacing: 0.01em !important;
             }
-            .element-container:has(.kp-mobile-native-menu-marker) + .element-container [data-testid="stExpander"] summary p {
+            .st-key-kp_mobile_native_menu_shell [data-testid="stExpander"] summary p,
+            [class*="st-key-kp_mobile_native_menu_shell"] [data-testid="stExpander"] summary p {
                 color: #fff1b8 !important;
                 font-size: 0.82rem !important;
                 font-weight: 560 !important;
                 line-height: 1 !important;
                 margin: 0 !important;
             }
-            .element-container:has(.kp-mobile-native-menu-marker) + .element-container [data-testid="stExpanderDetails"] {
+            .st-key-kp_mobile_native_menu_shell [data-testid="stExpanderDetails"],
+            [class*="st-key-kp_mobile_native_menu_shell"] [data-testid="stExpanderDetails"] {
                 padding: 10px 10px 11px 10px !important;
                 background: transparent !important;
             }
-            .element-container:has(.kp-mobile-native-menu-marker) + .element-container [data-testid="stHorizontalBlock"] {
+            .st-key-kp_mobile_native_menu_shell [data-testid="stHorizontalBlock"],
+            [class*="st-key-kp_mobile_native_menu_shell"] [data-testid="stHorizontalBlock"] {
                 gap: 8px !important;
                 margin: 0 0 8px 0 !important;
             }
-            .element-container:has(.kp-mobile-native-menu-marker) + .element-container [data-testid="column"] {
+            .st-key-kp_mobile_native_menu_shell [data-testid="column"],
+            [class*="st-key-kp_mobile_native_menu_shell"] [data-testid="column"] {
                 padding: 0 !important;
             }
-            .element-container:has(.kp-mobile-native-menu-marker) + .element-container div.stButton {
+            .st-key-kp_mobile_native_menu_shell div.stButton,
+            [class*="st-key-kp_mobile_native_menu_shell"] div.stButton {
                 margin: 0 !important;
                 padding: 0 !important;
             }
-            .element-container:has(.kp-mobile-native-menu-marker) + .element-container div.stButton > button {
+            .st-key-kp_mobile_native_menu_shell div.stButton > button,
+            [class*="st-key-kp_mobile_native_menu_shell"] div.stButton > button {
                 min-height: 38px !important;
                 height: 38px !important;
                 padding: 5px 8px !important;
@@ -1361,9 +1363,12 @@ def render_mobile_navigation(user: Dict[str, Any], module_settings: Dict[str, Di
                 overflow: hidden !important;
                 transition: none !important;
             }
-            .element-container:has(.kp-mobile-native-menu-marker) + .element-container div.stButton > button p,
-            .element-container:has(.kp-mobile-native-menu-marker) + .element-container div.stButton > button span,
-            .element-container:has(.kp-mobile-native-menu-marker) + .element-container div.stButton > button div {
+            .st-key-kp_mobile_native_menu_shell div.stButton > button p,
+            .st-key-kp_mobile_native_menu_shell div.stButton > button span,
+            .st-key-kp_mobile_native_menu_shell div.stButton > button div,
+            [class*="st-key-kp_mobile_native_menu_shell"] div.stButton > button p,
+            [class*="st-key-kp_mobile_native_menu_shell"] div.stButton > button span,
+            [class*="st-key-kp_mobile_native_menu_shell"] div.stButton > button div {
                 color: inherit !important;
                 font-size: 0.68rem !important;
                 font-weight: 500 !important;
@@ -1375,47 +1380,52 @@ def render_mobile_navigation(user: Dict[str, Any], module_settings: Dict[str, Di
                 width: 100% !important;
                 justify-content: flex-start !important;
             }
-            .element-container:has(.kp-mobile-native-menu-marker) + .element-container div.stButton > button:hover {
+            .st-key-kp_mobile_native_menu_shell div.stButton > button:hover,
+            [class*="st-key-kp_mobile_native_menu_shell"] div.stButton > button:hover {
                 background: rgba(217,183,110,0.14) !important;
                 border-color: rgba(255,241,184,0.26) !important;
                 color: #fff1b8 !important;
                 transform: none !important;
             }
-            .element-container:has(.kp-mobile-native-menu-marker) + .element-container div.stButton > button:disabled {
+            .st-key-kp_mobile_native_menu_shell div.stButton > button:disabled,
+            [class*="st-key-kp_mobile_native_menu_shell"] div.stButton > button:disabled {
                 background: linear-gradient(135deg, rgba(217,183,110,0.22), rgba(123,75,214,0.15)) !important;
                 border-color: rgba(255,241,184,0.36) !important;
                 opacity: 1 !important;
                 cursor: default !important;
                 color: #fff1b8 !important;
             }
-            .element-container:has(.kp-mobile-native-menu-marker) + .element-container div.stButton > button:disabled p,
-            .element-container:has(.kp-mobile-native-menu-marker) + .element-container div.stButton > button:disabled span,
-            .element-container:has(.kp-mobile-native-menu-marker) + .element-container div.stButton > button:disabled div {
+            .st-key-kp_mobile_native_menu_shell div.stButton > button:disabled p,
+            .st-key-kp_mobile_native_menu_shell div.stButton > button:disabled span,
+            .st-key-kp_mobile_native_menu_shell div.stButton > button:disabled div,
+            [class*="st-key-kp_mobile_native_menu_shell"] div.stButton > button:disabled p,
+            [class*="st-key-kp_mobile_native_menu_shell"] div.stButton > button:disabled span,
+            [class*="st-key-kp_mobile_native_menu_shell"] div.stButton > button:disabled div {
                 color: #fff1b8 !important;
             }
         }
         </style>
-        <div class="kp-mobile-native-menu-marker" aria-hidden="true"></div>
         """,
         unsafe_allow_html=True,
     )
 
-    with st.expander("☰ Menü", expanded=False):
-        for row_start in range(0, len(mobile_options), 2):
-            cols = st.columns(2, gap="small")
-            row_items = mobile_options[row_start: row_start + 2]
-            for col, (page_key, label, icon) in zip(cols, row_items):
-                with col:
-                    is_current = current_page == page_key
-                    button_label = f"{icon} {label}"
-                    if st.button(
-                        button_label,
-                        key=f"kp_mobile_native_panel_nav_{page_key}",
-                        use_container_width=True,
-                        disabled=is_current,
-                    ):
-                        _activate_native_page(page_key, valid_pages)
-                        st.rerun()
+    with st.container(key="kp_mobile_native_menu_shell"):
+        with st.expander("☰ Menü", expanded=False):
+            for row_start in range(0, len(mobile_options), 2):
+                cols = st.columns(2, gap="small")
+                row_items = mobile_options[row_start: row_start + 2]
+                for col, (page_key, label, icon) in zip(cols, row_items):
+                    with col:
+                        is_current = current_page == page_key
+                        button_label = f"{icon} {label}"
+                        if st.button(
+                            button_label,
+                            key=f"kp_mobile_native_panel_nav_{page_key}",
+                            use_container_width=True,
+                            disabled=is_current,
+                        ):
+                            _activate_native_page(page_key, valid_pages)
+                            st.rerun()
 
 def navigation(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]]) -> str:
     valid_pages = valid_pages_for(user, module_settings)
