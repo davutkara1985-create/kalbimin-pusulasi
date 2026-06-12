@@ -210,16 +210,45 @@ def _public_user(data: Dict[str, Any]) -> Dict[str, Any]:
     return cleaned
 
 
+@st.cache_data(ttl=300, show_spinner=False)
+def _cached_user_profile(user_id: str) -> Optional[Dict[str, Any]]:
+    """Read user profile with a short cache to speed URL-based page transitions."""
+    if not user_id:
+        return None
+    db = get_firestore_client()
+    snapshot = db.collection("users").document(user_id).get()
+    if not snapshot.exists:
+        return None
+    data = snapshot.to_dict() or {}
+    data["id"] = user_id
+    return data
+
+
+def _clear_user_profile_cache() -> None:
+    clear = getattr(_cached_user_profile, "clear", None)
+    if callable(clear):
+        try:
+            clear()
+        except Exception:
+            pass
+
+
 def get_or_create_user(email: str) -> Dict[str, Any]:
     db = get_firestore_client()
     normalized = normalize_email(email)
     user_id = user_id_from_email(normalized)
+
+    cached = _cached_user_profile(user_id)
+    if cached:
+        return _public_user(cached)
+
     ref = db.collection("users").document(user_id)
     snapshot = ref.get()
 
     if snapshot.exists:
         data = snapshot.to_dict() or {}
         data["id"] = user_id
+        _clear_user_profile_cache()
         return _public_user(data)
 
     role = "admin" if is_admin_email(normalized) else "user"
@@ -234,6 +263,7 @@ def get_or_create_user(email: str) -> Dict[str, Any]:
         "source": "streamlit",
     }
     ref.set(data)
+    _clear_user_profile_cache()
     _clear_user_list_cache()
     return {**data, "created_at": now_utc(), "updated_at": now_utc()}
 
@@ -272,6 +302,7 @@ def create_user_account(email: str, password: str, display_name: str = "") -> Tu
         "source": existing.get("source", "streamlit_auth"),
     }
     ref.set(data, merge=True)
+    _clear_user_profile_cache()
     _clear_user_list_cache()
     return True, "Hesabın oluşturuldu.", _public_user(data)
 
@@ -292,6 +323,7 @@ def authenticate_user(email: str, password: str) -> Tuple[bool, str, Optional[Di
         if not data:
             data = get_or_create_user(normalized)
         ref.set({"role": "admin", "updated_at": firestore.SERVER_TIMESTAMP}, merge=True)
+        _clear_user_profile_cache()
         data.update({"id": user_id, "email": normalized, "role": "admin"})
         return True, "Admin olarak giriş yapıldı.", _public_user(data)
 
@@ -304,6 +336,7 @@ def authenticate_user(email: str, password: str) -> Tuple[bool, str, Optional[Di
     if is_admin_email(normalized):
         data["role"] = "admin"
         ref.set({"role": "admin", "updated_at": firestore.SERVER_TIMESTAMP}, merge=True)
+        _clear_user_profile_cache()
 
     data["id"] = user_id
     return True, "Giriş başarılı.", _public_user(data)
