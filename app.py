@@ -363,9 +363,7 @@ def prevent_browser_translate() -> None:
             }
 
             syncRememberedAuth();
-            // Sayfa tıklamalarında yapay geçiş perdesi kurulmaz.
-            // Bu perde beyaz ekranı saklamak için eklenmişti; ancak menü geçişlerinde
-            // kullanıcı tarafında gecikme hissini artırabiliyor.
+            installNoWhiteFlashGuard();
             applyNoTranslate();
             setTimeout(applyNoTranslate, 700);
 
@@ -388,12 +386,10 @@ def prevent_browser_translate() -> None:
         width=0,
     )
 
-# Tarayıcı çeviri / Clear caches kısayol koruması yalnızca oturumda bir kez kurulur.
-# Her sayfa geçişinde st.components.v1.html iframe'i yeniden üretmek,
-# özellikle mobilde ve Streamlit Cloud'da geçişleri ağır hissettirebilir.
-if not st.session_state.get("_kp_browser_setup_done"):
-    prevent_browser_translate()
-    st.session_state["_kp_browser_setup_done"] = True
+# Clear caches kısayolunu ve tarayıcı çeviri müdahalesini her rerun'da güvenli şekilde bastır.
+# JS tarafında tek seferlik işaret kullanıldığı için tekrar dinleyici birikmez.
+prevent_browser_translate()
+st.session_state["_kp_browser_setup_done"] = True
 
 # Performans: açılışta Firestore'dan tasarım ayarı çekilmez.
 # Admin Tasarım sekmesinde güncel ayarlar ayrıca yüklenir.
@@ -1030,9 +1026,147 @@ def _nav_href(page_key: str, user: Optional[Dict[str, Any]] = None) -> str:
     return "?" + urlencode(params)
 
 
+NAV_MATERIAL_ICONS: Dict[str, str] = {
+    "home": ":material/home:",
+    "tarot": ":material/auto_awesome:",
+    "katina": ":material/key:",
+    "coffee_image": ":material/local_cafe:",
+    "mini_tarot": ":material/style:",
+    "mini_katina": ":material/key:",
+    "coffee_text": ":material/local_cafe:",
+    "love_fortune": ":material/favorite:",
+    "birth_chart": ":material/astrology:",
+    "dream": ":material/nights_stay:",
+    "soulmate": ":material/diversity_1:",
+    "relationship": ":material/favorite:",
+    "meditation": ":material/self_improvement:",
+    "rituals": ":material/spa:",
+    "feedback": ":material/edit_note:",
+    "admin": ":material/admin_panel_settings:",
+    "inbox": ":material/mail:",
+    "account": ":material/account_circle:",
+}
+
+
+def _native_nav_icon(page_key: str, fallback_icon: str = "✦") -> str:
+    return NAV_MATERIAL_ICONS.get(page_key, "")
+
+
+def _activate_native_page(page_key: str, valid_pages: set[str]) -> None:
+    """Switch pages without forcing an HTML href navigation.
+
+    The visible sidebar is rendered with Streamlit-native buttons so page changes
+    happen through session_state instead of browser URL reloads.  Query params are
+    still read on first load or when the user arrives from a real link, but normal
+    sidebar clicks do not rewrite the URL on every transition.
+    """
+    if page_key not in valid_pages:
+        page_key = "home"
+    st.session_state["current_page"] = page_key
+
+
+def inject_native_navigation_css() -> None:
+    # CSS yalnızca native sidebar butonlarını eski kompakt menü görünümüne yaklaştırır.
+    # services/ui.py, arka plan, sağ üst alan ve sayfa içerikleri değiştirilmez.
+    st.sidebar.markdown(
+        """
+        <style id="kp-native-navigation-css">
+        [data-testid="stSidebar"] .element-container:has(div.stButton) {
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+        [data-testid="stSidebar"] div.stButton {
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+        [data-testid="stSidebar"] div.stButton > button {
+            width: 100% !important;
+            min-height: 33px !important;
+            height: auto !important;
+            justify-content: flex-start !important;
+            align-items: center !important;
+            gap: 7px !important;
+            margin: 2px 0 !important;
+            padding: 4px 7px !important;
+            border-radius: 12px !important;
+            color: rgba(255, 248, 232, 0.88) !important;
+            background: rgba(6,8,23,0.24) !important;
+            border: 1px solid rgba(255,241,184,0.12) !important;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.045) !important;
+            font-size: 0.70rem !important;
+            font-weight: 800 !important;
+            line-height: 1.12 !important;
+            text-decoration: none !important;
+            cursor: pointer !important;
+            transition: none !important;
+        }
+        [data-testid="stSidebar"] div.stButton > button:hover {
+            color: #fff1b8 !important;
+            background: rgba(217,183,110,0.16) !important;
+            border-color: rgba(255,241,184,0.28) !important;
+            transform: none !important;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.045) !important;
+        }
+        [data-testid="stSidebar"] div.stButton > button:focus,
+        [data-testid="stSidebar"] div.stButton > button:active {
+            outline: none !important;
+            border-color: rgba(255,241,184,0.28) !important;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.045) !important;
+        }
+        [data-testid="stSidebar"] div.stButton > button:disabled,
+        [data-testid="stSidebar"] div.stButton > button:disabled:hover {
+            opacity: 1 !important;
+            cursor: default !important;
+            color: #fff1b8 !important;
+            background: rgba(217,183,110,0.22) !important;
+            border-color: rgba(255,241,184,0.34) !important;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.08) !important;
+        }
+        [data-testid="stSidebar"] div.stButton > button p,
+        [data-testid="stSidebar"] div.stButton > button span,
+        [data-testid="stSidebar"] div.stButton > button div {
+            color: inherit !important;
+            font-size: 0.70rem !important;
+            font-weight: 800 !important;
+            line-height: 1.12 !important;
+            text-align: left !important;
+            white-space: normal !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+        }
+        [data-testid="stSidebar"] div.stButton > button [data-testid="stIconMaterial"] {
+            width: 25px !important;
+            height: 25px !important;
+            min-width: 25px !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            margin-right: 0 !important;
+            border-radius: 9px !important;
+            background: rgba(217,183,110,0.10) !important;
+            border: 1px solid rgba(217,183,110,0.15) !important;
+            color: var(--kp-gold-2) !important;
+            font-size: 1.02rem !important;
+            line-height: 1 !important;
+            flex: 0 0 25px !important;
+        }
+        @media (max-width: 760px) {
+            [data-testid="stSidebar"] div.stButton > button {
+                min-height: 38px !important;
+                padding: 6px 7px !important;
+                border-radius: 13px !important;
+                font-size: 0.70rem !important;
+            }
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def render_mobile_navigation(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]], current_page: str) -> None:
-    # Mobilde native sidebar gizlidir; bu HTML menü sadece mobil CSS içinde görünür.
-    # Desktop görünümde sol menü tek navigasyon olarak kalır.
+    # Mobil menü HTML yapısı şimdilik korunur; bu yamada yalnızca sol sidebar geçişi
+    # native hale getirilir. Mobil menü ve sağ üst alanın görünümü bozulmaz.
     items = []
     for _group_title, _group_icon, group_items in build_menu_groups(user, module_settings):
         items.extend(group_items)
@@ -1069,51 +1203,45 @@ def render_mobile_navigation(user: Dict[str, Any], module_settings: Dict[str, Di
 def navigation(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]]) -> str:
     valid_pages = valid_pages_for(user, module_settings)
     requested_page = _query_get(PAGE_QUERY_KEY, "home")
+    last_query_page = st.session_state.get("_kp_last_query_page")
 
-    # URL ile doğrudan açılış desteklenir; normal menü HTML satırları tasarıma gömülü kalır.
+    # URL ile doğrudan açılış desteklenir. Ancak normal sol menü tıklamaları artık
+    # query param yazmadan session_state ile çalışır; böylece URL reload hissi azalır.
     if "current_page" not in st.session_state:
         st.session_state["current_page"] = requested_page if requested_page in valid_pages else "home"
-
-    if requested_page in valid_pages and requested_page != st.session_state.get("current_page"):
+    elif requested_page in valid_pages and requested_page != last_query_page and requested_page != st.session_state.get("current_page"):
+        # Sağ üst Mesajlar/Hesabım gibi gerçek URL linkleri veya dışarıdan gelen linkler
+        # hâlâ çalışsın diye sadece URL gerçekten değiştiğinde senkronize edilir.
         st.session_state["current_page"] = requested_page
 
+    st.session_state["_kp_last_query_page"] = requested_page
+
     if st.session_state.get("current_page") not in valid_pages:
-        reset_navigation_to_home()
+        st.session_state["current_page"] = "home"
 
     current_page = st.session_state.get("current_page", "home")
+    inject_native_navigation_css()
 
-    def render_sidebar_link(page_key: str, label: str, icon: str = "✦") -> None:
-        icon_rendered = sidebar_icon_html(page_key, icon)
-        label_html = html_escape(str(label))
-        if current_page == page_key:
-            st.sidebar.markdown(
-                f"""
-                <div class="kp-side-nav-item active">
-                    <span class="kp-side-nav-icon">{icon_rendered}</span>
-                    <span class="kp-side-nav-text">{label_html}</span>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-            return
-
-        href = html_escape(_nav_href(page_key, user), quote=True)
-        st.sidebar.markdown(
-            f"""
-            <a class="kp-side-nav-item kp-side-nav-link" href="{href}" target="_self">
-                <span class="kp-side-nav-icon">{icon_rendered}</span>
-                <span class="kp-side-nav-text">{label_html}</span>
-            </a>
-            """,
-            unsafe_allow_html=True,
+    def render_sidebar_native_button(page_key: str, label: str, icon: str = "✦") -> None:
+        is_current = current_page == page_key
+        button_icon = _native_nav_icon(page_key, icon)
+        clicked = st.sidebar.button(
+            str(label),
+            key=f"kp_native_nav_{page_key}",
+            icon=button_icon or None,
+            use_container_width=True,
+            disabled=is_current,
         )
+        if clicked:
+            _activate_native_page(page_key, valid_pages)
+            st.rerun()
 
-    render_sidebar_link("home", "Ana Sayfa", "⌂")
+    render_sidebar_native_button("home", "Ana Sayfa", "⌂")
 
     st.sidebar.markdown("<div class='kp-sidebar-menu-title'>Menü</div>", unsafe_allow_html=True)
     for _group_title, _group_icon, items in build_menu_groups(user, module_settings):
         for page_key, label, icon in items:
-            render_sidebar_link(page_key, label, icon)
+            render_sidebar_native_button(page_key, label, icon)
 
     render_mobile_navigation(user, module_settings, current_page)
     return st.session_state.get("current_page", "home")
@@ -3695,7 +3823,6 @@ def main() -> None:
 
     render_top_account(user)
     page = navigation(user, module_settings)
-    persist_auth_query(user, page)
 
     prompts: Dict[str, str] = {}
     if page in AI_PROMPT_MODULES or page == "admin":
