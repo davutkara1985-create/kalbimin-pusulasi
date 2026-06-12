@@ -478,7 +478,18 @@ def is_logged_in(user: Optional[Dict[str, Any]]) -> bool:
 
 
 def is_admin(user: Optional[Dict[str, Any]]) -> bool:
-    return bool(user and user.get("role") == "admin" and not user.get("is_guest"))
+    if not user or user.get("is_guest"):
+        return False
+    if str(user.get("role", "")).lower() == "admin":
+        return True
+    # Bazı URL/session geçişlerinde role bilgisi eski cache'ten eksik gelebiliyor.
+    # Admin menüsünün kaybolmaması için secrets içindeki ADMIN_EMAILS ile güvenli yedek kontrol yapılır.
+    try:
+        email = normalize_email(str(user.get("email", "")))
+        admin_emails = [item.strip().lower() for item in str(st.secrets.get("ADMIN_EMAILS", "")).split(",") if item.strip()]
+        return bool(email and email in admin_emails)
+    except Exception:
+        return False
 
 
 def guest_user() -> Dict[str, Any]:
@@ -1071,6 +1082,12 @@ def inject_native_navigation_css() -> None:
     st.sidebar.markdown(
         """
         <style id="kp-native-navigation-css">
+        [data-testid="stSidebar"] > div {
+            overflow-y: auto !important;
+            overflow-x: hidden !important;
+            scrollbar-width: thin !important;
+            padding-bottom: 0.70rem !important;
+        }
         [data-testid="stSidebar"] .element-container:has(div.stButton) {
             margin: 0 !important;
             padding: 0 !important;
@@ -1081,21 +1098,23 @@ def inject_native_navigation_css() -> None:
         }
         [data-testid="stSidebar"] div.stButton > button {
             width: 100% !important;
-            min-height: 33px !important;
+            min-height: 28px !important;
             height: auto !important;
             justify-content: flex-start !important;
             align-items: center !important;
-            gap: 7px !important;
-            margin: 2px 0 !important;
-            padding: 4px 7px !important;
-            border-radius: 12px !important;
+            gap: 5px !important;
+            margin: 1px 0 !important;
+            padding: 3px 7px !important;
+            border-radius: 10px !important;
             color: rgba(255, 248, 232, 0.88) !important;
-            background: rgba(6,8,23,0.24) !important;
-            border: 1px solid rgba(255,241,184,0.12) !important;
-            box-shadow: inset 0 1px 0 rgba(255,255,255,0.045) !important;
-            font-size: 0.70rem !important;
-            font-weight: 800 !important;
-            line-height: 1.12 !important;
+            background: rgba(6,8,23,0.22) !important;
+            border: 1px solid rgba(255,241,184,0.11) !important;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.035) !important;
+            font-family: var(--kp-font-sans) !important;
+            font-size: 0.68rem !important;
+            font-weight: 560 !important;
+            letter-spacing: 0.005em !important;
+            line-height: 1.08 !important;
             text-decoration: none !important;
             cursor: pointer !important;
             transition: none !important;
@@ -1126,9 +1145,10 @@ def inject_native_navigation_css() -> None:
         [data-testid="stSidebar"] div.stButton > button span,
         [data-testid="stSidebar"] div.stButton > button div {
             color: inherit !important;
-            font-size: 0.70rem !important;
-            font-weight: 800 !important;
-            line-height: 1.12 !important;
+            font-size: 0.68rem !important;
+            font-weight: 560 !important;
+            letter-spacing: 0.005em !important;
+            line-height: 1.08 !important;
             text-align: left !important;
             white-space: normal !important;
             overflow: hidden !important;
@@ -1152,10 +1172,10 @@ def inject_native_navigation_css() -> None:
         }
         @media (max-width: 760px) {
             [data-testid="stSidebar"] div.stButton > button {
-                min-height: 38px !important;
-                padding: 6px 7px !important;
-                border-radius: 13px !important;
-                font-size: 0.70rem !important;
+                min-height: 34px !important;
+                padding: 5px 7px !important;
+                border-radius: 12px !important;
+                font-size: 0.68rem !important;
             }
         }
         </style>
@@ -1224,11 +1244,28 @@ def navigation(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]])
 
     def render_sidebar_native_button(page_key: str, label: str, icon: str = "✦") -> None:
         is_current = current_page == page_key
-        # Streamlit 1.58 button(icon=...) yalnizca belli emoji/material adlarini kabul eder.
-        # Bazi module ikonlari veya material adlari StreamlitAPIException uretebildigi icin
-        # icon parametresi kullanilmiyor; ikon metin icinde guvenli sekilde gosteriliyor.
-        safe_icon = str(icon or "✦")
-        button_label = f"{safe_icon} {label}"
+        # Streamlit native button hizini korumak için icon= parametresi kullanılmaz.
+        # Bunun yerine profesyonel, sade ve hatasız Unicode semboller metin içinde gösterilir.
+        compact_icons = {
+            "home": "⌂",
+            "tarot": "✦",
+            "katina": "◆",
+            "coffee_image": "◒",
+            "mini_tarot": "✧",
+            "mini_katina": "◇",
+            "coffee_text": "◒",
+            "love_fortune": "♡",
+            "birth_chart": "♈",
+            "dream": "☾",
+            "soulmate": "∞",
+            "relationship": "♡",
+            "meditation": "◌",
+            "rituals": "✺",
+            "feedback": "✎",
+            "admin": "⚙",
+        }
+        safe_icon = compact_icons.get(page_key, str(icon or "✦"))
+        button_label = f"{safe_icon}  {label}"
         clicked = st.sidebar.button(
             button_label,
             key=f"kp_native_nav_{page_key}",
