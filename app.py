@@ -1091,30 +1091,33 @@ def inject_native_navigation_css() -> None:
         [data-testid="stSidebar"] .element-container:has(div.stButton) {
             margin: 0 !important;
             padding: 0 !important;
+            line-height: 1 !important;
         }
         [data-testid="stSidebar"] div.stButton {
             margin: 0 !important;
             padding: 0 !important;
+            line-height: 1 !important;
         }
         [data-testid="stSidebar"] div.stButton > button {
             width: 100% !important;
-            min-height: 28px !important;
-            height: auto !important;
+            min-height: 24px !important;
+            height: 24px !important;
             justify-content: flex-start !important;
             align-items: center !important;
-            gap: 5px !important;
-            margin: 1px 0 !important;
-            padding: 3px 7px !important;
-            border-radius: 10px !important;
+            gap: 4px !important;
+            margin: 0 !important;
+            padding: 2px 6px !important;
+            border-radius: 9px !important;
             color: rgba(255, 248, 232, 0.88) !important;
-            background: rgba(6,8,23,0.22) !important;
-            border: 1px solid rgba(255,241,184,0.11) !important;
-            box-shadow: inset 0 1px 0 rgba(255,255,255,0.035) !important;
+            background: rgba(6,8,23,0.20) !important;
+            border: 1px solid rgba(255,241,184,0.10) !important;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.028) !important;
             font-family: var(--kp-font-sans) !important;
-            font-size: 0.68rem !important;
-            font-weight: 560 !important;
-            letter-spacing: 0.005em !important;
-            line-height: 1.08 !important;
+            font-size: 0.66rem !important;
+            font-weight: 520 !important;
+            letter-spacing: 0 !important;
+            line-height: 1 !important;
+            text-align: left !important;
             text-decoration: none !important;
             cursor: pointer !important;
             transition: none !important;
@@ -1145,14 +1148,27 @@ def inject_native_navigation_css() -> None:
         [data-testid="stSidebar"] div.stButton > button span,
         [data-testid="stSidebar"] div.stButton > button div {
             color: inherit !important;
-            font-size: 0.68rem !important;
-            font-weight: 560 !important;
-            letter-spacing: 0.005em !important;
-            line-height: 1.08 !important;
+            font-size: 0.66rem !important;
+            font-weight: 520 !important;
+            letter-spacing: 0 !important;
+            line-height: 1 !important;
             text-align: left !important;
-            white-space: normal !important;
+            justify-content: flex-start !important;
+            align-items: center !important;
+            width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            white-space: nowrap !important;
             overflow: hidden !important;
             text-overflow: ellipsis !important;
+        }
+        [data-testid="stSidebar"] div.stButton > button > div,
+        [data-testid="stSidebar"] div.stButton > button [data-testid="stMarkdownContainer"] {
+            display: flex !important;
+            justify-content: flex-start !important;
+            align-items: center !important;
+            width: 100% !important;
+            text-align: left !important;
         }
         [data-testid="stSidebar"] div.stButton > button [data-testid="stIconMaterial"] {
             width: 25px !important;
@@ -1172,10 +1188,13 @@ def inject_native_navigation_css() -> None:
         }
         @media (max-width: 760px) {
             [data-testid="stSidebar"] div.stButton > button {
-                min-height: 34px !important;
-                padding: 5px 7px !important;
-                border-radius: 12px !important;
-                font-size: 0.68rem !important;
+                min-height: 30px !important;
+                height: 30px !important;
+                padding: 3px 6px !important;
+                border-radius: 10px !important;
+                font-size: 0.66rem !important;
+                justify-content: flex-start !important;
+                text-align: left !important;
             }
         }
         </style>
@@ -1265,7 +1284,7 @@ def navigation(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]])
             "admin": "⚙",
         }
         safe_icon = compact_icons.get(page_key, str(icon or "✦"))
-        button_label = f"{safe_icon}  {label}"
+        button_label = f"{safe_icon} {label}"
         clicked = st.sidebar.button(
             button_label,
             key=f"kp_native_nav_{page_key}",
