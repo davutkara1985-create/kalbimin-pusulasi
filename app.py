@@ -1337,8 +1337,13 @@ Ve gerçekten kendine şunu sor: “Kalbim bana ne anlatmak istiyor?”
 
 
 @st.cache_data(ttl=86400, show_spinner=False)
-def _home_video_data_uri() -> str:
-    """Return the original high quality home video as a data URI.
+def _home_background_image_uri() -> str:
+    """Return the static home background image as a cached data URI.
+
+    Video background is intentionally replaced with a lightweight image to reduce
+    page transition load without changing menus, text, layout or visual structure.
+    """
+    return asset_data_uri("kp_home_background.jpg", max_side=1920, quality=82)
 
     Fast/low-size background video caused visible quality loss, so the app now
     prefers the original kp_home_landing.mp4 again. The fast video remains only
@@ -1355,10 +1360,10 @@ def _home_video_data_uri() -> str:
 
 
 def render_home_video_background() -> None:
-    video_uri = _home_video_data_uri()
-    if not video_uri:
-        return
-    safe_uri = html_escape(video_uri, quote=True)
+    image_uri = _home_background_image_uri()
+if not image_uri:
+    return
+safe_uri = html_escape(image_uri, quote=True)
     st.markdown(
         """
         <style>
