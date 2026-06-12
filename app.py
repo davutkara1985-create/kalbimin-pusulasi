@@ -772,20 +772,134 @@ def render_top_account(user: Dict[str, Any]) -> None:
     if not user or user.get("is_guest"):
         return
     display_name = str(user.get("display_name") or user.get("email", "Kullanıcı").split("@")[0]).strip()
-    account_href = _nav_href("account", user)
-    inbox_href = _nav_href("inbox", user)
     message_count = inbox_message_count(user)
-    badge_html = f'<span class="kp-top-account-badge">{message_count}</span>' if message_count > 0 else ""
+    current_page = st.session_state.get("current_page", _query_get(PAGE_QUERY_KEY, "home"))
+    message_label = "✉ Mesajlar" + (f" {message_count}" if message_count > 0 else "")
+
+    # Üst sağ Mesajlar / Hesabım alanı artık href kullanmaz.
+    # Böylece mobil ve tarayıcıda bu iki geçişte beyaz sayfa / tam reload hissi oluşmaz.
     st.markdown(
-        f"""
-        <div class="kp-top-account-floating">
-            <span class="kp-top-account-name">{html_escape(display_name)}</span>
-            <a class="kp-top-account-link kp-top-message-link" href="{html_escape(inbox_href, quote=True)}" target="_self">✉ Mesajlar{badge_html}</a>
-            <a class="kp-top-account-link" href="{html_escape(account_href, quote=True)}" target="_self">Hesabım</a>
-        </div>
+        """
+        <style>
+        div[data-testid="stHorizontalBlock"]:has(.kp-top-account-name-native) {
+            position: fixed !important;
+            top: 12px !important;
+            right: 18px !important;
+            left: auto !important;
+            bottom: auto !important;
+            z-index: 999999 !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: flex-end !important;
+            gap: 7px !important;
+            width: auto !important;
+            max-width: min(360px, calc(100vw - var(--kp-sidebar-width) - 28px)) !important;
+            margin: 0 !important;
+            padding: 6px 8px !important;
+            border-radius: 999px !important;
+            background: rgba(6, 8, 23, 0.62) !important;
+            border: 1px solid rgba(255, 241, 184, 0.18) !important;
+            box-shadow: 0 12px 28px rgba(0,0,0,0.22), inset 0 1px 0 rgba(255,255,255,0.08) !important;
+        }
+        div[data-testid="stHorizontalBlock"]:has(.kp-top-account-name-native) > div[data-testid="column"] {
+            flex: 0 0 auto !important;
+            width: auto !important;
+            min-width: 0 !important;
+            max-width: none !important;
+            padding: 0 !important;
+        }
+        div[data-testid="stHorizontalBlock"]:has(.kp-top-account-name-native) [data-testid="stVerticalBlock"] {
+            gap: 0 !important;
+        }
+        .kp-top-account-name-native {
+            display: inline-block !important;
+            color: var(--kp-gold-2) !important;
+            font-size: 0.76rem !important;
+            font-weight: 760 !important;
+            line-height: 1 !important;
+            max-width: 170px !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+            white-space: nowrap !important;
+            padding: 0 2px !important;
+        }
+        div[data-testid="stHorizontalBlock"]:has(.kp-top-account-name-native) div.stButton {
+            width: auto !important;
+            min-width: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+        div[data-testid="stHorizontalBlock"]:has(.kp-top-account-name-native) div.stButton > button {
+            min-height: 26px !important;
+            height: 26px !important;
+            width: auto !important;
+            min-width: 0 !important;
+            margin: 0 !important;
+            padding: 0 10px !important;
+            border-radius: 999px !important;
+            background: linear-gradient(135deg, rgba(217,183,110,0.96), rgba(154,112,52,0.96)) !important;
+            color: #120d23 !important;
+            border: 1px solid rgba(255,241,184,0.32) !important;
+            font-size: 0.72rem !important;
+            font-weight: 800 !important;
+            line-height: 1 !important;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.28) !important;
+            white-space: nowrap !important;
+        }
+        div[data-testid="stHorizontalBlock"]:has(.kp-top-account-name-native) div.stButton > button:hover {
+            filter: brightness(1.06) !important;
+            border-color: rgba(255,241,184,0.42) !important;
+        }
+        div[data-testid="stHorizontalBlock"]:has(.kp-top-account-name-native) div.stButton > button p {
+            color: #120d23 !important;
+            font-size: 0.72rem !important;
+            font-weight: 800 !important;
+            line-height: 1 !important;
+            white-space: nowrap !important;
+        }
+        @media (max-width: 760px) {
+            div[data-testid="stHorizontalBlock"]:has(.kp-top-account-name-native) {
+                top: 8px !important;
+                right: 10px !important;
+                max-width: calc(100vw - 20px) !important;
+                gap: 4px !important;
+                padding: 5px 6px !important;
+            }
+            .kp-top-account-name-native {
+                max-width: 105px !important;
+                font-size: 0.68rem !important;
+            }
+            div[data-testid="stHorizontalBlock"]:has(.kp-top-account-name-native) div.stButton > button {
+                min-height: 24px !important;
+                height: 24px !important;
+                padding: 0 7px !important;
+                font-size: 0.65rem !important;
+            }
+            div[data-testid="stHorizontalBlock"]:has(.kp-top-account-name-native) div.stButton > button p {
+                font-size: 0.65rem !important;
+            }
+        }
+        </style>
         """,
         unsafe_allow_html=True,
     )
+
+    name_col, inbox_col, account_col = st.columns([1.25, 1.05, 0.82], gap="small", vertical_alignment="center")
+    with name_col:
+        st.markdown(
+            f'<span class="kp-top-account-name-native">{html_escape(display_name)}</span>',
+            unsafe_allow_html=True,
+        )
+    with inbox_col:
+        if st.button(message_label, key="kp_top_native_inbox", use_container_width=False):
+            if current_page != "inbox":
+                go_to_page("inbox", user)
+                st.rerun()
+    with account_col:
+        if st.button("Hesabım", key="kp_top_native_account", use_container_width=False):
+            if current_page != "account":
+                go_to_page("account", user)
+                st.rerun()
 
 
 def unread_inbox_count(user: Optional[Dict[str, Any]]) -> int:
