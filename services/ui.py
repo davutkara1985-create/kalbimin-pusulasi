@@ -434,6 +434,7 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
             --kp-font-sans: {content_font};
             --kp-font-scale: {font_scale};
             --kp-sidebar-width: {sidebar_width}px;
+            --kp-form-label-size: 0.70rem;
         }}
 
         html, body, [class*="css"] {{ font-family: var(--kp-font-sans); font-size: calc(16px * var(--kp-font-scale)); }}
@@ -793,7 +794,7 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
                 color: #fff1b8 !important;
                 -webkit-text-fill-color: #fff1b8 !important;
                 font-weight: 900 !important;
-                font-size: 0.82rem !important;
+                font-size: var(--kp-form-label-size) !important;
                 line-height: 1 !important;
                 letter-spacing: 0.02em !important;
             }}
@@ -804,7 +805,7 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
                 color: #fff1b8 !important;
                 -webkit-text-fill-color: #fff1b8 !important;
                 font-weight: 900 !important;
-                font-size: 0.82rem !important;
+                font-size: var(--kp-form-label-size) !important;
                 line-height: 1 !important;
                 visibility: visible !important;
                 opacity: 1 !important;
@@ -1142,6 +1143,20 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
             box-shadow: 0 18px 46px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.13);
             overflow: hidden; backdrop-filter: blur(22px); transition: transform 220ms ease, border-color 220ms ease, box-shadow 220ms ease;
         }}
+
+        .element-container:has(.kp-module-card) {{
+            margin-top: -1.10rem !important;
+            padding-top: 0 !important;
+        }}
+        .kp-module-card {{
+            margin-top: 0 !important;
+            margin-bottom: 0.55rem !important;
+        }}
+        @media (max-width: 760px) {{
+            .element-container:has(.kp-module-card) {{
+                margin-top: -0.72rem !important;
+            }}
+        }}
         .kp-card:hover {{ transform: translateY(-3px) scale(1.02); border-color: rgba(255,241,184,0.58); box-shadow: 0 26px 58px rgba(0,0,0,0.38), 0 0 28px rgba(217,183,110,0.14); }}
         .kp-card::before {{ content: ""; position: absolute; inset: 0; background: radial-gradient(circle at 18% 16%, var(--kp-element-glow, rgba(217,183,110,0.18)), transparent 38%); opacity: 0.76; z-index: -1; }}
         .kp-card.water {{ --kp-element-glow: rgba(38,112,183,0.38); }}
@@ -1365,7 +1380,7 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
             color: var(--kp-gold-2) !important;
             font-weight: 850 !important;
             letter-spacing: 0.035em !important;
-            font-size: 0.86rem !important;
+            font-size: var(--kp-form-label-size) !important;
         }}
 
         .stTextInput input, .stTextArea textarea, .stNumberInput input, .stDateInput input, .stTimeInput input,
@@ -1423,7 +1438,7 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
             color: var(--kp-gold-2) !important;
             font-weight: 850 !important;
             letter-spacing: 0.035em !important;
-            font-size: 0.86rem !important;
+            font-size: var(--kp-form-label-size) !important;
             text-shadow: 0 0 16px rgba(217,183,110,0.20) !important;
         }}
 
@@ -1596,7 +1611,7 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
             color: rgba(255,241,184,0.88) !important;
             font-weight: 800 !important;
             letter-spacing: 0.025em !important;
-            font-size: 0.82rem !important;
+            font-size: var(--kp-form-label-size) !important;
             text-shadow: none !important;
         }}
         .stTextInput > div,
@@ -2229,7 +2244,7 @@ def render_module_card(module_key: str, module: Dict[str, Any], locked: bool = F
     icon_class = "kp-icon kp-icon-asset" if MODULE_ICON_ASSETS.get(module_key) else "kp-icon"
     st.markdown(
         f"""
-        <div class="kp-card {element}">
+        <div class="kp-card kp-module-card {element}">
           <div class="kp-card-top">
             <div class="{icon_class}">{icon_html}</div>
             {lock_html}
