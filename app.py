@@ -435,6 +435,7 @@ BASE_MENU_GROUPS = [
         "♈",
         [
             ("birth_chart", "Doğum Haritası Analizi", "♈"),
+            ("yildizname", "Yıldızname", "✶"),
             ("dream", "Rüya Tabirleri", "☾"),
             ("soulmate", "Ruh Eşi Çizimi", "♁"),
         ],
@@ -444,14 +445,6 @@ BASE_MENU_GROUPS = [
         "♡",
         [
             ("relationship", "İlişki Yorumu", "♡"),
-        ],
-    ),
-    (
-        "Ruhsal Çözümler",
-        "☉",
-        [
-            ("meditation", "Meditasyonlar", "☽"),
-            ("rituals", "Ritüeller", "✺"),
         ],
     ),
 ]
@@ -1142,7 +1135,6 @@ MENU_GROUP_ICON_MODULES = {
     "Romantik Fal": "tarot",
     "Astroloji": "birth_chart",
     "Aşk & İlişki": "relationship",
-    "Ruhsal Çözümler": "meditation",
     "Yönetim": "admin",
 }
 
@@ -1183,11 +1175,10 @@ NAV_MATERIAL_ICONS: Dict[str, str] = {
     "coffee_text": ":material/local_cafe:",
     "love_fortune": ":material/favorite:",
     "birth_chart": ":material/astrology:",
+    "yildizname": ":material/auto_awesome:",
     "dream": ":material/nights_stay:",
     "soulmate": ":material/diversity_1:",
     "relationship": ":material/favorite:",
-    "meditation": ":material/self_improvement:",
-    "rituals": ":material/spa:",
     "feedback": ":material/edit_note:",
     "admin": ":material/admin_panel_settings:",
     "inbox": ":material/mail:",
@@ -1359,11 +1350,10 @@ def render_mobile_navigation(user: Dict[str, Any], module_settings: Dict[str, Di
         "coffee_text": "◒",
         "love_fortune": "♡",
         "birth_chart": "♈",
+        "yildizname": "✶",
         "dream": "☾",
         "soulmate": "∞",
         "relationship": "♡",
-        "meditation": "◌",
-        "rituals": "✺",
         "feedback": "✎",
         "admin": "⚙",
     }
@@ -1603,11 +1593,10 @@ def navigation(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]])
             "coffee_text": "◒",
             "love_fortune": "♡",
             "birth_chart": "♈",
+            "yildizname": "✶",
             "dream": "☾",
             "soulmate": "∞",
             "relationship": "♡",
-            "meditation": "◌",
-            "rituals": "✺",
             "feedback": "✎",
             "admin": "⚙",
         }
@@ -2134,6 +2123,7 @@ BIRTH_CHART_PLANETS = [
 
 BIRTH_CHART_ASPECT_TYPES = ["Kavuşum", "Karşıt", "Kare", "Üçgen", "Sekstil"]
 BIRTH_CHART_FOCUS_AREAS = ["Genel", "Aşk", "Kariyer", "Yaşam Amacı"]
+YILDIZNAME_FOCUS_AREAS = ["Genel", "Aşk", "Kariyer", "Para/Kısmet", "Aile", "Ruhsal Yol"]
 
 
 def _degree_number(label: str, key: str) -> float:
@@ -2475,6 +2465,66 @@ def page_birth_chart(user: Dict[str, Any], prompts: Dict[str, str], module_setti
 
 
 
+def page_yildizname(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]]) -> None:
+    render_module_intro("yildizname", "premium", module_meta("yildizname", module_settings))
+    if not require_account(user):
+        return
+
+    st.info(
+        "Yıldızname talebin admin paneline düşer. "
+        "Admin; doğum bilgilerine, anne adına, odak alanına ve özel sorularına göre yanıt hazırlar."
+    )
+
+    info = personal_info_form("yildizname", include_mother_name=True)
+    focus_area = st.selectbox("Odak alanı", YILDIZNAME_FOCUS_AREAS, key="yildizname_focus_area_manual")
+
+    st.markdown("### Varsa özel soruların")
+    question_1 = st.text_input(
+        "1. soru",
+        key="yildizname_question_1",
+        placeholder="Örn: Hayatımda hangi konuya odaklanmalıyım?",
+    )
+    question_2 = st.text_input(
+        "2. soru",
+        key="yildizname_question_2",
+        placeholder="Örn: Aşk/kısmet alanında beni hangi enerji bekliyor?",
+    )
+    question_3 = st.text_input(
+        "3. soru",
+        key="yildizname_question_3",
+        placeholder="Örn: Yakın dönemde dikkat etmem gereken tema nedir?",
+    )
+    note = st.text_area(
+        "Eklemek istediğin özel not",
+        height=110,
+        key="yildizname_note",
+        placeholder="Varsa özellikle yorumlanmasını istediğin dönem, konu veya hassas noktayı yazabilirsin.",
+    )
+
+    if st.button("Yıldızname talebimi gönder", key="submit_yildizname", use_container_width=True):
+        if not validate_personal_info(info, require_mother_name=True):
+            return
+        questions = [q.strip() for q in [question_1, question_2, question_3] if q.strip()]
+        payload = {
+            "title": "Yıldızname",
+            "kişisel_bilgiler": info,
+            "odak_alanı": focus_area,
+            "sorular": questions,
+            "not": note,
+            "admin_notu": (
+                "Kullanıcıdan Yıldızname için ad, soyad, doğum tarihi, doğum saati, doğum yeri, anne adı, "
+                "odak alanı, varsa özel sorular ve ek not alınmıştır. Yanıt eğlence ve kişisel farkındalık "
+                "amacıyla, kesin gelecek iddiası kurmadan hazırlanmalıdır."
+            ),
+        }
+        if not _manual_module_usage_allowed(user, "yildizname"):
+            return
+        request_id = submit_manual_request(user, "yildizname", payload)
+        _record_manual_module_usage(user, "yildizname")
+        show_manual_request_sent_notice(request_id)
+
+
+
 def page_mini_tarot(user: Dict[str, Any], prompts: Dict[str, str], module_settings: Dict[str, Dict[str, Any]]) -> None:
     render_module_intro("mini_tarot", "free", module_meta("mini_tarot", module_settings))
     birth_details = birth_details_form("mini_tarot", include_birth_date=True, include_zodiac=True)
@@ -2506,7 +2556,7 @@ def page_coffee_text(user: Dict[str, Any], prompts: Dict[str, str], module_setti
         run_ai_free(user, "coffee_text", {"semboller": symbols, "niyet": intention, **birth_details}, prompts)
 
 
-def personal_info_form(prefix: str, include_zodiac: bool = False) -> Dict[str, Any]:
+def personal_info_form(prefix: str, include_zodiac: bool = False, include_mother_name: bool = False) -> Dict[str, Any]:
     col1, col2 = st.columns(2)
     with col1:
         first_name = st.text_input("Ad", key=f"{prefix}_first")
@@ -2528,15 +2578,23 @@ def personal_info_form(prefix: str, include_zodiac: bool = False) -> Dict[str, A
         "doğum_saati": birth_time_input(prefix),
         "doğum_yeri": birth_place_input(prefix),
     }
+    if include_mother_name:
+        info["anne_adı"] = st.text_input("Anne adı", key=f"{prefix}_mother_name").strip()
     if include_zodiac:
         info["burç"] = st.selectbox("Burç", ZODIAC_SIGNS, key=f"{prefix}_sign")
     return info
 
 
-def validate_personal_info(info: Dict[str, Any]) -> bool:
-    missing = [label for label in ["ad", "soyad", "doğum_yeri"] if not str(info.get(label, "")).strip()]
+def validate_personal_info(info: Dict[str, Any], require_mother_name: bool = False) -> bool:
+    required = ["ad", "soyad", "doğum_yeri"]
+    if require_mother_name:
+        required.append("anne_adı")
+    missing = [label for label in required if not str(info.get(label, "")).strip()]
     if missing:
-        st.warning("Lütfen ad, soyad ve doğum yeri alanlarını doldur.")
+        warning_text = "Lütfen ad, soyad ve doğum yeri alanlarını doldur."
+        if require_mother_name:
+            warning_text = "Lütfen ad, soyad, doğum yeri ve anne adı alanlarını doldur."
+        st.warning(warning_text)
         return False
     return True
 
@@ -3495,7 +3553,7 @@ def admin_overview() -> None:
         render_metric_card("Bekleyen talep", str(len(requests_pending)), "İlk 20 kayıt içinde")
     with col2:
         render_metric_card("Kullanıcı", str(len(users)), "İlk 20 kayıt içinde")
-    st.info("Admin panelinden sayfa durumlarını, AI promptlarını, meditasyon/ritüel içeriklerini, tasarım ayarlarını ve manuel fal taleplerini yönetebilirsin.")
+    st.info("Admin panelinden AI promptlarını, manuel talepleri, geri bildirimleri, kullanıcıları ve puanları yönetebilirsin.")
 
 
 def admin_module_status(module_settings: Dict[str, Dict[str, Any]]) -> None:
@@ -4120,21 +4178,19 @@ def page_admin(user: Dict[str, Any], prompts: Dict[str, str], module_settings: D
     if not is_admin(user):
         st.error("Bu sayfaya sadece admin erişebilir.")
         return
-    render_section_header("Admin Paneli", "Promptlar, içerikler, talepler, geri bildirimler ve kullanıcıları yönet.", kicker="Yönetim")
-    tabs = st.tabs(["Genel", "Promptlar", "İçerikler", "Talepler", "İstek/Öneri/Şikayetler", "Kullanıcılar", "Puanlar"])
+    render_section_header("Admin Paneli", "Promptlar, talepler, geri bildirimler ve kullanıcıları yönet.", kicker="Yönetim")
+    tabs = st.tabs(["Genel", "Promptlar", "Talepler", "İstek/Öneri/Şikayetler", "Kullanıcılar", "Puanlar"])
     with tabs[0]:
         admin_overview()
     with tabs[1]:
         admin_prompts(prompts)
     with tabs[2]:
-        admin_content()
-    with tabs[3]:
         admin_requests(user)
-    with tabs[4]:
+    with tabs[3]:
         admin_feedback(user)
-    with tabs[5]:
+    with tabs[4]:
         admin_users()
-    with tabs[6]:
+    with tabs[5]:
         admin_ratings()
 
 
@@ -4162,6 +4218,8 @@ def render_page(page: str, user: Dict[str, Any], prompts: Dict[str, str], module
         page_love_fortune(user, prompts, module_settings)
     elif page == "birth_chart":
         page_birth_chart(user, prompts, module_settings)
+    elif page == "yildizname":
+        page_yildizname(user, module_settings)
     elif page == "mini_tarot":
         page_mini_tarot(user, prompts, module_settings)
     elif page == "tarot":
@@ -4178,10 +4236,6 @@ def render_page(page: str, user: Dict[str, Any], prompts: Dict[str, str], module
         page_dream(user, module_settings)
     elif page == "soulmate":
         page_soulmate(user, module_settings)
-    elif page == "meditation":
-        page_content("meditation", "meditation", module_settings)
-    elif page == "rituals":
-        page_content("ritual", "rituals", module_settings)
     else:
         reset_navigation_to_home()
         st.rerun()
