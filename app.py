@@ -2180,7 +2180,6 @@ BIRTH_CHART_FOCUS_AREAS = ["Genel", "Aşk", "Kariyer", "Yaşam Amacı"]
 YILDIZNAME_FOCUS_AREAS = ["Genel", "Aşk", "Kariyer", "Para/Kısmet", "Aile", "Ruhsal Yol"]
 
 LEGAL_CONSENT_VERSION = "2026-06-17"
-LEGAL_SUBMIT_NOTE = "KVKK Metni, Açık Rıza Metni ve yasal metinlere sayfa altındaki bağlantılardan ulaşabilirsin."
 
 
 def render_legal_submit_note() -> None:
