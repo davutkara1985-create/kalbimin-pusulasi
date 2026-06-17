@@ -1,429 +1,174 @@
 from __future__ import annotations
 
 import base64
-import datetime as dt
-import hashlib
-import hmac
 import io
-from html import escape as html_escape
-import json
-import random
-import re
-import time
 import unicodedata
-from urllib.parse import urlencode
+from html import escape
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from urllib.parse import quote
+from typing import Any, Dict, Optional, Tuple
 
 import streamlit as st
-import streamlit.components.v1 as components
 
 try:
     from PIL import Image
 except Exception:  # pragma: no cover
     Image = None
 
-from services.ai import generate_text
-from services.catalog import (
-    AI_PROMPT_MODULES,
-    KATINA_CARDS,
-    MANUAL_REQUEST_TYPES,
-    MODULES,
-    PLAN_CONFIG,
-    TAROT_CARDS,
-    ZODIAC_SIGNS,
-    format_card_spread,
-    plan_allows,
-    select_katina_cards,
-    select_tarot_cards,
-)
-from services.db import (
-    activate_access_code,
-    authenticate_user,
-    can_generate,
-    create_content_item,
-    create_user_account,
-    delete_content_item,
-    get_all_module_settings,
-    get_all_prompts,
-    get_content_items,
-    get_or_create_user,
-    get_coin_balance,
-    get_module_access_status,
-    get_public_settings,
-    get_usage,
-    grant_ad_reward,
-    grant_daily_login_reward,
-    list_inbox,
-    list_manual_requests,
-    list_users,
-    record_usage,
-    consume_module_access,
-    save_module_setting,
-    save_prompt,
-    save_reading,
-    save_style_settings,
-    send_manual_response,
-    submit_email_lead,
-    submit_manual_request,
-    submit_upgrade_request,
-    update_content_item,
-    set_user_unlimited_usage,
-)
-from services.ui import (
-    APP_NAME,
-    asset_data_uri,
-    inject_css,
-    render_drawn_cards,
-    render_footer,
-    render_hero,
-    render_metric_card,
-    render_module_card,
-    render_module_intro,
-    render_plan_cards,
-    render_result_panel,
-    render_safety_notice,
-    render_section_header,
-    render_upgrade_prompt,
-    render_sidebar_brand,
-    render_content_visual,
-    module_icon_html,
-)
+from services.catalog import MODULES, PLAN_CONFIG, plan_allows
 
 
-# Yeni geri bildirim / mesaj kutusu fonksiyonları eski db.py ile de ImportError üretmesin diye
-# üst importtan çıkarıldı ve aşağıda güvenli sarmalayıcılarla çağrılıyor.
-def _db_module():
-    import services.db as db_service
-    return db_service
+APP_NAME = "Kalbimin Pusulası"
 
 
-def get_inbox_count(user: Dict[str, Any], limit: int = 99) -> int:
-    db_service = _db_module()
-    fn = getattr(db_service, "get_inbox_count", None)
-    if callable(fn):
-        return int(fn(user, limit=limit))
-    # Eski db.py sürümlerinde toplam sayım yoksa okunmamış sayımı güvenli yedek olarak kullan.
-    unread_fn = getattr(db_service, "get_unread_inbox_count", None)
-    if callable(unread_fn):
-        return int(unread_fn(user, limit=limit))
-    return 0
-
-
-def submit_user_feedback(user: Dict[str, Any], category: str, subject: str, message: str) -> str:
-    db_service = _db_module()
-    fn = getattr(db_service, "submit_user_feedback", None)
-    if callable(fn):
-        return str(fn(user, category, subject, message))
-    raise RuntimeError("services/db.py güncel değil: submit_user_feedback fonksiyonu bulunamadı. Bu yamanın services/db.py dosyasını da yükleyin.")
-
-
-def list_user_feedback(status: str = "pending", limit: int = 100) -> List[Dict[str, Any]]:
-    db_service = _db_module()
-    fn = getattr(db_service, "list_user_feedback", None)
-    if callable(fn):
-        return list(fn(status=status, limit=limit))
-    return []
-
-
-def send_feedback_response(feedback_id: str, response_text: str, admin_user: Dict[str, Any]) -> None:
-    db_service = _db_module()
-    fn = getattr(db_service, "send_feedback_response", None)
-    if callable(fn):
-        fn(feedback_id, response_text, admin_user)
-        return
-    raise RuntimeError("services/db.py güncel değil: send_feedback_response fonksiyonu bulunamadı. Bu yamanın services/db.py dosyasını da yükleyin.")
-
-
-st.set_page_config(
-    page_title=APP_NAME,
-    page_icon="🔮",
-    layout="centered",
-    initial_sidebar_state="auto",
-    menu_items={"Get help": None, "Report a bug": None, "About": None},
-)
-
-# Sayfa geçişlerinde görülen beyaz parlamayı azaltmak için en erken aşamada
-# koyu arka plan basılır; ana CSS daha sonra detaylı tasarımı yükler.
-st.markdown(
-    """
-    <style id="kp-no-flash">
-    html, body, #root, .stApp, [data-testid="stAppViewContainer"] {
-        background: #030613 !important;
-        background-color: #030613 !important;
-        color: #fff8e8 !important;
-    }
-    [data-testid="stAppViewContainer"] > .main {
-        background: transparent !important;
-    }
-    html.kp-page-changing::before {
-        content: "";
-        position: fixed;
-        inset: 0;
-        background: #030613;
-        z-index: 2147483647;
-        pointer-events: none;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
-
-
-def prevent_browser_translate() -> None:
-    components.html(
-        """
-        <script>
-        try {
-            const parentWin = window.parent || window;
-            const doc = parentWin.document || document;
-            const KP_AUTH_STORAGE_KEY = 'kp_auth_token_v1';
-
-            function syncRememberedAuth() {
-                try {
-                    const params = new URLSearchParams(parentWin.location.search || '');
-                    if (params.get('kp_logout') === '1') {
-                        parentWin.localStorage.removeItem(KP_AUTH_STORAGE_KEY);
-                        params.delete('kp_logout');
-                        const cleaned = params.toString();
-                        parentWin.history.replaceState({}, '', parentWin.location.pathname + (cleaned ? '?' + cleaned : '') + parentWin.location.hash);
-                        return;
-                    }
-
-                    const token = params.get('kp_auth') || '';
-                    const remember = params.get('kp_remember') === '1';
-                    if (token && remember) {
-                        parentWin.localStorage.setItem(KP_AUTH_STORAGE_KEY, token);
-                        return;
-                    }
-                    if (token && !remember) {
-                        parentWin.localStorage.removeItem(KP_AUTH_STORAGE_KEY);
-                        return;
-                    }
-
-                    const storedToken = parentWin.localStorage.getItem(KP_AUTH_STORAGE_KEY);
-if (storedToken) {
-    params.set('kp_auth', storedToken);
-    params.set('kp_remember', '1');
-    if (!params.get('kp_page')) params.set('kp_page', 'home');
-    parentWin.location.replace(parentWin.location.pathname + '?' + params.toString() + parentWin.location.hash);
+DECK_WIDGET_CSS = """
+<style>
+/* Card deck: visible image slot + invisible Streamlit button overlay. */
+.element-container:has(.kp-card-slot-wrap) {
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    margin: 0 0 -52px 0 !important;
+    padding: 0 !important;
+    height: 52px !important;
+    position: relative !important;
+    z-index: 1 !important;
+    pointer-events: none !important;
 }
-                } catch (e) {}
-            }
+.kp-card-slot-wrap {
+    width: 36px !important;
+    height: 52px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    pointer-events: none !important;
+}
+.kp-card-slot {
+    display: block !important;
+    width: 34px !important;
+    height: 51px !important;
+    background-repeat: no-repeat !important;
+    background-position: center center !important;
+    background-size: contain !important;
+    background-color: transparent !important;
+    border: none !important;
+    border-radius: 4px !important;
+    box-shadow: none !important;
+    pointer-events: none !important;
+}
+.kp-card-slot.selected {
+    opacity: 0.28 !important;
+    filter: grayscale(0.35) brightness(0.78) !important;
+}
+.element-container:has(.kp-card-slot-wrap) + .element-container {
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    margin: 0 0 5px 0 !important;
+    padding: 0 !important;
+    height: 52px !important;
+    min-height: 52px !important;
+    position: relative !important;
+    z-index: 2 !important;
+}
+.element-container:has(.kp-card-slot-wrap) + .element-container div.stButton {
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    width: 36px !important;
+    height: 52px !important;
+    min-height: 52px !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+}
+.element-container:has(.kp-card-slot-wrap) + .element-container div.stButton > button {
+    display: block !important;
+    width: 34px !important;
+    min-width: 34px !important;
+    max-width: 34px !important;
+    height: 51px !important;
+    min-height: 51px !important;
+    max-height: 51px !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    border: none !important;
+    outline: none !important;
+    border-radius: 4px !important;
+    background: transparent !important;
+    background-image: none !important;
+    box-shadow: none !important;
+    color: transparent !important;
+    font-size: 0 !important;
+    line-height: 0 !important;
+    overflow: hidden !important;
+    opacity: 1 !important;
+    cursor: pointer !important;
+    transition: transform 120ms ease, filter 120ms ease !important;
+}
+.element-container:has(.kp-card-slot-wrap) + .element-container div.stButton > button:hover {
+    transform: translateY(-2px) scale(1.04) !important;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+}
+.element-container:has(.kp-card-slot-wrap) + .element-container div.stButton > button:focus,
+.element-container:has(.kp-card-slot-wrap) + .element-container div.stButton > button:active {
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+}
+.element-container:has(.kp-card-slot-wrap) + .element-container div.stButton > button:disabled {
+    opacity: 1 !important;
+    cursor: default !important;
+    background: transparent !important;
+}
+.element-container:has(.kp-card-slot-wrap) + .element-container div.stButton > button p,
+.element-container:has(.kp-card-slot-wrap) + .element-container div.stButton > button span,
+.element-container:has(.kp-card-slot-wrap) + .element-container div.stButton > button div {
+    display: none !important;
+    visibility: hidden !important;
+    color: transparent !important;
+    font-size: 0 !important;
+    line-height: 0 !important;
+}
 
-            function installNoWhiteFlashGuard() {
-                try {
-                    if (!doc || !doc.documentElement) return;
-                    let style = doc.getElementById('kp-no-white-flash-guard');
-                    if (!style && doc.head) {
-                        style = doc.createElement('style');
-                        style.id = 'kp-no-white-flash-guard';
-                        style.textContent = `
-                            html, body, #root, .stApp, [data-testid="stAppViewContainer"] {
-                                background: #030613 !important;
-                                background-color: #030613 !important;
-                            }
-                            html.kp-page-changing::before {
-                                content: "";
-                                position: fixed;
-                                inset: 0;
-                                background: #030613;
-                                z-index: 2147483647;
-                                pointer-events: none;
-                            }
-                        `;
-                        doc.head.appendChild(style);
-                    }
-                    const clearGuard = () => {
-                        try {
-                            doc.documentElement.classList.remove('kp-page-changing');
-                            parentWin.sessionStorage.removeItem('kp_page_changing');
-                        } catch (e) {}
-                    };
-                    if (parentWin.sessionStorage.getItem('kp_page_changing') === '1') {
-                        doc.documentElement.classList.add('kp-page-changing');
-                        setTimeout(clearGuard, 550);
-                    }
-                    function showPageTransitionCover() {
-                        try {
-                            parentWin.sessionStorage.setItem('kp_page_changing', '1');
-                            doc.documentElement.classList.add('kp-page-changing');
-                            doc.documentElement.style.backgroundColor = '#030613';
-                            if (doc.body) doc.body.style.backgroundColor = '#030613';
-
-                            let cover = doc.getElementById('kp-page-transition-cover');
-                            if (!cover && doc.body) {
-                                cover = doc.createElement('div');
-                                cover.id = 'kp-page-transition-cover';
-                                cover.setAttribute('aria-hidden', 'true');
-                                cover.style.cssText = 'position:fixed;inset:0;background:#030613;z-index:2147483647;pointer-events:none;opacity:1;';
-                                doc.body.appendChild(cover);
-                            }
-                        } catch (e) {}
-                    }
-                    function hidePageTransitionCover() {
-                        try {
-                            const cover = doc.getElementById('kp-page-transition-cover');
-                            if (cover && cover.parentNode) cover.parentNode.removeChild(cover);
-                        } catch (e) {}
-                        clearGuard();
-                    }
-                    if (!parentWin.__kpNoWhiteFlashGuardV2) {
-                        parentWin.__kpNoWhiteFlashGuardV2 = true;
-                        doc.addEventListener('click', function(event) {
-                            try {
-                                const target = event.target;
-                                if (!target || !target.closest) return;
-                                const link = target.closest('a[href]');
-                                if (!link) return;
-                                const href = link.getAttribute('href') || '';
-                                const targetAttr = (link.getAttribute('target') || '').toLowerCase();
-                                if (targetAttr === '_blank' || href.startsWith('#') || href.startsWith('mailto:') || href.startsWith('tel:')) return;
-                                if (href.startsWith('?') || href.indexOf('kp_page=') !== -1 || link.className.indexOf('kp-side-nav') !== -1 || link.className.indexOf('kp-top-account') !== -1 || link.className.indexOf('kp-mobile-menu') !== -1) {
-                                    showPageTransitionCover();
-                                }
-                            } catch (e) {}
-                        }, true);
-                        parentWin.addEventListener('pageshow', function() { setTimeout(hidePageTransitionCover, 150); });
-                        setTimeout(hidePageTransitionCover, 1200);
-                    }
-                } catch (e) {}
-            }
-
-            function syncMobileViewportFlag() {
-                try {
-                    const params = new URLSearchParams(parentWin.location.search || '');
-                    const isMobile = !!(parentWin.matchMedia && parentWin.matchMedia('(max-width: 760px)').matches);
-                    const hasMobileFlag = params.get('kp_mobile') === '1';
-                    if (isMobile && !hasMobileFlag) {
-                        params.set('kp_mobile', '1');
-                        parentWin.location.replace(parentWin.location.pathname + '?' + params.toString() + parentWin.location.hash);
-                        return;
-                    }
-                    if (!isMobile && hasMobileFlag) {
-                        params.delete('kp_mobile');
-                        const cleaned = params.toString();
-                        parentWin.location.replace(parentWin.location.pathname + (cleaned ? '?' + cleaned : '') + parentWin.location.hash);
-                    }
-                } catch (e) {}
-            }
-
-            function applyNoTranslate() {
-                if (!doc || !doc.documentElement) return;
-                doc.documentElement.lang = 'tr';
-                doc.documentElement.setAttribute('translate', 'no');
-                doc.documentElement.classList.add('notranslate');
-
-                if (doc.body) {
-                    doc.body.setAttribute('translate', 'no');
-                    doc.body.classList.add('notranslate');
-                    doc.body.style.setProperty('-webkit-text-size-adjust', '100%');
-                }
-
-                let meta = doc.querySelector('meta[name="google"]');
-                if (!meta && doc.head) {
-                    meta = doc.createElement('meta');
-                    meta.setAttribute('name', 'google');
-                    doc.head.appendChild(meta);
-                }
-                if (meta) meta.setAttribute('content', 'notranslate');
-
-                let viewport = doc.querySelector('meta[name="viewport"]');
-                if (!viewport && doc.head) {
-                    viewport = doc.createElement('meta');
-                    viewport.setAttribute('name', 'viewport');
-                    doc.head.appendChild(viewport);
-                }
-                if (viewport) {
-                    viewport.setAttribute('content', 'width=device-width, initial-scale=1, viewport-fit=cover');
-                }
-                doc.documentElement.style.setProperty('-webkit-text-size-adjust', '100%');
-            }
-
-            function isEditableTarget(target) {
-                const tag = target && target.tagName ? target.tagName.toUpperCase() : '';
-                return !!(target && (
-                    tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target.isContentEditable
-                ));
-            }
-
-            function blockClearCacheShortcut(event) {
-                const key = (event.key || '').toLowerCase();
-                const code = (event.code || '').toLowerCase();
-                const isC = (key === 'c' || code === 'keyc');
-                if (!isC) return true;
-
-                // Form alanlarında normal harf yazımı etkilenmesin.
-                if (isEditableTarget(event.target) && !(event.ctrlKey || event.metaKey)) return true;
-
-                // Ctrl/Cmd+C kopyalama çalışsın; ancak Streamlit'in Clear caches kısayoluna yayılmasın.
-                if (event.ctrlKey || event.metaKey) {
-                    event.stopPropagation();
-                    if (event.stopImmediatePropagation) event.stopImmediatePropagation();
-                    return true;
-                }
-
-                // Düz "c" Streamlit'te Clear caches penceresini açabildiği için engellenir.
-                event.preventDefault();
-                event.stopPropagation();
-                if (event.stopImmediatePropagation) event.stopImmediatePropagation();
-                return false;
-            }
-
-            function closeClearCacheDialog() {
-                const needles = ["Are you sure you want to clear the app\'s function caches", "Clear caches", "function caches"];
-                const dialogs = Array.from(doc.querySelectorAll('[role="dialog"], [data-testid="stDialog"], div'));
-                for (const el of dialogs) {
-                    const txt = (el.innerText || '');
-                    if (needles.some(needle => txt.includes(needle))) {
-                        const buttons = Array.from(el.querySelectorAll('button'));
-                        const cancel = buttons.find(btn => /cancel|hayır|vazgeç|no/i.test(btn.innerText || ''));
-                        if (cancel) cancel.click();
-                        else doc.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', bubbles: true}));
-                        el.style.display = 'none';
-                        return true;
-                    }
-                }
-                return false;
-            }
-
-            syncRememberedAuth();
-            syncMobileViewportFlag();
-            installNoWhiteFlashGuard();
-            applyNoTranslate();
-            setTimeout(applyNoTranslate, 700);
-
-            if (!parentWin.__kpDisableClearCacheShortcutV6) {
-                parentWin.__kpDisableClearCacheShortcutV6 = true;
-                const targets = [doc, parentWin, window].filter(Boolean);
-                for (const target of targets) {
-                    target.addEventListener('keydown', blockClearCacheShortcut, true);
-                    target.addEventListener('keypress', blockClearCacheShortcut, true);
-                    target.addEventListener('keyup', blockClearCacheShortcut, true);
-                }
-                const observer = new MutationObserver(closeClearCacheDialog);
-                if (doc.body) observer.observe(doc.body, {childList: true, subtree: true});
-                setInterval(closeClearCacheDialog, 1200);
-            }
-        } catch (e) {}
-        </script>
-        """,
-        height=0,
-        width=0,
-    )
-
-# Clear caches kısayolunu ve tarayıcı çeviri müdahalesini her rerun'da güvenli şekilde bastır.
-# JS tarafında tek seferlik işaret kullanıldığı için tekrar dinleyici birikmez.
-prevent_browser_translate()
-st.session_state["_kp_browser_setup_done"] = True
-
-# Performans: açılışta Firestore'dan tasarım ayarı çekilmez.
-# Admin Tasarım sekmesinde güncel ayarlar ayrıca yüklenir.
-PUBLIC_SETTINGS = {"style": {}}
-inject_css(PUBLIC_SETTINGS.get("style", {}))
-
-
-KP_COMPACT_ICONS: Dict[str, str] = {
+/* Mobilde Streamlit kolonlarının kartları alt alta dizmesini engelle. */
+div[data-testid="stHorizontalBlock"]:has(.kp-card-slot-wrap) {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    gap: 4px !important;
+    padding-bottom: 4px !important;
+    -webkit-overflow-scrolling: touch !important;
+}
+div[data-testid="stHorizontalBlock"]:has(.kp-card-slot-wrap) > div[data-testid="column"] {
+    flex: 0 0 40px !important;
+    width: 40px !important;
+    min-width: 40px !important;
+    max-width: 40px !important;
+}
+@media (max-width: 760px) {
+    div[data-testid="stHorizontalBlock"]:has(.kp-card-slot-wrap) {
+        max-width: 100vw !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(.kp-card-slot-wrap) > div[data-testid="column"] {
+        flex: 0 0 38px !important;
+        width: 38px !important;
+        min-width: 38px !important;
+        max-width: 38px !important;
+    }
+}
+</style>
+"""
+KP_MODULE_MENU_ICONS: Dict[str, str] = {
     "home": "🏠",
     "tarot": "🃏",
     "katina": "🔗",
@@ -442,4065 +187,2395 @@ KP_COMPACT_ICONS: Dict[str, str] = {
     "inbox": "📩",
     "account": "👤",
 }
-
-BASE_MENU_GROUPS = [
-    (
-        "Romantik Fal",
-        KP_COMPACT_ICONS["tarot"],
-        [
-            ("tarot", "Tarot Falı", KP_COMPACT_ICONS["tarot"]),
-            ("katina", "Katina Falı", KP_COMPACT_ICONS["katina"]),
-            ("coffee_image", "Kahve Falı", KP_COMPACT_ICONS["coffee_image"]),
-            ("mini_tarot", "Mini Tarot Falı", KP_COMPACT_ICONS["mini_tarot"]),
-            ("mini_katina", "Mini Katina Falı", KP_COMPACT_ICONS["mini_katina"]),
-            ("coffee_text", "Mini Kahve Falı", KP_COMPACT_ICONS["coffee_text"]),
-            ("love_fortune", "Aşk Falı", KP_COMPACT_ICONS["love_fortune"]),
-        ],
-    ),
-    (
-        "Astroloji",
-        KP_COMPACT_ICONS["birth_chart"],
-        [
-            ("birth_chart", "Doğum Haritası Analizi", KP_COMPACT_ICONS["birth_chart"]),
-            ("yildizname", "Yıldızname", KP_COMPACT_ICONS["yildizname"]),
-            ("dream", "Rüya Tabirleri", KP_COMPACT_ICONS["dream"]),
-            ("soulmate", "Ruh Eşi Çizimi", KP_COMPACT_ICONS["soulmate"]),
-        ],
-    ),
-    (
-        "Aşk & İlişki",
-        KP_COMPACT_ICONS["relationship"],
-        [
-            ("relationship", "İlişki Yorumu", KP_COMPACT_ICONS["relationship"]),
-        ],
-    ),
-]
+MODULE_VISUALS: Dict[str, Tuple[str, str, str]] = {
+    "relationship": ("Aşk & İlişki", KP_MODULE_MENU_ICONS["relationship"], "fire"),
+    "love_fortune": ("Aşk & İlişki", KP_MODULE_MENU_ICONS["love_fortune"], "fire"),
+    "birth_chart": ("Astroloji", KP_MODULE_MENU_ICONS["birth_chart"], "air"),
+    "yildizname": ("Astroloji", KP_MODULE_MENU_ICONS["yildizname"], "air"),
+    "mini_tarot": ("Fal & Kehanet", KP_MODULE_MENU_ICONS["mini_tarot"], "fire"),
+    "tarot": ("Fal & Kehanet", KP_MODULE_MENU_ICONS["tarot"], "fire"),
+    "mini_katina": ("Fal & Kehanet", KP_MODULE_MENU_ICONS["mini_katina"], "earth"),
+    "katina": ("Fal & Kehanet", KP_MODULE_MENU_ICONS["katina"], "earth"),
+    "coffee_text": ("Fal & Kehanet", KP_MODULE_MENU_ICONS["coffee_text"], "earth"),
+    "coffee_image": ("Fal & Kehanet", KP_MODULE_MENU_ICONS["coffee_image"], "earth"),
+    "dream": ("Fal & Kehanet", KP_MODULE_MENU_ICONS["dream"], "water"),
+    "soulmate": ("Fal & Kehanet", KP_MODULE_MENU_ICONS["soulmate"], "air"),
+    "inbox": ("Hesabım", KP_MODULE_MENU_ICONS["inbox"], "water"),
+    "admin": ("Yönetim", KP_MODULE_MENU_ICONS["admin"], "earth"),
+}
 
 
-
-TURKISH_CITIES = [
-    "Adana", "Adıyaman", "Afyonkarahisar", "Ağrı", "Amasya", "Ankara", "Antalya", "Artvin", "Aydın", "Balıkesir",
-    "Bilecik", "Bingöl", "Bitlis", "Bolu", "Burdur", "Bursa", "Çanakkale", "Çankırı", "Çorum", "Denizli",
-    "Diyarbakır", "Edirne", "Elazığ", "Erzincan", "Erzurum", "Eskişehir", "Gaziantep", "Giresun", "Gümüşhane", "Hakkari",
-    "Hatay", "Isparta", "Mersin", "İstanbul", "İzmir", "Kars", "Kastamonu", "Kayseri", "Kırklareli", "Kırşehir",
-    "Kocaeli", "Konya", "Kütahya", "Malatya", "Manisa", "Kahramanmaraş", "Mardin", "Muğla", "Muş", "Nevşehir",
-    "Niğde", "Ordu", "Rize", "Sakarya", "Samsun", "Siirt", "Sinop", "Sivas", "Tekirdağ", "Tokat",
-    "Trabzon", "Tunceli", "Şanlıurfa", "Uşak", "Van", "Yozgat", "Zonguldak", "Aksaray", "Bayburt", "Karaman",
-    "Kırıkkale", "Batman", "Şırnak", "Bartın", "Ardahan", "Iğdır", "Yalova", "Karabük", "Kilis", "Osmaniye", "Düzce",
-]
+def module_visual(module_key: str) -> Tuple[str, str, str]:
+    return MODULE_VISUALS.get(module_key, ("Kalbimin Pusulası", "✦", "water"))
 
 
-def normalize_city_text(value: str) -> str:
-    value = value.strip().casefold()
-    value = value.replace("ı", "i").replace("İ", "i")
+MODULE_ICON_ASSETS: Dict[str, str] = {
+    "relationship": "relationship.png",
+    "love_fortune": "love_fortune.png",
+    "birth_chart": "birth_chart.png",
+    "mini_tarot": "mini_tarot.png",
+    "tarot": "tarot.png",
+    "mini_katina": "mini_katina.png",
+    "katina": "katina.png",
+    "coffee_text": "coffee_fortune.png",
+    "coffee_image": "coffee_fortune.png",
+    "dream": "dream.png",
+    "soulmate": "soulmate.png",
+}
+
+
+@st.cache_data(ttl=86400, max_entries=48, show_spinner=False)
+def icon_asset_data_uri(filename: str, max_side: int = 58) -> str:
+    path = Path(__file__).resolve().parent.parent / "assets" / "icons" / filename
+    if not path.exists() or not path.is_file():
+        return ""
+    raw = path.read_bytes()
+    mime = _asset_mime(path)
+    if Image is not None:
+        try:
+            img = Image.open(io.BytesIO(raw)).convert("RGBA")
+            img.thumbnail((int(max_side), int(max_side)))
+            buffer = io.BytesIO()
+            img.save(buffer, format="PNG", optimize=True)
+            raw = buffer.getvalue()
+            mime = "image/png"
+        except Exception:
+            pass
+    encoded = base64.b64encode(raw).decode("utf-8")
+    return f"data:{mime};base64,{encoded}"
+
+
+PROFESSIONAL_MODULE_ICONS: Dict[str, str] = {
+    "love_fortune": """
+        <path d="M12 21s-6-4-9-8C-1 7 2 3 6 5c2 1 3 3 6 6 3-3 4-5 6-6 4-2 7 2 3 7-3 4-9 9-9 9z"
+              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    """,
+
+    "relationship": """
+        <circle cx="8" cy="10" r="3"
+                stroke="currentColor" stroke-width="2"/>
+        <circle cx="16" cy="10" r="3"
+                stroke="currentColor" stroke-width="2"/>
+        <path d="M5 20c2-3 4-4 7-4s5 1 7 4"
+              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    """,
+
+    "birth_chart": """
+        <circle cx="12" cy="12" r="9"
+                stroke="currentColor" stroke-width="2"/>
+        <path d="M12 3v18M3 12h18"
+              stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    """,
+
+    "yildizname": """
+        <path d="M12 2l3 6 6 1-4 4 1 6-6-3-6 3 1-6-4-4 6-1z"
+              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    """,
+
+    "mini_tarot": """
+        <rect x="6" y="4" width="12" height="16" rx="2"
+              stroke="currentColor" stroke-width="2"/>
+        <path d="M12 8l1.15 2.45L16 11.6l-2.85 1.08L12 15.2l-1.15-2.52L8 11.6l2.85-1.15L12 8z"
+              stroke="currentColor" stroke-width="1.45" stroke-linecap="round" stroke-linejoin="round"/>
+    """,
+
+    "tarot": """
+        <rect x="6" y="4" width="12" height="16" rx="2"
+              stroke="currentColor" stroke-width="2"/>
+        <path d="M9 8h6M9 16h6"
+              stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+    """,
+
+    "mini_katina": """
+        <circle cx="12" cy="8" r="3"
+                stroke="currentColor" stroke-width="2"/>
+        <path d="M12 11v6M9.5 17h5"
+              stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    """,
+
+    "katina": """
+        <circle cx="12" cy="8" r="3"
+                stroke="currentColor" stroke-width="2"/>
+        <path d="M12 11v7M9.2 18h5.6M14.2 14.2l2-2M15.8 15.8l2-2"
+              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    """,
+
+    "coffee_text": """
+        <path d="M4 10h12v6a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4z"
+              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M16 11h1.4a2.2 2.2 0 0 1 0 4.4H16M7 7c-.55-.7-.55-1.35 0-2M11 7c-.55-.7-.55-1.35 0-2"
+              stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+    """,
+
+    "coffee_image": """
+        <path d="M4 10h12v6a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4z"
+              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M16 11h1.4a2.2 2.2 0 0 1 0 4.4H16M7 7c-.55-.7-.55-1.35 0-2M11 7c-.55-.7-.55-1.35 0-2"
+              stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+    """,
+
+    "dream": """
+        <path d="M21 12a9 9 0 0 1-9 9 7 7 0 0 1 0-14"
+              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M8 7.5l.5 1.1 1.1.5-1.1.5L8 10.7l-.5-1.1-1.1-.5 1.1-.5L8 7.5z"
+              stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+    """,
+
+    "soulmate": """
+        <circle cx="8" cy="12" r="3"
+                stroke="currentColor" stroke-width="2"/>
+        <circle cx="16" cy="12" r="3"
+                stroke="currentColor" stroke-width="2"/>
+        <path d="M11 12h2"
+              stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    """,
+
+    "admin": """
+        <circle cx="12" cy="12" r="3.1"
+                stroke="currentColor" stroke-width="2"/>
+        <path d="M12 3.8v2.05M12 18.15v2.05M5.95 5.95l1.45 1.45M16.6 16.6l1.45 1.45M3.8 12h2.05M18.15 12h2.05M5.95 18.05l1.45-1.45M16.6 7.4l1.45-1.45"
+              stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+    """,
+}
+
+
+def _professional_module_icon_svg(module_key: str, fallback_icon: str) -> str:
+    inner = PROFESSIONAL_MODULE_ICONS.get(module_key, "")
+    if not inner:
+        return f'<span class="kp-icon-fallback">{escape(str(fallback_icon))}</span>'
+    return (
+        '<svg class="kp-icon-svg" viewBox="0 0 24 24" fill="none" '
+        'xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">'
+        f'{inner}'
+        '</svg>'
+    )
+
+
+def module_icon_html(module_key: str, fallback_icon: str) -> str:
+    """Return module icons with the same emoji/icon logic used by the menu."""
+    icon = KP_MODULE_MENU_ICONS.get(module_key, fallback_icon)
+    return f'<span class="kp-icon-fallback kp-menu-style-module-icon">{escape(str(icon))}</span>'
+
+
+BACKGROUND_EXTENSIONS = (".png", ".jpg", ".jpeg", ".webp")
+
+
+def _asset_name_key(value: str) -> str:
+    value = value.strip().casefold().replace("ı", "i").replace("İ", "i")
     value = unicodedata.normalize("NFKD", value)
     return "".join(ch for ch in value if not unicodedata.combining(ch))
 
 
-def city_matches(query: str) -> List[str]:
-    if len(query.strip()) < 3:
-        return []
-    normalized_query = normalize_city_text(query)
-    starts = [city for city in TURKISH_CITIES if normalize_city_text(city).startswith(normalized_query)]
-    contains = [city for city in TURKISH_CITIES if normalized_query in normalize_city_text(city) and city not in starts]
-    return starts + contains
+def _asset_mime(path: Path) -> str:
+    suffix = path.suffix.lower()
+    if suffix in {".jpg", ".jpeg"}:
+        return "image/jpeg"
+    if suffix == ".webp":
+        return "image/webp"
+    return "image/png"
 
 
-def stop_with_setup_error(exc: Exception) -> None:
-    st.error(str(exc))
-    st.info("Streamlit Cloud > App > Settings > Secrets alanına OpenAI, Firebase ve admin bilgilerini ekledikten sonra uygulamayı yeniden başlat.")
-    st.stop()
-
-
-def is_logged_in(user: Optional[Dict[str, Any]]) -> bool:
-    return bool(user and not user.get("is_guest"))
-
-
-def is_admin(user: Optional[Dict[str, Any]]) -> bool:
-    if not user or user.get("is_guest"):
-        return False
-    if str(user.get("role", "")).lower() == "admin":
-        return True
-    # Bazı URL/session geçişlerinde role bilgisi eski cache'ten eksik gelebiliyor.
-    # Admin menüsünün kaybolmaması için secrets içindeki ADMIN_EMAILS ile güvenli yedek kontrol yapılır.
-    try:
-        email = normalize_email(str(user.get("email", "")))
-        admin_emails = [item.strip().lower() for item in str(st.secrets.get("ADMIN_EMAILS", "")).split(",") if item.strip()]
-        return bool(email and email in admin_emails)
-    except Exception:
-        return False
-
-
-def guest_user() -> Dict[str, Any]:
-    return {
-        "id": "guest",
-        "email": "misafir@kalbiminpusulasi.local",
-        "display_name": "Misafir Yolcu",
-        "plan": "free",
-        "role": "guest",
-        "is_guest": True,
-    }
-
-
-def normalize_email(email: str) -> str:
-    return email.strip().lower()
-
-
-AUTH_QUERY_KEY = "kp_auth"
-PAGE_QUERY_KEY = "kp_page"
-REMEMBER_QUERY_KEY = "kp_remember"
-LOGOUT_QUERY_KEY = "kp_logout"
-MOBILE_QUERY_KEY = "kp_mobile"
-
-
-def _query_get(key: str, default: str = "") -> str:
-    try:
-        value = st.query_params.get(key, default)
-        if isinstance(value, list):
-            return str(value[0]) if value else default
-        return str(value or default)
-    except Exception:
-        return default
-
-
-def _query_set(key: str, value: str) -> None:
-    try:
-        value = str(value or "")
-        current = st.query_params.get(key, "")
-        if isinstance(current, list):
-            current = str(current[0]) if current else ""
-        else:
-            current = str(current or "")
-        if current != value:
-            st.query_params[key] = value
-    except Exception:
-        pass
-
-
-def _query_delete(key: str) -> None:
-    try:
-        if key in st.query_params:
-            del st.query_params[key]
-    except Exception:
-        pass
-
-
-def _auth_secret() -> str:
-    return str(
-        st.secrets.get("AUTH_TOKEN_SECRET")
-        or st.secrets.get("ADMIN_PASSWORD")
-        or st.secrets.get("OPENAI_API_KEY")
-        or "kalbimin-pusulasi-session-secret"
-    )
-
-
-def create_auth_token(email: str, days: int = 30) -> str:
-    normalized = normalize_email(email)
-    exp = int(time.time()) + days * 24 * 60 * 60
-    raw = f"{normalized}|{exp}"
-    sig = hmac.new(_auth_secret().encode("utf-8"), raw.encode("utf-8"), hashlib.sha256).hexdigest()
-    payload = {"email": normalized, "exp": exp, "sig": sig}
-    encoded = base64.urlsafe_b64encode(json.dumps(payload, separators=(",", ":")).encode("utf-8")).decode("utf-8")
-    return encoded.rstrip("=")
-
-
-def read_auth_token(token: str) -> Optional[str]:
-    if not token:
-        return None
-    try:
-        padded = token + "=" * (-len(token) % 4)
-        payload = json.loads(base64.urlsafe_b64decode(padded.encode("utf-8")).decode("utf-8"))
-        email = normalize_email(str(payload.get("email", "")))
-        exp = int(payload.get("exp", 0))
-        sig = str(payload.get("sig", ""))
-        if not email or exp < int(time.time()):
-            return None
-        raw = f"{email}|{exp}"
-        expected = hmac.new(_auth_secret().encode("utf-8"), raw.encode("utf-8"), hashlib.sha256).hexdigest()
-        if not hmac.compare_digest(sig, expected):
-            return None
-        return email
-    except Exception:
+def _find_background_file(name: str) -> Optional[Path]:
+    base_dir = Path(__file__).resolve().parent.parent / "assets" / "backgrounds"
+    if not base_dir.exists():
         return None
 
-
-def _auth_token_days_for_session() -> int:
-    # HTML menü bağlantıları sayfayı URL ile yenilediği için, menü geçişlerinde
-    # oturumun düşmemesi adına giriş yapan kullanıcıya her zaman imzalı kısa token verilir.
-    # Beni hatırla açıksa uzun süreli, kapalıysa yalnızca kısa süreli gezinme tokenı kullanılır.
-    return 30 if bool(st.session_state.get("remember_me", False)) else 1
-
-
-def _token_email(token: str) -> str:
-    return normalize_email(read_auth_token(token) or "")
-
-
-def _auth_token_for_user(user: Optional[Dict[str, Any]]) -> str:
-    if not user or user.get("is_guest") or not user.get("email"):
-        return ""
-    email = normalize_email(str(user.get("email", "")))
-    current_token = _query_get(AUTH_QUERY_KEY)
-    remember_requested = bool(st.session_state.get("remember_me", False))
-    current_remember = _query_get(REMEMBER_QUERY_KEY) == "1"
-    if _token_email(current_token) == email and remember_requested == current_remember:
-        return current_token
-    return create_auth_token(email, days=_auth_token_days_for_session())
-
-
-def persist_auth_query(user: Dict[str, Any], page: str = "home") -> None:
-    if user and not user.get("is_guest") and user.get("email"):
-        token = _auth_token_for_user(user)
-        if token:
-            _query_set(AUTH_QUERY_KEY, token)
-        if bool(st.session_state.get("remember_me", False)):
-            _query_set(REMEMBER_QUERY_KEY, "1")
-        else:
-            _query_delete(REMEMBER_QUERY_KEY)
-        _query_delete(LOGOUT_QUERY_KEY)
+    requested = Path(name)
+    direct_candidates = []
+    if requested.suffix:
+        direct_candidates.append(base_dir / requested.name)
     else:
-        _query_delete(AUTH_QUERY_KEY)
-        _query_delete(REMEMBER_QUERY_KEY)
+        direct_candidates.extend(base_dir / f"{requested.name}{ext}" for ext in BACKGROUND_EXTENSIONS)
 
-    if page:
-        _query_set(PAGE_QUERY_KEY, page)
+    for candidate in direct_candidates:
+        if candidate.exists():
+            return candidate
 
-
-def restore_auth_from_query() -> Optional[Dict[str, Any]]:
-    email = read_auth_token(_query_get(AUTH_QUERY_KEY))
-    if not email:
-        return None
-    try:
-        user = get_or_create_user(email)
-        st.session_state["auth_user"] = user
-        remembered = _query_get(REMEMBER_QUERY_KEY) == "1"
-        st.session_state["remember_me"] = remembered
-        if remembered:
-            _query_set(REMEMBER_QUERY_KEY, "1")
-        else:
-            _query_delete(REMEMBER_QUERY_KEY)
-        _query_delete(LOGOUT_QUERY_KEY)
-        return user
-    except Exception:
-        return None
-
-
-def logout() -> None:
-    for key in ["auth_user", "current_page", "active_email", "remember_me"]:
-        st.session_state.pop(key, None)
-    _query_delete(AUTH_QUERY_KEY)
-    _query_delete(REMEMBER_QUERY_KEY)
-    _query_delete(PAGE_QUERY_KEY)
-    _query_set(LOGOUT_QUERY_KEY, "1")
-
-
-def auth_sidebar() -> Optional[Dict[str, Any]]:
-    user = st.session_state.get("auth_user") or restore_auth_from_query()
-    if user and not user.get("is_guest"):
-        render_sidebar_brand()
-        return user
-
-    # Giriş yapılmadan önce sol sütun kullanılmaz; giriş formu ana sayfada gösterilir.
+    target_key = _asset_name_key(requested.stem or requested.name)
+    for candidate in base_dir.iterdir():
+        if candidate.is_file() and candidate.suffix.lower() in BACKGROUND_EXTENSIONS:
+            if _asset_name_key(candidate.stem) == target_key:
+                return candidate
     return None
 
 
-def hide_sidebar_for_landing() -> None:
-    st.markdown(
-        """
-        <style>
-        [data-testid="stSidebar"],
-        [data-testid="stSidebarCollapseButton"],
-        [data-testid="collapsedControl"],
-        button[aria-label="Close sidebar"],
-        button[aria-label="Open sidebar"],
-        button[title="Close sidebar"],
-        button[title="Open sidebar"] {
-            display: none !important;
-            visibility: hidden !important;
-            pointer-events: none !important;
-            width: 0 !important;
-            min-width: 0 !important;
-            max-width: 0 !important;
-        }
-        [data-testid="stAppViewContainer"] {
-            margin-left: 0 !important;
-        }
-        [data-testid="stAppViewContainer"] .block-container {
-            max-width: 620px !important;
-            padding-top: 0.65rem !important;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
+@st.cache_data(ttl=86400, max_entries=24, show_spinner=False)
+def asset_data_uri(name: str, max_side: Optional[int] = None, quality: int = 42) -> str:
+    path = _find_background_file(name)
+    if not path:
+        return ""
+    mime = _asset_mime(path)
+    raw = path.read_bytes()
 
-
-
-LEGAL_CONSENT_VERSION = "2026-06-17"
-
-
-def legal_consent_state(prefix: str) -> Dict[str, bool]:
-    return {
-        "kvkk": bool(st.session_state.get(f"{prefix}_legal_kvkk", False)),
-        "explicit": bool(st.session_state.get(f"{prefix}_legal_explicit", False)),
-    }
-
-
-def legal_consent_form(prefix: str) -> Dict[str, bool]:
-    st.checkbox(
-        "KVKK Aydınlatma Metnini okudum, onaylıyorum.",
-        value=bool(st.session_state.get(f"{prefix}_legal_kvkk", False)),
-        key=f"{prefix}_legal_kvkk",
-    )
-    st.checkbox(
-        "Açık Rıza Metnini okudum, onaylıyorum.",
-        value=bool(st.session_state.get(f"{prefix}_legal_explicit", False)),
-        key=f"{prefix}_legal_explicit",
-    )
-    return legal_consent_state(prefix)
-
-
-def validate_legal_consents(consents: Dict[str, bool]) -> bool:
-    if not consents.get("kvkk") or not consents.get("explicit"):
-        st.warning("Devam etmek için KVKK Aydınlatma Metni ve Açık Rıza Metni onaylarını işaretlemelisin.")
-        return False
-    return True
-
-
-def render_legal_submit_note() -> None:
-    # Kullanıcı isteğiyle yasal metinlere yönlendirme notu gösterilmez.
-    return
-
-def render_landing_auth() -> None:
-    st.markdown(
-        """
-        <div class="kp-auth-head">
-            <div class="kp-auth-moon">☽</div>
-            <div class="kp-auth-title">Giriş</div>
-            <div class="kp-auth-subtitle">Kalbin Seni Çağırıyor</div>
-            <div class="kp-auth-note">Kalbinizdeki işaretleri görmek için üye girişi yapınız</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    login_email = normalize_email(st.text_input("E-posta", key="login_email", placeholder="ornek@mail.com"))
-    login_password = st.text_input("Şifre", type="password", key="login_password")
-    remember_me = st.checkbox("Beni hatırla", value=False, key="login_remember_me")
-
-    if st.button("Giriş yap", key="login_btn", use_container_width=True):
+    # Arka planlar tam boy base64 basılırsa sayfa geçişleri yavaşlar.
+    # Bu nedenle görsel tek noktadan küçültülür, cache'lenir ve mümkünse WebP olarak gönderilir.
+    if max_side and Image is not None:
         try:
-            ok, msg, auth_user = authenticate_user(login_email, login_password)
-            if ok and auth_user:
-                st.session_state["auth_user"] = auth_user
-                st.session_state["current_page"] = "home"
-                st.session_state["remember_me"] = bool(remember_me)
-                persist_auth_query(auth_user, "home")
-                st.success(msg)
-                st.rerun()
-            else:
-                st.error(msg)
-        except Exception as exc:
-            stop_with_setup_error(exc)
-
-    with st.expander("Yeni hesap oluştur"):
-        display_name = st.text_input("Ad Soyad", key="register_name")
-        reg_email = normalize_email(st.text_input("E-posta", key="register_email", placeholder="ornek@mail.com"))
-        st.caption("Geçici, test veya doğrulanamayan alan adına sahip e-postalar kabul edilmez.")
-        reg_password = st.text_input(
-            "Şifre",
-            type="password",
-            key="register_password",
-            help="En az 6 karakter; en az 1 büyük harf, 1 küçük harf ve 1 rakam içermelidir.",
-        )
-        st.caption("Şifre en az 6 karakter olmalı; 1 büyük harf, 1 küçük harf ve 1 rakam içermelidir.")
-        register_clicked = st.button("Hesap oluştur", key="register_btn", use_container_width=True)
-        register_consents = legal_consent_form("register")
-        if register_clicked:
-            if not validate_legal_consents(register_consents):
-                return
+            img = Image.open(io.BytesIO(raw))
+            if getattr(img, "is_animated", False):
+                img.seek(0)
+            img = img.convert("RGB")
+            img.thumbnail((int(max_side), int(max_side)))
+            buffer = io.BytesIO()
             try:
-                ok, msg, auth_user = create_user_account(reg_email, reg_password, display_name)
-                if ok and auth_user:
-                    st.session_state["auth_user"] = auth_user
-                    st.session_state["current_page"] = "home"
-                    st.session_state["remember_me"] = False
-                    persist_auth_query(auth_user, "home")
-                    st.success(msg)
-                    st.rerun()
-                else:
-                    st.error(msg)
-            except Exception as exc:
-                stop_with_setup_error(exc)
+                img.save(buffer, format="WEBP", quality=int(quality), method=4)
+                raw = buffer.getvalue()
+                mime = "image/webp"
+            except Exception:
+                buffer = io.BytesIO()
+                img.save(buffer, format="JPEG", quality=int(quality), optimize=True, progressive=True)
+                raw = buffer.getvalue()
+                mime = "image/jpeg"
+        except Exception:
+            pass
+
+    encoded = base64.b64encode(raw).decode("utf-8")
+    return f"data:{mime};base64,{encoded}"
 
 
-def render_top_account(user: Dict[str, Any]) -> None:
-    if not user or user.get("is_guest"):
-        return
+def apply_page_background(page_key: str) -> None:
+    """Page-specific static backgrounds are intentionally disabled.
 
-    message_count = inbox_message_count(user)
-    current_page = st.session_state.get("current_page", _query_get(PAGE_QUERY_KEY, "home"))
-    message_label = "Mesajlar" + (f" {message_count}" if message_count > 0 else "")
-
-    # Sağ üstte kullanıcı adı gösterilmez. Sadece: Hesabım - Mesajlar - Çıkış.
-    # Kutu/pill görünümü yoktur; menü tasarıma gömülü ve tek satır hizalıdır.
-    st.markdown(
-        """
-        <style id="kp-top-account-inline-final-css">
-        .st-key-kp_top_account_inline_shell,
-        [class*="st-key-kp_top_account_inline_shell"] {
-            position: fixed !important;
-            top: 13px !important;
-            right: 20px !important;
-            left: auto !important;
-            bottom: auto !important;
-            z-index: 999999 !important;
-            width: auto !important;
-            max-width: min(330px, calc(100vw - var(--kp-sidebar-width) - 24px)) !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            background: transparent !important;
-            border: none !important;
-            border-radius: 0 !important;
-            box-shadow: none !important;
-            overflow: visible !important;
-        }
-        .st-key-kp_top_account_inline_shell [data-testid="stHorizontalBlock"],
-        [class*="st-key-kp_top_account_inline_shell"] [data-testid="stHorizontalBlock"] {
-            display: flex !important;
-            flex-wrap: nowrap !important;
-            align-items: center !important;
-            justify-content: flex-end !important;
-            gap: 13px !important;
-            width: auto !important;
-            margin: 0 !important;
-            padding: 0 !important;
-        }
-        .st-key-kp_top_account_inline_shell [data-testid="column"],
-        [class*="st-key-kp_top_account_inline_shell"] [data-testid="column"] {
-            display: inline-flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            flex: 0 0 auto !important;
-            width: auto !important;
-            min-width: 0 !important;
-            max-width: none !important;
-            margin: 0 !important;
-            padding: 0 !important;
-        }
-        .st-key-kp_top_account_inline_shell .element-container,
-        [class*="st-key-kp_top_account_inline_shell"] .element-container,
-        .st-key-kp_top_account_inline_shell div.stButton,
-        [class*="st-key-kp_top_account_inline_shell"] div.stButton {
-            display: inline-flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            width: auto !important;
-            min-width: 0 !important;
-            height: 22px !important;
-            min-height: 22px !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            line-height: 22px !important;
-        }
-        .st-key-kp_top_account_inline_shell div.stButton > button,
-        [class*="st-key-kp_top_account_inline_shell"] div.stButton > button {
-            display: inline-flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            height: 22px !important;
-            min-height: 22px !important;
-            width: auto !important;
-            min-width: 0 !important;
-            margin: 0 !important;
-            padding: 0 1px !important;
-            background: transparent !important;
-            background-image: none !important;
-            border: none !important;
-            border-radius: 0 !important;
-            box-shadow: none !important;
-            color: rgba(255, 241, 184, 0.94) !important;
-            font-family: var(--kp-font-sans) !important;
-            font-size: 0.72rem !important;
-            font-weight: 780 !important;
-            line-height: 22px !important;
-            white-space: nowrap !important;
-            text-shadow: 0 0 14px rgba(217, 183, 110, 0.15) !important;
-        }
-        .st-key-kp_top_account_inline_shell div.stButton > button p,
-        .st-key-kp_top_account_inline_shell div.stButton > button span,
-        .st-key-kp_top_account_inline_shell div.stButton > button div,
-        [class*="st-key-kp_top_account_inline_shell"] div.stButton > button p,
-        [class*="st-key-kp_top_account_inline_shell"] div.stButton > button span,
-        [class*="st-key-kp_top_account_inline_shell"] div.stButton > button div {
-            display: inline-flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            color: inherit !important;
-            font-size: 0.72rem !important;
-            font-weight: 780 !important;
-            line-height: 22px !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            white-space: nowrap !important;
-        }
-        .st-key-kp_top_account_inline_shell div.stButton > button:hover,
-        [class*="st-key-kp_top_account_inline_shell"] div.stButton > button:hover {
-            background: transparent !important;
-            border: none !important;
-            box-shadow: none !important;
-            color: #fff8e8 !important;
-            text-decoration: underline !important;
-            text-underline-offset: 4px !important;
-            transform: none !important;
-            filter: none !important;
-        }
-        @media (max-width: 760px) {
-            .st-key-kp_top_account_inline_shell,
-            [class*="st-key-kp_top_account_inline_shell"] {
-                top: 9px !important;
-                right: 11px !important;
-                max-width: calc(100vw - 22px) !important;
-            }
-            .st-key-kp_top_account_inline_shell [data-testid="stHorizontalBlock"],
-            [class*="st-key-kp_top_account_inline_shell"] [data-testid="stHorizontalBlock"] {
-                gap: 9px !important;
-            }
-            .st-key-kp_top_account_inline_shell div.stButton > button,
-            .st-key-kp_top_account_inline_shell div.stButton > button p,
-            .st-key-kp_top_account_inline_shell div.stButton > button span,
-            .st-key-kp_top_account_inline_shell div.stButton > button div,
-            [class*="st-key-kp_top_account_inline_shell"] div.stButton > button,
-            [class*="st-key-kp_top_account_inline_shell"] div.stButton > button p,
-            [class*="st-key-kp_top_account_inline_shell"] div.stButton > button span,
-            [class*="st-key-kp_top_account_inline_shell"] div.stButton > button div {
-                height: 21px !important;
-                min-height: 21px !important;
-                font-size: 0.66rem !important;
-                line-height: 21px !important;
-                padding: 0 !important;
-            }
-        }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    with st.container(key="kp_top_account_inline_shell"):
-        account_col, inbox_col, logout_col = st.columns([0.86, 0.98, 0.62], gap="small", vertical_alignment="center")
-        with account_col:
-            if st.button("Hesabım", key="kp_top_native_account", use_container_width=False):
-                if current_page != "account":
-                    go_to_page("account", user)
-                    st.rerun()
-        with inbox_col:
-            if st.button(message_label, key="kp_top_native_inbox", use_container_width=False):
-                if current_page != "inbox":
-                    go_to_page("inbox", user)
-                    st.rerun()
-        with logout_col:
-            if st.button("Çıkış", key="kp_top_native_logout", use_container_width=False):
-                logout()
-                st.rerun()
+    The whole app now uses the shared home video background injected from app.py.
+    Keeping this function as a safe no-op prevents older calls from reintroducing
+    per-page images, which caused slower transitions and white flashes on rerun.
+    """
+    return None
 
 
-def unread_inbox_count(user: Optional[Dict[str, Any]]) -> int:
-    if not user or user.get("is_guest"):
-        return 0
-    user_id = str(user.get("id", "") or "")
-    if not user_id:
-        return 0
-    return _cached_unread_inbox_count(user_id)
-
-
-def inbox_message_count(user: Optional[Dict[str, Any]]) -> int:
-    if not user or user.get("is_guest"):
-        return 0
-    user_id = str(user.get("id", "") or "")
-    if not user_id:
-        return 0
-    return _cached_inbox_message_count(user_id)
-
-
-def render_user_message_notification(user: Dict[str, Any], current_page: str) -> None:
-    # Mesaj erişimi üst sağdaki Mesajlar kutusuna taşındı.
-    # Sayfa içinde sürekli bildirim göstermek, mobilde alan kaybı ve tekrar hissi oluşturuyordu.
-    return
-
-
-
-
-
-@st.cache_data(ttl=300, show_spinner=False)
-def _cached_unread_inbox_count(user_id: str) -> int:
-    """Small cached unread count; avoids loading full inbox on every page."""
-    try:
-        from services.db import get_unread_inbox_count
-        return int(get_unread_inbox_count({"id": user_id}, limit=20))
-    except Exception:
-        return 0
-
-
-@st.cache_data(ttl=300, show_spinner=False)
-def _cached_inbox_message_count(user_id: str) -> int:
-    """Small cached total inbox count for the top-right message shortcut."""
-    try:
-        return int(get_inbox_count({"id": user_id}, limit=99))
-    except Exception:
-        return 0
-
-
-RATING_LABELS = {
-    5: "5 - Çok iyi",
-    4: "4 - İyi",
-    3: "3 - Orta",
-    2: "2 - Zayıf",
-    1: "1 - Kötü",
-}
-
-
-def _rating_user_key(user: Optional[Dict[str, Any]]) -> str:
+def _display_name(user: Optional[Dict[str, Any]]) -> str:
     if not user:
-        return "guest"
-    return str(user.get("id") or user.get("email") or "guest")
+        return "Ruhsal Pusulan"
+    if user.get("is_guest"):
+        return "Misafir Yolcu"
+    raw = str(user.get("display_name") or user.get("email", "").split("@")[0]).replace(".", " ").replace("_", " ").strip()
+    return raw.title() if raw else "Sezgisel Yolcu"
 
 
-def _save_page_rating_safe(user: Dict[str, Any], module_key: str, rating: int, note: str = "") -> Tuple[bool, str]:
-    try:
-        from services.db import save_page_rating
-        save_page_rating(user, module_key, int(rating), note=note)
-        return True, "Puanın kaydedildi. Teşekkür ederiz."
-    except Exception as exc:
-        return False, f"Puan kaydedilemedi: {exc}"
+def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
+    style_settings = style_settings or {}
+    title_font = str(style_settings.get("title_font", "'Inter Tight', 'Segoe UI Variable Display', 'Aptos Display', 'SF Pro Display', system-ui, -apple-system, sans-serif"))
+    content_font = str(style_settings.get("content_font", "'Inter', 'Segoe UI Variable Text', 'Aptos', 'Roboto', system-ui, -apple-system, sans-serif"))
+    font_scale = float(style_settings.get("font_scale", 1.0) or 1.0)
+    sidebar_width = int(style_settings.get("sidebar_width", 238) or 238)
+    sidebar_width = max(210, min(sidebar_width, 300))
 
+    st.markdown(
+        f"""
+        <style>
+        /* Harici font importu performans için kapatıldı; sistem fontları ve yedek serif fontlar kullanılır. */
 
-def _list_page_ratings_safe(limit: int = 1000) -> List[Dict[str, Any]]:
-    try:
-        from services.db import list_page_ratings
-        return list_page_ratings(limit=limit)
-    except Exception:
-        return []
+        :root {{
+            --kp-bg: #060817;
+            --kp-bg-2: #0b1030;
+            --kp-navy: #090f2f;
+            --kp-purple: #32135f;
+            --kp-gold: #d9b76e;
+            --kp-gold-2: #fff1b8;
+            --kp-card: rgba(19, 20, 52, 0.58);
+            --kp-border: rgba(217, 183, 110, 0.32);
+            --kp-text: #fff8e8;
+            --kp-muted: rgba(242, 226, 202, 0.72);
+            --kp-muted-2: rgba(242, 226, 202, 0.52);
+            --kp-font-serif: {title_font};
+            --kp-font-sans: {content_font};
+            --kp-font-scale: {font_scale};
+            --kp-sidebar-width: {sidebar_width}px;
+            --kp-form-label-size: 0.70rem;
+        }}
 
+        html, body, [class*="css"] {{ font-family: var(--kp-font-sans); font-size: calc(16px * var(--kp-font-scale)); }}
 
-def render_page_rating(page: str, user: Dict[str, Any], context_id: str = "") -> None:
-    """Show rating only next to an actual generated/admin response.
+        #MainMenu, footer, [data-testid="stToolbar"], [data-testid="stDecoration"],
+        [data-testid="stHeader"], [data-testid="stStatusWidget"], [data-testid="stHeaderActionElements"] {{
+            visibility: hidden !important;
+            height: 0 !important;
+            min-height: 0 !important;
+            display: none !important;
+        }}
 
-    Bu alan artık sayfa sonunda otomatik görünmez. Kullanıcı yorumu/yanıtı
-    okurken, ilgili cevabın hemen altında gösterilir.
-    """
-    if page not in MODULES or page == "admin":
-        return
+        html, body, .stApp, [data-testid="stAppViewContainer"] {{
+            background: #060817 !important;
+        }}
 
-    module_title = str(MODULES.get(page, {}).get("title", page))
-    user_key = _rating_user_key(user)
-    safe_context = re.sub(r"[^A-Za-z0-9_-]", "_", str(context_id or "result"))[:64]
-    submitted_key = f"rating_submitted_{page}_{safe_context}_{user_key}_{dt.date.today().isoformat()}"
-    widget_key = f"{page}_{safe_context}_{user_key}"
+        .stApp {{
+            color: var(--kp-text);
+            background: #030613 !important;
+            overflow-x: hidden;
+        }}
 
-    st.markdown("<div class='kp-rating-box'>", unsafe_allow_html=True)
-    st.markdown("#### Bu yorumu puanla")
-    st.caption(f"Aldığın {module_title} yorumunu 1 ile 5 arasında değerlendirebilirsin.")
+        .stApp::before {{
+            content: "";
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            background-image:
+                radial-gradient(circle, rgba(255,255,255,0.50) 0 1px, transparent 1.6px),
+                radial-gradient(circle, rgba(217,183,110,0.42) 0 1px, transparent 1.7px);
+            background-size: 76px 76px, 132px 132px;
+            background-position: 0 0, 28px 46px;
+            opacity: 0.16;
+            animation: kpParticleDrift 24s linear infinite;
+            z-index: 0;
+        }}
 
-    if st.session_state.get(submitted_key):
-        st.success("Bu yorum için puanın alındı.")
-        st.markdown("</div>", unsafe_allow_html=True)
-        return
+        [data-testid="stAppViewContainer"] > .main {{ position: relative; z-index: 1; background: transparent !important; }}
+        [data-testid="stAppViewContainer"] .block-container {{ max-width: 620px; padding-top: 0.65rem; padding-bottom: 3rem; }}
 
-    rating = st.radio(
-        "Puan",
-        [5, 4, 3, 2, 1],
-        format_func=lambda value: RATING_LABELS.get(int(value), str(value)),
-        horizontal=True,
-        key=f"rating_value_{widget_key}",
-    )
-    note = st.text_input(
-        "İstersen kısa not ekle",
-        key=f"rating_note_{widget_key}",
-        placeholder="Kısa yorumun...",
-    )
-    if st.button("Puan ver", key=f"rating_submit_{widget_key}", use_container_width=True):
-        ok, msg = _save_page_rating_safe(user, page, int(rating), note=note)
-        if ok:
-            st.session_state[submitted_key] = True
-            st.success(msg)
-        else:
-            st.warning(msg)
-    st.markdown("</div>", unsafe_allow_html=True)
+        [data-testid="stSidebar"] {{
+            width: var(--kp-sidebar-width) !important;
+            min-width: var(--kp-sidebar-width) !important;
+            max-width: var(--kp-sidebar-width) !important;
+            flex: 0 0 var(--kp-sidebar-width) !important;
+            background: transparent !important;
+            border-right: 1px solid rgba(255, 241, 184, 0.10) !important;
+            box-shadow: none !important;
+        }}
 
+        [data-testid="stSidebar"] > div {{
+            width: var(--kp-sidebar-width) !important;
+            min-width: var(--kp-sidebar-width) !important;
+            max-width: var(--kp-sidebar-width) !important;
+            min-height: 100vh !important;
+            height: auto !important;
+            overflow-y: visible !important;
+            position: relative !important;
+            top: auto !important;
+            padding-top: 0.70rem !important;
+            padding-bottom: 1.10rem !important;
+            background: transparent !important;
+        }}
 
-def admin_ratings() -> None:
-    st.markdown("### Puanlar")
-    ratings = _list_page_ratings_safe(limit=1200)
-    if not ratings:
-        st.info("Henüz puan kaydı yok.")
-        return
+        @media (min-width: 761px) {{
+            [data-testid="stSidebarCollapseButton"], [data-testid="collapsedControl"],
+            button[aria-label="Close sidebar"], button[aria-label="Open sidebar"],
+            button[title="Close sidebar"], button[title="Open sidebar"] {{
+                display: none !important;
+                visibility: hidden !important;
+                pointer-events: none !important;
+            }}
+        }}
 
-    total = len(ratings)
-    avg = sum(int(item.get("rating", 0) or 0) for item in ratings) / max(total, 1)
-    counts = {score: 0 for score in [5, 4, 3, 2, 1]}
-    by_module: Dict[str, Dict[str, Any]] = {}
-    for item in ratings:
-        score = int(item.get("rating", 0) or 0)
-        if score in counts:
-            counts[score] += 1
-        module_key = str(item.get("module_key", "") or "bilinmeyen")
-        bucket = by_module.setdefault(module_key, {"count": 0, "total": 0, "scores": {s: 0 for s in [5, 4, 3, 2, 1]}})
-        bucket["count"] += 1
-        bucket["total"] += score
-        if score in bucket["scores"]:
-            bucket["scores"][score] += 1
+        [data-testid="stSidebar"] * {{ color: var(--kp-text) !important; }}
+        [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p,
+        [data-testid="stSidebar"] .stCaptionContainer {{ color: var(--kp-muted) !important; }}
 
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        render_metric_card("Toplam puan", str(total), "Son 1200 kayıt")
-    with col2:
-        render_metric_card("Ortalama", f"{avg:.2f}/5", "Genel memnuniyet")
-    with col3:
-        render_metric_card("5 puan", str(counts.get(5, 0)), "Çok iyi")
+        .kp-sidebar-brand {{
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            padding: 10px;
+            margin: 0 0 8px 0;
+            border-radius: 18px;
+            background: rgba(6, 8, 23, 0.28);
+            border: 1px solid rgba(217, 183, 110, 0.18);
+            box-shadow: none;
+            overflow: hidden;
+        }}
 
-    st.markdown("#### Sayfa bazında genel durum")
-    table_rows = []
-    for module_key, data in sorted(by_module.items(), key=lambda pair: pair[1]["count"], reverse=True):
-        count = int(data["count"])
-        module_avg = float(data["total"]) / max(count, 1)
-        table_rows.append(
-            {
-                "Sayfa": MODULES.get(module_key, {}).get("title", module_key),
-                "Kayıt": count,
-                "Ortalama": round(module_avg, 2),
-                "5": data["scores"].get(5, 0),
-                "4": data["scores"].get(4, 0),
-                "3": data["scores"].get(3, 0),
-                "2": data["scores"].get(2, 0),
-                "1": data["scores"].get(1, 0),
-            }
-        )
-    st.dataframe(table_rows, use_container_width=True, hide_index=True)
-
-    with st.expander("Son puan kayıtları", expanded=False):
-        for item in ratings[:80]:
-            module_key = str(item.get("module_key", "") or "")
-            title = MODULES.get(module_key, {}).get("title", module_key or "Sayfa")
-            score = int(item.get("rating", 0) or 0)
-            email = str(item.get("user_email", "") or "misafir")
-            note = str(item.get("note", "") or "")
-            st.markdown(f"**{html_escape(str(title))}** · {score}/5 · `{html_escape(email)}`")
-            if note:
-                st.caption(note)
-
-def module_meta(module_key: str, module_settings: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
-    base = dict(MODULES[module_key])
-    saved = module_settings.get(module_key, {})
-    base.update({k: v for k, v in saved.items() if k in {"title", "description", "guest_allowed", "min_plan"}})
-    return base
-
-
-def module_active(module_key: str, module_settings: Dict[str, Dict[str, Any]]) -> bool:
-    return bool(module_settings.get(module_key, {}).get("active", True))
-
-
-def build_menu_groups(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]]) -> List[tuple]:
-    # Menü grupları görsel olarak kaldırıldı; sıra korunarak tek liste halinde gösterilir.
-    visible_items = []
-    for _group_title, _group_icon, items in BASE_MENU_GROUPS:
-        for page_key, default_label, icon in items:
-            if page_key in MODULES and not module_active(page_key, module_settings):
-                continue
-            visible_items.append((page_key, default_label, icon))
-
-    if user and not user.get("is_guest"):
-        visible_items.append(("feedback", "İstek / Öneri / Şikayet", "✍"))
-    if is_admin(user):
-        visible_items.append(("admin", "Admin Paneli", "⚙"))
-    return [("", "", visible_items)]
-
-
-def valid_pages_for(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]]) -> set[str]:
-    pages = {"home", "subscription", "account", "inbox", "feedback"}
-    for _, _, items in build_menu_groups(user, module_settings):
-        pages.update(page_key for page_key, _, _ in items)
-    return pages
-
-
-def go_to_page(page_key: str, user: Optional[Dict[str, Any]] = None, module_settings: Optional[Dict[str, Dict[str, Any]]] = None) -> None:
-    if user and module_settings:
-        valid = valid_pages_for(user, module_settings)
-        if page_key not in valid:
-            page_key = "home"
-    st.session_state["current_page"] = page_key
-    if user:
-        persist_auth_query(user, page_key)
-    else:
-        _query_set(PAGE_QUERY_KEY, page_key)
-
-
-def reset_navigation_to_home() -> None:
-    st.session_state["current_page"] = "home"
-    _query_set(PAGE_QUERY_KEY, "home")
-
-
-
-MENU_GROUP_ICON_MODULES = {
-    "Romantik Fal": "tarot",
-    "Astroloji": "birth_chart",
-    "Aşk & İlişki": "relationship",
-    "Yönetim": "admin",
-}
-
-
-def sidebar_icon_html(page_key: str, fallback_icon: str) -> str:
-    if page_key in MODULES:
-        return module_icon_html(page_key, fallback_icon)
-    return html_escape(str(fallback_icon))
-
-
-def sidebar_group_icon_html(group_title: str, fallback_icon: str) -> str:
-    module_key = MENU_GROUP_ICON_MODULES.get(group_title, "")
-    if module_key in MODULES:
-        return module_icon_html(module_key, fallback_icon)
-    return html_escape(str(fallback_icon))
-
-
-
-def _nav_href(page_key: str, user: Optional[Dict[str, Any]] = None) -> str:
-    params = {PAGE_QUERY_KEY: page_key}
-    token = _auth_token_for_user(user) or _query_get(AUTH_QUERY_KEY)
-    if read_auth_token(token):
-        params[AUTH_QUERY_KEY] = token
-    if bool(st.session_state.get("remember_me", False)):
-        params[REMEMBER_QUERY_KEY] = "1"
-    if _query_get(MOBILE_QUERY_KEY) == "1":
-        params[MOBILE_QUERY_KEY] = "1"
-    return "?" + urlencode(params)
-
-
-NAV_MATERIAL_ICONS: Dict[str, str] = dict(KP_COMPACT_ICONS)
-
-
-def _native_nav_icon(page_key: str, fallback_icon: str = "✦") -> str:
-    return KP_COMPACT_ICONS.get(page_key, fallback_icon)
-
-
-def _activate_native_page(page_key: str, valid_pages: set[str]) -> None:
-    """Switch pages without forcing an HTML href navigation.
-
-    The visible sidebar is rendered with Streamlit-native buttons so page changes
-    happen through session_state instead of browser URL reloads.  Query params are
-    still read on first load or when the user arrives from a real link, but normal
-    sidebar clicks do not rewrite the URL on every transition.
-    """
-    if page_key not in valid_pages:
-        page_key = "home"
-    st.session_state["current_page"] = page_key
-
-
-def inject_native_navigation_css() -> None:
-    # CSS yalnızca native sidebar butonlarını eski kompakt menü görünümüne yaklaştırır.
-    # services/ui.py, arka plan, sağ üst alan ve sayfa içerikleri değiştirilmez.
-    st.sidebar.markdown(
-        """
-        <style id="kp-native-navigation-css">
-        [data-testid="stSidebar"] > div {
-            overflow-y: auto !important;
-            overflow-x: hidden !important;
-            scrollbar-width: thin !important;
-            padding-top: 0.05rem !important;
-            padding-bottom: 0.70rem !important;
-        }
-        .kp-sidebar-coin-balance {
+        .kp-sidebar-orb {{
+            width: 38px;
+            height: 38px;
+            flex: 0 0 auto;
+            display: grid;
+            place-items: center;
+            border-radius: 50%;
+            background: conic-gradient(from 0deg, #fff1b8, #d9b76e, #7b4bd6, #fff1b8);
+            box-shadow: 0 0 20px rgba(217,183,110,0.24);
+        }}
+        .kp-sidebar-orb span {{
+            width: 33px;
+            height: 33px;
+            display: grid;
+            place-items: center;
+            border-radius: 50%;
+            background: linear-gradient(145deg, #10194a, #3a166a 60%, #090f2f);
+            font-family: var(--kp-font-serif);
+            font-size: 1.15rem;
+        }}
+        .kp-sidebar-brand-title {{
+            font-family: var(--kp-font-serif);
+            color: var(--kp-text);
+            font-size: 1.02rem;
+            font-weight: 700;
+            line-height: 0.98;
+            letter-spacing: -0.02em;
+        }}
+        .kp-sidebar-brand-subtitle {{
+            margin-top: 3px;
+            color: var(--kp-muted) !important;
+            font-size: 0.62rem;
+            line-height: 1.25;
+        }}
+        .kp-sidebar-menu-title {{
+            margin: 7px 0 4px !important;
+            color: rgba(255, 241, 184, 0.74) !important;
+            font-size: 0.58rem !important;
+            font-weight: 900 !important;
+            letter-spacing: 0.13em !important;
+            text-transform: uppercase !important;
+        }}
+        .kp-side-nav-item {{
             display: flex !important;
             align-items: center !important;
-            justify-content: space-between !important;
-            min-height: 24px !important;
-            margin: 3px 0 6px 0 !important;
-            padding: 3px 7px !important;
-            border-radius: 9px !important;
-            background: rgba(217,183,110,0.10) !important;
-            border: 1px solid rgba(255,241,184,0.14) !important;
-            box-shadow: inset 0 1px 0 rgba(255,255,255,0.035) !important;
-        }
-        .kp-sidebar-coin-label {
-            color: rgba(255,248,232,0.84) !important;
-            font-size: 0.64rem !important;
-            font-weight: 620 !important;
-            line-height: 1 !important;
-        }
-        .kp-sidebar-coin-value {
-            color: #fff1b8 !important;
-            font-size: 0.68rem !important;
-            font-weight: 850 !important;
-            line-height: 1 !important;
-        }
-        [data-testid="stSidebar"] .element-container:has(div.stButton) {
-            margin: 0 !important;
-            padding: 0 !important;
-            line-height: 1 !important;
-        }
-        [data-testid="stSidebar"] div.stButton {
-            margin: 0 !important;
-            padding: 0 !important;
-            line-height: 1 !important;
-        }
-        [data-testid="stSidebar"] div.stButton > button {
-            width: 100% !important;
-            min-height: 24px !important;
-            height: 24px !important;
-            justify-content: flex-start !important;
-            align-items: center !important;
-            gap: 4px !important;
-            margin: 0 !important;
-            padding: 2px 6px !important;
-            border-radius: 9px !important;
+            gap: 7px !important;
+            min-height: 33px !important;
+            padding: 4px 7px !important;
+            margin: 2px 0 !important;
+            border-radius: 12px !important;
             color: rgba(255, 248, 232, 0.88) !important;
-            background: rgba(6,8,23,0.20) !important;
-            border: 1px solid rgba(255,241,184,0.10) !important;
-            box-shadow: inset 0 1px 0 rgba(255,255,255,0.028) !important;
-            font-family: var(--kp-font-sans) !important;
-            font-size: 0.66rem !important;
-            font-weight: 520 !important;
-            letter-spacing: 0 !important;
-            line-height: 1 !important;
-            text-align: left !important;
+            background: rgba(6,8,23,0.24) !important;
+            border: 1px solid rgba(255,241,184,0.12) !important;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.045) !important;
+            font-size: 0.70rem !important;
+            font-weight: 800 !important;
+            line-height: 1.12 !important;
             text-decoration: none !important;
             cursor: pointer !important;
-            transition: none !important;
-        }
-        [data-testid="stSidebar"] div.stButton > button:hover {
-            color: #fff1b8 !important;
-            background: rgba(217,183,110,0.16) !important;
-            border-color: rgba(255,241,184,0.28) !important;
-            transform: none !important;
-            box-shadow: inset 0 1px 0 rgba(255,255,255,0.045) !important;
-        }
-        [data-testid="stSidebar"] div.stButton > button:focus,
-        [data-testid="stSidebar"] div.stButton > button:active {
-            outline: none !important;
-            border-color: rgba(255,241,184,0.28) !important;
-            box-shadow: inset 0 1px 0 rgba(255,255,255,0.045) !important;
-        }
-        [data-testid="stSidebar"] div.stButton > button:disabled,
-        [data-testid="stSidebar"] div.stButton > button:disabled:hover {
-            opacity: 1 !important;
-            cursor: default !important;
+        }}
+        .kp-side-nav-item.active {{
             color: #fff1b8 !important;
             background: rgba(217,183,110,0.22) !important;
             border-color: rgba(255,241,184,0.34) !important;
             box-shadow: inset 0 1px 0 rgba(255,255,255,0.08) !important;
-        }
-        [data-testid="stSidebar"] div.stButton > button p,
-        [data-testid="stSidebar"] div.stButton > button span,
-        [data-testid="stSidebar"] div.stButton > button div {
-            color: inherit !important;
-            font-size: 0.66rem !important;
-            font-weight: 520 !important;
-            letter-spacing: 0 !important;
-            line-height: 1 !important;
-            text-align: left !important;
-            justify-content: flex-start !important;
-            align-items: center !important;
-            width: 100% !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            white-space: nowrap !important;
-            overflow: hidden !important;
-            text-overflow: ellipsis !important;
-        }
-        [data-testid="stSidebar"] div.stButton > button > div,
-        [data-testid="stSidebar"] div.stButton > button [data-testid="stMarkdownContainer"] {
-            display: flex !important;
-            justify-content: flex-start !important;
-            align-items: center !important;
-            width: 100% !important;
-            text-align: left !important;
-        }
-        [data-testid="stSidebar"] div.stButton > button [data-testid="stIconMaterial"] {
+        }}
+        .kp-side-nav-link:hover {{
+            color: #fff1b8 !important;
+            background: rgba(217,183,110,0.16) !important;
+            border-color: rgba(255,241,184,0.28) !important;
+            text-decoration: none !important;
+            transform: none !important;
+        }}
+        .kp-side-nav-link:visited {{
+            color: rgba(255, 248, 232, 0.88) !important;
+            text-decoration: none !important;
+        }}
+        .kp-side-nav-icon {{
             width: 25px !important;
             height: 25px !important;
-            min-width: 25px !important;
-            display: inline-flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            margin-right: 0 !important;
+            display: inline-grid !important;
+            place-items: center !important;
+            flex: 0 0 25px !important;
             border-radius: 9px !important;
+            overflow: hidden !important;
             background: rgba(217,183,110,0.10) !important;
             border: 1px solid rgba(217,183,110,0.15) !important;
             color: var(--kp-gold-2) !important;
-            font-size: 1.02rem !important;
+            font-family: var(--kp-font-serif) !important;
+            font-size: 0.80rem !important;
+        }}
+        .kp-side-nav-icon .kp-icon-img {{
+            display: block !important;
+            width: 100% !important;
+            height: 100% !important;
+            object-fit: contain !important;
+            padding: 2px !important;
+            border-radius: 9px !important;
+            box-sizing: border-box !important;
+        }}
+        .kp-side-nav-text {{
+            display: block !important;
+            min-width: 0 !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+            white-space: normal !important;
+        }}
+        .kp-side-nav-clickrow {{
+            display: none !important;
+        }}
+
+        .kp-top-account-floating {{
+            position: fixed !important;
+            top: 12px !important;
+            right: 18px !important;
+            left: auto !important;
+            bottom: auto !important;
+            transform: none !important;
+            z-index: 999999 !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: flex-end !important;
+            gap: 8px !important;
+            width: auto !important;
+            max-width: min(360px, calc(100vw - var(--kp-sidebar-width) - 28px)) !important;
+            margin: 0 !important;
+            padding: 6px 8px !important;
+            border-radius: 999px !important;
+            background: rgba(6, 8, 23, 0.62) !important;
+            border: 1px solid rgba(255, 241, 184, 0.18) !important;
+            box-shadow: 0 12px 28px rgba(0,0,0,0.22), inset 0 1px 0 rgba(255,255,255,0.08) !important;
+        }}
+        .kp-top-account-name {{
+            color: var(--kp-gold-2) !important;
+            font-size: 0.76rem !important;
+            font-weight: 900 !important;
             line-height: 1 !important;
-            flex: 0 0 25px !important;
-        }
-        @media (max-width: 760px) {
-            [data-testid="stSidebar"] div.stButton > button {
-                min-height: 30px !important;
-                height: 30px !important;
-                padding: 3px 6px !important;
-                border-radius: 10px !important;
+            max-width: 170px !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+            white-space: nowrap !important;
+        }}
+        .kp-top-account-link {{
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            min-height: 26px !important;
+            padding: 0 10px !important;
+            border-radius: 999px !important;
+            background: linear-gradient(135deg, rgba(217,183,110,0.96), rgba(154,112,52,0.96)) !important;
+            color: #120d23 !important;
+            border: 1px solid rgba(255,241,184,0.32) !important;
+            font-size: 0.72rem !important;
+            font-weight: 900 !important;
+            text-decoration: none !important;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.28) !important;
+        }}
+        .kp-top-account-link:hover {{
+            filter: brightness(1.06) !important;
+            text-decoration: none !important;
+        }}
+        .kp-top-message-link {{
+            background: linear-gradient(135deg, rgba(255,241,184,0.96), rgba(217,183,110,0.92)) !important;
+            color: #120d23 !important;
+        }}
+        @media (max-width: 760px) {{
+            .kp-top-account-floating {{
+                top: 8px !important;
+                right: 10px !important;
+                left: auto !important;
+                max-width: calc(100vw - 20px) !important;
+                gap: 5px !important;
+                padding: 5px 6px !important;
+            }}
+            .kp-top-account-name {{
+                max-width: 120px !important;
+                font-size: 0.70rem !important;
+            }}
+            .kp-top-account-link {{
+                min-height: 24px !important;
+                padding: 0 7px !important;
                 font-size: 0.66rem !important;
-                justify-content: flex-start !important;
-                text-align: left !important;
-            }
-        }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
+            }}
+        }}
+
+        /* Hız için en ağır dekoratif katmanlar kapatıldı. */
+        .stApp::before {{
+            display: none !important;
+            animation: none !important;
+        }}
+        .kp-hero, .kp-card, .kp-plan, .kp-metric, .kp-safe, .kp-notice, .kp-admin-card,
+        .kp-inbox-card, .kp-result-card, .kp-share-card, .kp-lead-card, .kp-upgrade-card,
+        [data-testid="stSidebar"], .kp-top-account-floating {{
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+        }}
+        .kp-card:hover {{
+            transform: none !important;
+        }}
 
 
-def render_mobile_navigation(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]], current_page: str, valid_pages: set[str]) -> None:
-    # Mobil menü artık query param / JS genişlik algısına bağlı değildir.
-    # Bu sayede mobilde menünün görünmemesi sorunu çözülür.
-    # Desktop'ta aynı menünün ortada görünmemesi için Streamlit container key sınıfı CSS ile gizlenir.
-    items = []
-    for _group_title, _group_icon, group_items in build_menu_groups(user, module_settings):
-        items.extend(group_items)
-    if not items:
-        return
-
-    compact_icons = KP_COMPACT_ICONS
-    mobile_options = [("home", "Ana Sayfa", KP_COMPACT_ICONS["home"])]
-    for page_key, label, icon in items:
-        if page_key in valid_pages:
-            mobile_options.append((page_key, str(label), compact_icons.get(page_key, str(icon or "✦"))))
-
-    st.markdown(
-        """
-        <style id="kp-mobile-native-panel-visible-fix-css">
-        @media (min-width: 761px) {
-            .st-key-kp_mobile_native_menu_shell,
-            [class*="st-key-kp_mobile_native_menu_shell"] {
+        @media (min-width: 761px) {{
+            .kp-mobile-menu-panel {{
                 display: none !important;
                 visibility: hidden !important;
                 opacity: 0 !important;
                 height: 0 !important;
-                min-height: 0 !important;
-                max-height: 0 !important;
                 margin: 0 !important;
                 padding: 0 !important;
-                overflow: hidden !important;
                 pointer-events: none !important;
-            }
-        }
-        @media (max-width: 760px) {
-            .st-key-kp_mobile_native_menu_shell,
-            [class*="st-key-kp_mobile_native_menu_shell"] {
+            }}
+        }}
+
+        @media (max-width: 760px) {{
+            /* Android/iOS'ta native sidebar overlay kapanma sorunu çıkarabildiği için mobilde gizlenir.
+               Aynı menü ana içerikteki açılır/kapanır panelle gösterilir. */
+            [data-testid="stSidebar"],
+            [data-testid="stSidebar"] > div,
+            [data-testid="collapsedControl"],
+            [data-testid="stSidebarCollapseButton"],
+            button[aria-label="Close sidebar"],
+            button[aria-label="Open sidebar"],
+            button[title="Close sidebar"],
+            button[title="Open sidebar"] {{
+                display: none !important;
+                visibility: hidden !important;
+                opacity: 0 !important;
+                pointer-events: none !important;
+                width: 0 !important;
+                min-width: 0 !important;
+                max-width: 0 !important;
+            }}
+            [data-testid="stAppViewContainer"] {{
+                margin-left: 0 !important;
+            }}
+            .kp-hero, .kp-card, .kp-plan, .kp-metric, .kp-safe, .kp-notice, .kp-admin-card, .kp-inbox-card {{
+                animation: none !important;
+                box-shadow: 0 10px 26px rgba(0,0,0,0.22) !important;
+            }}
+            .kp-mobile-menu-panel {{
                 display: block !important;
                 visibility: visible !important;
                 opacity: 1 !important;
-                width: min(350px, 94vw) !important;
-                max-width: 94vw !important;
-                margin: 0.05rem auto 0.25rem auto !important;
-                padding: 0 !important;
                 position: relative !important;
                 z-index: 99999 !important;
-            }
-            .st-key-kp_mobile_native_menu_shell [data-testid="stExpander"],
-            [class*="st-key-kp_mobile_native_menu_shell"] [data-testid="stExpander"] {
-                width: 100% !important;
-                margin: 0 !important;
+                width: min(340px, 88vw) !important;
+                margin: 0.05rem auto 0.30rem auto !important;
                 padding: 0 !important;
-                border-radius: 14px !important;
-                background: linear-gradient(145deg, rgba(8, 10, 30, 0.92), rgba(22, 18, 52, 0.88)) !important;
-                border: 1px solid rgba(255, 241, 184, 0.28) !important;
-                box-shadow: 0 6px 14px rgba(0,0,0,0.24), inset 0 1px 0 rgba(255,255,255,0.06) !important;
+                border-radius: 16px !important;
+                background: rgba(8, 10, 30, 0.88) !important;
+                border: 1px solid rgba(255, 241, 184, 0.30) !important;
+                box-shadow: 0 8px 22px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.08) !important;
                 overflow: hidden !important;
-            }
-            .st-key-kp_mobile_native_menu_shell [data-testid="stExpander"] details,
-            [class*="st-key-kp_mobile_native_menu_shell"] [data-testid="stExpander"] details {
-                border: none !important;
-            }
-            .st-key-kp_mobile_native_menu_shell [data-testid="stExpander"] summary,
-            [class*="st-key-kp_mobile_native_menu_shell"] [data-testid="stExpander"] summary {
-                min-height: 31px !important;
-                padding: 0 10px !important;
+            }}
+            .kp-mobile-menu-summary {{
+                display: flex !important;
+                align-items: center !important;
+                justify-content: space-between !important;
+                min-height: 42px !important;
+                padding: 0 13px !important;
+                list-style: none !important;
+                cursor: pointer !important;
                 background: rgba(255, 241, 184, 0.075) !important;
                 border-bottom: 1px solid rgba(255, 241, 184, 0.10) !important;
+                user-select: none !important;
                 color: #fff1b8 !important;
-                font-family: var(--kp-font-sans) !important;
-                font-size: 0.76rem !important;
-                font-weight: 560 !important;
-                letter-spacing: 0.01em !important;
-            }
-            .st-key-kp_mobile_native_menu_shell [data-testid="stExpander"] summary p,
-            [class*="st-key-kp_mobile_native_menu_shell"] [data-testid="stExpander"] summary p {
-                color: #fff1b8 !important;
-                font-size: 0.76rem !important;
-                font-weight: 560 !important;
+                -webkit-text-fill-color: #fff1b8 !important;
+                font-weight: 900 !important;
+                font-size: var(--kp-form-label-size) !important;
                 line-height: 1 !important;
-                margin: 0 !important;
-            }
-            .st-key-kp_mobile_native_menu_shell [data-testid="stExpanderDetails"],
-            [class*="st-key-kp_mobile_native_menu_shell"] [data-testid="stExpanderDetails"] {
-                padding: 6px 6px 7px 6px !important;
-                background: transparent !important;
-            }
-            .st-key-kp_mobile_native_menu_shell [data-testid="stExpanderDetails"] > div,
-            [class*="st-key-kp_mobile_native_menu_shell"] [data-testid="stExpanderDetails"] > div {
-                gap: 3px !important;
-                row-gap: 3px !important;
-            }
-            .st-key-kp_mobile_native_menu_shell [data-testid="stHorizontalBlock"],
-            [class*="st-key-kp_mobile_native_menu_shell"] [data-testid="stHorizontalBlock"] {
-                display: grid !important;
-                grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
-                grid-auto-flow: column !important;
-                align-items: stretch !important;
-                gap: 3px !important;
-                width: 100% !important;
-                max-width: 100% !important;
-                margin: 0 0 3px 0 !important;
-                padding: 0 !important;
-                overflow: visible !important;
-            }
-            .st-key-kp_mobile_native_menu_shell [data-testid="stHorizontalBlock"] > [data-testid="column"],
-            [class*="st-key-kp_mobile_native_menu_shell"] [data-testid="stHorizontalBlock"] > [data-testid="column"] {
-                display: block !important;
-                width: auto !important;
-                min-width: 0 !important;
-                max-width: none !important;
-                flex: none !important;
-                padding: 0 !important;
-                margin: 0 !important;
-            }
-            .st-key-kp_mobile_native_menu_shell [data-testid="column"],
-            [class*="st-key-kp_mobile_native_menu_shell"] [data-testid="column"] {
-                padding: 0 !important;
-                width: auto !important;
-                min-width: 0 !important;
-                max-width: none !important;
-            }
-            .st-key-kp_mobile_native_menu_shell div.stButton,
-            [class*="st-key-kp_mobile_native_menu_shell"] div.stButton {
-                margin: 0 !important;
-                padding: 0 !important;
-            }
-            .st-key-kp_mobile_native_menu_shell div.stButton > button,
-            [class*="st-key-kp_mobile_native_menu_shell"] div.stButton > button {
-                min-height: 31px !important;
-                height: 31px !important;
-                padding: 2px 5px !important;
-                border-radius: 9px !important;
-                background: rgba(255,255,255,0.052) !important;
-                border: 1px solid rgba(255,241,184,0.13) !important;
-                box-shadow: inset 0 1px 0 rgba(255,255,255,0.045) !important;
-                color: rgba(255,248,232,0.90) !important;
-                font-family: var(--kp-font-sans) !important;
-                font-size: 0.63rem !important;
-                font-weight: 500 !important;
-                line-height: 1.02 !important;
-                text-align: left !important;
-                justify-content: flex-start !important;
+                letter-spacing: 0.02em !important;
+            }}
+            .kp-mobile-menu-title {{
+                display: inline-flex !important;
                 align-items: center !important;
-                overflow: hidden !important;
-                transition: none !important;
-            }
-            .st-key-kp_mobile_native_menu_shell div.stButton > button p,
-            .st-key-kp_mobile_native_menu_shell div.stButton > button span,
-            .st-key-kp_mobile_native_menu_shell div.stButton > button div,
-            [class*="st-key-kp_mobile_native_menu_shell"] div.stButton > button p,
-            [class*="st-key-kp_mobile_native_menu_shell"] div.stButton > button span,
-            [class*="st-key-kp_mobile_native_menu_shell"] div.stButton > button div {
-                color: inherit !important;
-                font-size: 0.63rem !important;
-                font-weight: 500 !important;
-                line-height: 1.02 !important;
-                text-align: left !important;
-                white-space: nowrap !important;
-                overflow: hidden !important;
-                text-overflow: ellipsis !important;
-                width: 100% !important;
-                justify-content: flex-start !important;
-            }
-            .st-key-kp_mobile_native_menu_shell div.stButton > button:hover,
-            [class*="st-key-kp_mobile_native_menu_shell"] div.stButton > button:hover {
-                background: rgba(217,183,110,0.14) !important;
-                border-color: rgba(255,241,184,0.26) !important;
+                gap: 6px !important;
                 color: #fff1b8 !important;
-                transform: none !important;
-            }
-            .st-key-kp_mobile_native_menu_shell div.stButton > button:disabled,
-            [class*="st-key-kp_mobile_native_menu_shell"] div.stButton > button:disabled {
-                background: linear-gradient(135deg, rgba(217,183,110,0.22), rgba(123,75,214,0.15)) !important;
-                border-color: rgba(255,241,184,0.36) !important;
+                -webkit-text-fill-color: #fff1b8 !important;
+                font-weight: 900 !important;
+                font-size: var(--kp-form-label-size) !important;
+                line-height: 1 !important;
+                visibility: visible !important;
                 opacity: 1 !important;
-                cursor: default !important;
-                color: #fff1b8 !important;
-            }
-            .st-key-kp_mobile_native_menu_shell div.stButton > button:disabled p,
-            .st-key-kp_mobile_native_menu_shell div.stButton > button:disabled span,
-            .st-key-kp_mobile_native_menu_shell div.stButton > button:disabled div,
-            [class*="st-key-kp_mobile_native_menu_shell"] div.stButton > button:disabled p,
-            [class*="st-key-kp_mobile_native_menu_shell"] div.stButton > button:disabled span,
-            [class*="st-key-kp_mobile_native_menu_shell"] div.stButton > button:disabled div {
-                color: #fff1b8 !important;
-            }
-        }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    with st.container(key=f"kp_mobile_native_menu_shell_{current_page}"):
-        with st.expander("☰ Menü", expanded=False):
-            for row_start in range(0, len(mobile_options), 2):
-                cols = st.columns(2, gap="small")
-                row_items = mobile_options[row_start: row_start + 2]
-                for col, (page_key, label, icon) in zip(cols, row_items):
-                    with col:
-                        is_current = current_page == page_key
-                        button_label = f"{icon} {label}"
-                        if st.button(
-                            button_label,
-                            key=f"kp_mobile_native_panel_nav_{page_key}",
-                            use_container_width=True,
-                            disabled=is_current,
-                        ):
-                            _activate_native_page(page_key, valid_pages)
-                            st.rerun()
-
-def navigation(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]]) -> str:
-    valid_pages = valid_pages_for(user, module_settings)
-    requested_page = _query_get(PAGE_QUERY_KEY, "home")
-    last_query_page = st.session_state.get("_kp_last_query_page")
-
-    # URL ile doğrudan açılış desteklenir. Ancak normal sol menü tıklamaları artık
-    # query param yazmadan session_state ile çalışır; böylece URL reload hissi azalır.
-    if "current_page" not in st.session_state:
-        st.session_state["current_page"] = requested_page if requested_page in valid_pages else "home"
-    elif requested_page in valid_pages and requested_page != last_query_page and requested_page != st.session_state.get("current_page"):
-        # Sağ üst Mesajlar/Hesabım gibi gerçek URL linkleri veya dışarıdan gelen linkler
-        # hâlâ çalışsın diye sadece URL gerçekten değiştiğinde senkronize edilir.
-        st.session_state["current_page"] = requested_page
-
-    st.session_state["_kp_last_query_page"] = requested_page
-
-    if st.session_state.get("current_page") not in valid_pages:
-        st.session_state["current_page"] = "home"
-
-    current_page = st.session_state.get("current_page", "home")
-    inject_native_navigation_css()
-
-    def render_sidebar_native_button(page_key: str, label: str, icon: str = "✦") -> None:
-        is_current = current_page == page_key
-        # Streamlit native button hizini korumak için icon= parametresi kullanılmaz.
-        # Bunun yerine profesyonel, sade ve hatasız Unicode semboller metin içinde gösterilir.
-        compact_icons = KP_COMPACT_ICONS
-        safe_icon = compact_icons.get(page_key, str(icon or "✦"))
-        button_label = f"{safe_icon} {label}"
-        clicked = st.sidebar.button(
-            button_label,
-            key=f"kp_native_nav_{page_key}",
-            use_container_width=True,
-            disabled=is_current,
-        )
-        if clicked:
-            _activate_native_page(page_key, valid_pages)
-            st.rerun()
-
-    render_sidebar_native_button("home", "Ana Sayfa", KP_COMPACT_ICONS["home"])
-    if user and not user.get("is_guest"):
-        try:
-            coin_balance = int(get_coin_balance(user))
-        except Exception:
-            coin_balance = 0
-        st.sidebar.markdown(
-            f"""
-            <div class="kp-sidebar-coin-balance">
-                <span class="kp-sidebar-coin-label">Kalan Jeton</span>
-                <span class="kp-sidebar-coin-value">{coin_balance}</span>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-    st.sidebar.markdown("<div class='kp-sidebar-menu-title'>Menü</div>", unsafe_allow_html=True)
-    for _group_title, _group_icon, items in build_menu_groups(user, module_settings):
-        for page_key, label, icon in items:
-            render_sidebar_native_button(page_key, label, icon)
-
-    render_mobile_navigation(user, module_settings, current_page, valid_pages)
-    return st.session_state.get("current_page", "home")
-
-
-def sidebar_status(user: Dict[str, Any]) -> None:
-    # Sol menüde plan, kota, e-posta ve premium kod alanı gösterilmez.
-    # Bu bilgiler Hesabım sayfasında sunulur.
-    return
-
-
-def require_account(user: Dict[str, Any]) -> bool:
-    if user.get("is_guest"):
-        st.warning("Bu sayfa için hesapla giriş yapmalısın. Sol menüden hesap oluşturabilir veya giriş yapabilirsin.")
-        return False
-    return True
-
-
-
-def render_email_lead_form(source: str = "landing") -> None:
-    st.markdown(
-        """
-        <div class="kp-lead-card">
-            <div class="kp-section-kicker">Email listesi</div>
-            <div class="kp-section-title">Aşk pusulanı kaybetme</div>
-            <div class="kp-login-note">Yeni yorum özellikleri, kampanyalar ve viral paylaşım fikirleri için e-posta bırak.</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-    email = normalize_email(st.text_input("E-posta adresin", key=f"lead_email_{source}", placeholder="ornek@mail.com"))
-    if st.button("Listeye katıl", key=f"lead_submit_{source}", use_container_width=True):
-        try:
-            ok, msg = submit_email_lead(email, source=source)
-            if ok:
-                st.success(msg)
-            else:
-                st.warning(msg)
-        except Exception as exc:
-            st.error(f"E-posta kaydedilemedi: {exc}")
-
-
-def module_plan_allowed(user: Dict[str, Any], module_key: str, module_settings: Dict[str, Dict[str, Any]]) -> bool:
-    # Tum uygulamalar ucretsiz ve sinirsiz kullanimdadir; plan kilidi uygulanmaz.
-    return True
-
-
-def show_plan_gate(user: Dict[str, Any], module_key: str, module_settings: Dict[str, Dict[str, Any]]) -> None:
-    meta = module_meta(module_key, module_settings)
-    required_plan = str(meta.get("min_plan", "premium"))
-    render_upgrade_prompt(required_plan, user.get("plan", "free"))
-    if user.get("is_guest"):
-        st.info("Bu bölümü açmak için hesap oluşturup uygun plana geçmelisin.")
-    if st.button("Planları incele", key=f"gate_plans_{module_key}", use_container_width=True):
-        go_to_page("subscription", user, module_settings)
-        st.rerun()
-
-
-PROMPT_FIELD_ALIASES: Dict[str, Dict[str, Any]] = {
-    "relationship": {
-        "guncel_durum": "durum",
-        "merak": "soru",
-        "iliski_turu": "bağ_türü",
-        "sure": "ilişki_süresi",
-        "iliski_tanimi": "ilişki_tanımı",
-    },
-    "love_fortune": {
-        "ad_soyad": ("ad", "soyad"),
-        "burc": "burç",
-        "dogum_yeri": "doğum_yeri",
-        "dogum_saati": "doğum_saati",
-        "niyet": "niyet",
-    },
-    "mini_tarot": {
-        "dogum_tarihi": "doğum_tarihi",
-        "burc": "burç",
-        "dogum_yeri": "doğum_yeri",
-        "dogum_saati": "doğum_saati",
-        "niyet": "soru",
-    },
-    "mini_katina": {
-        "konu": "soru",
-    },
-    "coffee_text": {
-        "dogum_tarihi": "doğum_tarihi",
-        "burc": "burç",
-        "dogum_yeri": "doğum_yeri",
-        "dogum_saati": "doğum_saati",
-        "sekiller": "semboller",
-        "niyet": "niyet",
-    },
-}
-
-
-def _prompt_value_to_text(value: Any) -> str:
-    if value is None:
-        return "Belirtilmedi"
-    if isinstance(value, (list, tuple)):
-        parts = [_prompt_value_to_text(item) for item in value]
-        parts = [item for item in parts if item and item != "Belirtilmedi"]
-        return ", ".join(parts) if parts else "Belirtilmedi"
-    if isinstance(value, dict):
-        return json.dumps(value, ensure_ascii=False, default=str)
-    text = str(value).strip()
-    return text if text else "Belirtilmedi"
-
-
-def _payload_lookup(payload: Dict[str, Any], source: Any) -> str:
-    if isinstance(source, (list, tuple)):
-        values = []
-        for key in source:
-            value = payload.get(str(key), "")
-            text = _prompt_value_to_text(value)
-            if text != "Belirtilmedi":
-                values.append(text)
-        return " ".join(values).strip() or "Belirtilmedi"
-    return _prompt_value_to_text(payload.get(str(source), ""))
-
-
-def render_admin_prompt(module_key: str, admin_prompt: str, payload: Dict[str, Any]) -> str:
-    aliases = PROMPT_FIELD_ALIASES.get(module_key, {})
-
-    def replace_placeholder(match: re.Match) -> str:
-        name = match.group(1).strip()
-        if name in aliases:
-            return _payload_lookup(payload, aliases[name])
-        return _prompt_value_to_text(payload.get(name, ""))
-
-    return re.sub(r"\{\{\s*([^{}]+?)\s*\}\}", replace_placeholder, admin_prompt)
-
-
-def build_ai_prompt(module_key: str, payload: Dict[str, Any], prompts: Dict[str, str]) -> str:
-    module_title = MODULES.get(module_key, {}).get("title", module_key)
-    admin_prompt = str(prompts.get(module_key, "") or "").strip()
-    rendered_prompt = render_admin_prompt(module_key, admin_prompt, payload)
-    payload_text = json.dumps(payload, ensure_ascii=False, indent=2, default=str)
-    return f"""
-GÖREV / SAYFA:
-{module_title}
-
-ADMIN PROMPTU:
-Aşağıdaki prompt bu sayfa için ana talimattır. Başlık, paragraf sayısı, çıktı formatı, ton ve yasaklar burada nasıl yazıldıysa öyle uygulanmalıdır.
-
-{rendered_prompt}
-
-KULLANICI GİRDİLERİ JSON:
-Promptta yer almayan ama yoruma yardımcı olabilecek ek bilgiler aşağıdadır. Özellikle çekilen kart/sembol gibi bilgiler burada bulunabilir.
-{payload_text}
-
-ZORUNLU GÜVENLİK SINIRLARI:
-- Türkçe yaz.
-- Kesin gelecek, terapi, teşhis, hukuki veya finansal tavsiye iddiası kurma.
-- Yargılayıcı, manipülatif, takip/baskı öneren veya sınır ihlaline yönlendiren ifade kullanma.
-- Kullanıcı kendine zarar verme, intihar, şiddet, istismar veya acil riskten bahsederse fal/ilişki yorumuna devam etme; güvenliğe ve profesyonel desteğe yönlendir.
-
-ÇIKTI TALİMATI:
-- Admin promptundaki ÇIKTI bölümüne aynen uy.
-- Admin promptu “başlık ekleme” diyorsa başlık ekleme.
-- Admin promptu “madde işareti ekleme” diyorsa madde işareti ekleme.
-- Admin promptu paragraf sayısı belirttiyse o sayıya uy.
-"""
-
-
-def _module_access_status(user: Dict[str, Any], module_key: str) -> Dict[str, Any]:
-    try:
-        return get_module_access_status(user, module_key)
-    except Exception as exc:
-        return {
-            "allowed": False,
-            "message": f"Kullanım hakkı kontrol edilemedi: {exc}",
-            "type": "error",
-            "module_key": module_key,
-        }
-
-
-def render_module_access_notice(user: Dict[str, Any], module_key: str) -> None:
-    # Kullanıcı isteğiyle modül sayfalarındaki sürekli bilgi/caption metinleri gösterilmez.
-    # Jeton/günlük hak engelleri _check_access_or_warn() ve _consume_access_or_warn() içinde devam eder.
-    return
-
-
-def _consume_access_or_warn(user: Dict[str, Any], module_key: str) -> bool:
-    try:
-        ok, msg, meta = consume_module_access(user, module_key)
-    except Exception as exc:
-        st.error(f"Kullanım hakkı işlenemedi: {exc}")
-        return False
-    if not ok:
-        st.warning(msg)
-        return False
-    if meta.get("type") == "coin" and not meta.get("bypass"):
-        st.success(msg)
-    return True
-
-
-def _check_access_or_warn(user: Dict[str, Any], module_key: str) -> bool:
-    status = _module_access_status(user, module_key)
-    if not status.get("allowed"):
-        st.warning(str(status.get("message", "Bu modül için kullanım hakkın yok.")))
-        return False
-    return True
-
-
-def run_ai_free(user: Dict[str, Any], module_key: str, payload: Dict[str, Any], prompts: Dict[str, str]) -> None:
-    if not _check_access_or_warn(user, module_key):
-        return
-
-    plan = "premium_plus" if is_admin(user) else "free"
-    prompt = build_ai_prompt(module_key, payload, prompts)
-    with st.spinner("Pusulan detaylı yorumunu hazırlıyor..."):
-        try:
-            result = generate_text(prompt, plan=plan)
-            if not _consume_access_or_warn(user, module_key):
-                return
-            if (not user.get("is_guest")) and st.session_state.get("save_history", False):
-                save_reading(user["email"], module_key, payload, result)
-            st.success("Yorum hazır.")
-            render_result_panel(module_key, result, plan)
-            render_page_rating(module_key, user)
-        except Exception as exc:
-            st.error(f"Yorum oluşturulamadı: {exc}")
-
-
-def render_back_home_button(page: str) -> None:
-    # Modül sayfalarının altındaki "← Ana sayfa" butonu kullanıcı isteğiyle kaldırıldı.
-    # Fonksiyon çağrıları korunur; buton görünmez.
-    return
-
-
-@st.cache_data(ttl=86400, show_spinner=False)
-def _home_background_image_uri() -> str:
-    """Return the static home background image as a cached data URI.
-
-    Video background is intentionally replaced with a lightweight image to reduce
-    page transition load without changing menus, text, layout or visual structure.
-    """
-    return asset_data_uri("kp_home_background.jpg", max_side=1920, quality=82)
-
-
-def render_home_video_background() -> None:
-    image_uri = _home_background_image_uri()
-    if not image_uri:
-        return
-    safe_uri = html_escape(image_uri, quote=True)
-    st.markdown(
-        f"""
-        <style>
-        html, body, #root, .stApp {{
-            background: #030613 !important;
+            }}
+            .kp-mobile-menu-summary::-webkit-details-marker {{
+                display: none !important;
+            }}
+            .kp-mobile-menu-summary::after {{
+                content: "Aç";
+                display: inline-flex;
+                align-items: center;
+                color: rgba(242,226,202,0.78) !important;
+                -webkit-text-fill-color: rgba(242,226,202,0.78) !important;
+                font-size: 0.68rem;
+                font-weight: 800;
+            }}
+            .kp-mobile-menu-panel[open] .kp-mobile-menu-summary::after {{
+                content: "Kapat";
+            }}
+            .kp-mobile-menu-panel:not([open]) .kp-mobile-menu-list {{
+                display: none !important;
+            }}
+            .kp-mobile-menu-panel[open] .kp-mobile-menu-list {{
+                display: grid !important;
+                grid-template-columns: 1fr 1fr;
+                gap: 7px;
+                padding: 10px;
+            }}
+            .kp-mobile-menu-link {{
+                min-height: 38px;
+                display: flex;
+                align-items: center;
+                gap: 7px;
+                padding: 6px 7px;
+                border-radius: 13px;
+                background: rgba(255,255,255,0.055);
+                border: 1px solid rgba(255,241,184,0.13);
+                color: rgba(255,248,232,0.88) !important;
+                text-decoration: none !important;
+                font-size: 0.70rem;
+                font-weight: 800;
+                line-height: 1.15;
+            }}
+            .kp-mobile-menu-link.active {{
+                background: linear-gradient(135deg, rgba(217,183,110,0.20), rgba(123,75,214,0.15));
+                border-color: rgba(255,241,184,0.34);
+                color: var(--kp-gold-2) !important;
+            }}
+            .kp-mobile-menu-icon {{
+                width: 24px;
+                height: 24px;
+                display: inline-grid;
+                place-items: center;
+                flex: 0 0 auto;
+                border-radius: 8px;
+                overflow: hidden;
+                background: rgba(217,183,110,0.10);
+                border: 1px solid rgba(217,183,110,0.14);
+            }}
+            .kp-mobile-menu-icon .kp-icon-img {{
+                width: 100%;
+                height: 100%;
+                object-fit: contain;
+                padding: 2px;
+                border-radius: 8px;
+                box-sizing: border-box;
+            }}
         }}
-        [data-testid="stAppViewContainer"],
-        [data-testid="stAppViewContainer"] > .main {{
-            background: transparent !important;
+
+        .kp-top-account-badge {{
+            display: inline-grid;
+            place-items: center;
+            min-width: 17px;
+            height: 17px;
+            margin-left: 6px;
+            padding: 0 5px;
+            border-radius: 999px;
+            background: #d84242;
+            color: #fff !important;
+            font-size: 0.62rem;
+            font-weight: 900;
+            line-height: 1;
         }}
-        .kp-home-video-bg {{
-            position: fixed;
-            inset: 0;
-            width: 100vw;
-            height: 100vh;
-            z-index: 0;
+        .kp-message-notice {{
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 6px 0 12px;
+            padding: 10px 12px;
+            border-radius: 16px;
+            background: linear-gradient(135deg, rgba(217,183,110,0.18), rgba(123,75,214,0.13));
+            border: 1px solid rgba(255,241,184,0.28);
+            color: var(--kp-gold-2) !important;
+            text-decoration: none !important;
+            box-shadow: 0 14px 30px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.10);
+            font-size: 0.82rem;
+            font-weight: 750;
+        }}
+        .kp-message-notice:hover {{ text-decoration: none !important; filter: brightness(1.05); }}
+        .kp-message-notice-dot {{
+            display: inline-grid;
+            place-items: center;
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            background: rgba(255,241,184,0.12);
+            border: 1px solid rgba(255,241,184,0.22);
+            flex: 0 0 auto;
+        }}
+        .kp-inbox-preview {{
+            margin: 4px 0 10px;
+            padding: 8px 10px;
+            border-radius: 12px;
+            background: rgba(255,255,255,0.055);
+            border: 1px solid rgba(255,241,184,0.10);
+            color: var(--kp-muted) !important;
+            font-size: 0.78rem;
+            line-height: 1.45;
+        }}
+        .kp-inbox-card-detail {{ margin-top: 8px; }}
+        .kp-admin-user-list {{
+            display: grid;
+            gap: 6px;
+            margin-top: 8px;
+        }}
+        .kp-admin-user-row {{
+            display: grid;
+            grid-template-columns: 58px minmax(0, 1fr) 78px;
+            align-items: center;
+            gap: 8px;
+            padding: 7px 9px;
+            border-radius: 13px;
+            background: rgba(255,255,255,0.045);
+            border: 1px solid rgba(255,241,184,0.10);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+        }}
+        .kp-admin-user-role, .kp-admin-user-plan {{
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 22px;
+            padding: 0 7px;
+            border-radius: 999px;
+            background: rgba(217,183,110,0.10);
+            border: 1px solid rgba(217,183,110,0.18);
+            color: var(--kp-gold-2) !important;
+            font-size: 0.64rem;
+            font-weight: 900;
+            white-space: nowrap;
+        }}
+        .kp-admin-user-main {{ min-width: 0; }}
+        .kp-admin-user-main strong {{
+            display: block;
+            color: var(--kp-text) !important;
+            font-size: 0.78rem;
+            line-height: 1.15;
             overflow: hidden;
-            pointer-events: none;
-            background:
-                radial-gradient(circle at 50% 18%, rgba(40, 54, 120, 0.26), transparent 38%),
-                url("{safe_uri}") center center / cover no-repeat,
-                #020414;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }}
-        .kp-home-video-bg::after {{
+        .kp-admin-user-main small {{
+            display: block;
+            color: var(--kp-muted) !important;
+            font-size: 0.67rem;
+            line-height: 1.2;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }}
+        .kp-admin-request-list {{
+            display: grid;
+            gap: 6px;
+            margin-top: 8px;
+        }}
+        .kp-admin-request-row {{
+            min-height: 54px;
+            padding: 8px 10px;
+            border-radius: 13px;
+            background: rgba(255,255,255,0.045);
+            border: 1px solid rgba(255,241,184,0.10);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+        }}
+        .kp-admin-request-row.active {{
+            border-color: rgba(255,241,184,0.36);
+            background: linear-gradient(135deg, rgba(217,183,110,0.13), rgba(123,75,214,0.10));
+            box-shadow: 0 0 18px rgba(217,183,110,0.10), inset 0 1px 0 rgba(255,255,255,0.08);
+        }}
+        .kp-admin-request-title {{
+            color: var(--kp-text) !important;
+            font-size: 0.82rem;
+            line-height: 1.15;
+            font-weight: 900;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }}
+        .kp-admin-request-sub {{
+            margin-top: 2px;
+            color: var(--kp-muted) !important;
+            font-size: 0.66rem;
+            line-height: 1.2;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }}
+        .kp-admin-request-preview {{
+            margin-top: 4px;
+            color: rgba(255,248,232,0.66) !important;
+            font-size: 0.69rem;
+            line-height: 1.28;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }}
+        .kp-admin-request-mini-meta {{
+            min-height: 54px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+        }}
+        .kp-admin-request-number {{
+            color: var(--kp-muted) !important;
+            font-size: 0.65rem;
+            font-weight: 900;
+        }}
+        .kp-admin-request-status {{
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 20px;
+            padding: 0 6px;
+            border-radius: 999px;
+            background: rgba(255,255,255,0.055);
+            border: 1px solid rgba(255,241,184,0.12);
+            color: var(--kp-muted) !important;
+            font-size: 0.58rem;
+            font-weight: 900;
+            white-space: nowrap;
+        }}
+        .kp-admin-request-status.pending {{
+            color: #fff1b8 !important;
+            background: rgba(217,183,110,0.13);
+            border-color: rgba(217,183,110,0.25);
+        }}
+        .kp-admin-request-status.completed {{
+            color: rgba(201,255,218,0.92) !important;
+            background: rgba(92,190,126,0.12);
+            border-color: rgba(92,190,126,0.20);
+        }}
+
+        h1, h2, h3, h4, h5 {{ font-family: var(--kp-font-serif); color: var(--kp-text); letter-spacing: -0.018em; }}
+        p, li, label, span, div {{ font-family: var(--kp-font-sans); }}
+
+        .kp-hero, .kp-card, .kp-plan, .kp-metric, .kp-safe, .kp-notice, .kp-admin-card, .kp-inbox-card {{ animation: kpFadeUp 0.55s ease both; }}
+        .kp-hero {{
+    max-width: 440px !important;
+    width: min(440px, calc(100vw - 32px)) !important;
+    min-height: 190px !important;
+    padding: 16px 17px 15px !important;
+    border-radius: 24px !important;
+    background:
+        linear-gradient(145deg, rgba(255,255,255,0.045), rgba(255,255,255,0.012)),
+        radial-gradient(circle at 22% 15%, rgba(38, 112, 183, 0.14), transparent 34%),
+        radial-gradient(circle at 88% 10%, rgba(217, 183, 110, 0.08), transparent 28%),
+        radial-gradient(circle at 62% 76%, rgba(123, 75, 214, 0.14), transparent 45%),
+        rgba(10, 12, 36, 0.15) !important;
+    border: 1px solid rgba(217, 183, 110, 0.18) !important;
+    box-shadow: 0 14px 34px rgba(0,0,0,0.26), inset 0 1px 0 rgba(255,255,255,0.08) !important;
+    position: relative;
+    overflow: hidden;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    margin: -0.55rem auto 1.05rem auto !important;
+}}
+        .kp-hero::after {{
+            content: "☉     ☽     ✧     ◇     ♀     ♃";
+            position: absolute;
+            right: -58px;
+            bottom: 24px;
+            transform: rotate(-18deg);
+            font-family: var(--kp-font-serif);
+            font-size: 1.72rem;
+            letter-spacing: 0.48rem;
+            color: rgba(255, 241, 184, 0.035);
+            white-space: nowrap;
+            pointer-events: none;
+        }}
+        .kp-hero-top {{ position: relative; z-index: 2; display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }}
+        .kp-avatar-wrap {{
+            width: 48px; height: 48px; border-radius: 50%; padding: 2px;
+            background: conic-gradient(from 0deg, #fff1b8, #d9b76e, #6f4bd5, #fff1b8);
+            box-shadow: 0 0 34px rgba(217, 183, 110, 0.34), 0 0 70px rgba(123, 75, 214, 0.18);
+            flex: 0 0 auto;
+        }}
+        .kp-avatar {{
+            width: 100%; height: 100%; border-radius: 50%; display: grid; place-items: center;
+            background: linear-gradient(145deg, #10194a, #3a166a 58%, #090f2f);
+            color: var(--kp-gold-2); font-family: var(--kp-font-serif); font-size: 1.35rem;
+        }}
+        .kp-eyebrow {{
+            display: inline-flex; gap: 6px; padding: 5px 8px; border-radius: 999px;
+            background: rgba(255,241,184,0.08); border: 1px solid rgba(255,241,184,0.18);
+            color: var(--kp-gold-2); font-size: 0.58rem; font-weight: 800; letter-spacing: 0.075em; text-transform: uppercase;
+        }}
+        .kp-username {{ margin-top: 5px; color: var(--kp-muted); font-size: 0.78rem; }}
+        .kp-title {{
+            position: relative; z-index: 2; font-family: var(--kp-font-serif);
+            font-size: clamp(1.9rem, 6.5vw, 2.62rem); line-height: 1.05; font-weight: 700;
+            color: #fff8e8; letter-spacing: -0.035em; margin: 9px 0 6px;
+            white-space: nowrap;
+            text-shadow: 0 10px 26px rgba(0,0,0,0.34), 0 0 26px rgba(217,183,110,0.12);
+        }}
+        .kp-title span {{ display: inline; font-family: var(--kp-font-serif); color: var(--kp-gold-2); }}
+        .kp-subtitle {{ position: relative; z-index: 2; max-width: none; color: var(--kp-muted); font-size: 0.76rem; line-height: 1.36; margin-bottom: 0; letter-spacing: 0.08em; }}
+        .kp-chip-row, .kp-element-row {{ position: relative; z-index: 2; display: flex; gap: 8px; flex-wrap: wrap; }}
+        .kp-chip, .kp-element-chip {{
+            display: inline-flex; align-items: center; gap: 6px; padding: 9px 11px; border-radius: 999px;
+            background: rgba(255,255,255,0.065); border: 1px solid rgba(255,241,184,0.18);
+            color: rgba(255,248,232,0.88); font-size: 0.78rem;
+        }}
+        .kp-element-row {{ margin-top: 14px; }}
+        .kp-element-chip {{ color: var(--kp-gold-2); background: rgba(217,183,110,0.08); }}
+
+        .kp-section-head {{ margin: 26px 0 14px; }}
+        .kp-section-kicker {{ color: var(--kp-gold-2); font-size: 0.72rem; font-weight: 800; letter-spacing: 0.16em; text-transform: uppercase; margin-bottom: 5px; }}
+        .kp-section-title {{ font-family: var(--kp-font-serif); font-size: 1.95rem; line-height: 1.05; font-weight: 700; color: var(--kp-text); }}
+        .kp-section-subtitle {{ color: var(--kp-muted); font-size: 0.9rem; line-height: 1.52; margin-top: 5px; }}
+
+        .kp-card {{
+            position: relative; isolation: isolate; min-height: 154px; padding: 16px; border-radius: 24px;
+            background: linear-gradient(145deg, rgba(255,255,255,0.12), rgba(255,255,255,0.04)), var(--kp-card);
+            border: 1px solid var(--kp-border);
+            box-shadow: 0 18px 46px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.13);
+            overflow: hidden; backdrop-filter: blur(22px); transition: transform 220ms ease, border-color 220ms ease, box-shadow 220ms ease;
+        }}
+
+        .element-container:has(.kp-module-card) {{
+            margin-top: -1.10rem !important;
+            padding-top: 0 !important;
+        }}
+        .kp-module-card {{
+            margin-top: 0 !important;
+            margin-bottom: 0.55rem !important;
+        }}
+        @media (max-width: 760px) {{
+            .element-container:has(.kp-module-card) {{
+                margin-top: -0.72rem !important;
+            }}
+        }}
+        .kp-card:hover {{ transform: translateY(-3px) scale(1.02); border-color: rgba(255,241,184,0.58); box-shadow: 0 26px 58px rgba(0,0,0,0.38), 0 0 28px rgba(217,183,110,0.14); }}
+        .kp-card::before {{ content: ""; position: absolute; inset: 0; background: radial-gradient(circle at 18% 16%, var(--kp-element-glow, rgba(217,183,110,0.18)), transparent 38%); opacity: 0.76; z-index: -1; }}
+        .kp-card.water {{ --kp-element-glow: rgba(38,112,183,0.38); }}
+        .kp-card.air {{ --kp-element-glow: rgba(123,75,214,0.38); }}
+        .kp-card.fire {{ --kp-element-glow: rgba(217,183,110,0.36); }}
+        .kp-card.earth {{ --kp-element-glow: rgba(128,98,58,0.32); }}
+        .kp-card-top {{ display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 14px; }}
+        .kp-icon {{
+            width: 54px; height: 54px; border-radius: 18px; display: grid; place-items: center; color: var(--kp-gold-2);
+            font-family: var(--kp-font-serif); font-size: 1.55rem;
+            background: linear-gradient(145deg, rgba(217,183,110,0.24), rgba(123,75,214,0.16));
+            border: 1px solid rgba(255,241,184,0.24); box-shadow: 0 0 20px rgba(217,183,110,0.16);
+            overflow: hidden;
+            flex: 0 0 auto;
+        }}
+        .kp-menu-style-module-icon {{
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 100% !important;
+    height: 100% !important;
+    font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", var(--kp-font-sans) !important;
+    font-size: 1.55rem !important;
+    line-height: 1 !important;
+    transform: translateY(1px) !important;
+    filter: drop-shadow(0 0 3px rgba(217, 183, 110, 0.34)) !important;
+}}
+        .kp-icon.kp-icon-asset {{
+            padding: 0;
+            background: rgba(8, 8, 24, 0.52);
+            border: 1px solid rgba(255,241,184,0.32);
+            box-shadow: 0 0 22px rgba(217,183,110,0.18), inset 0 1px 0 rgba(255,255,255,0.10);
+        }}
+        .kp-icon-img {{
+            width: 100%;
+            height: 100%;
+            display: block;
+            object-fit: cover;
+            border-radius: 18px;
+        }}
+        .kp-lock {{ padding: 5px 8px; border-radius: 999px; border: 1px solid rgba(255,241,184,0.16); background: rgba(217,183,110,0.09); color: var(--kp-gold-2); font-size: 0.68rem; font-weight: 800; }}
+        .kp-card h3 {{ margin: 0 0 7px 0; color: var(--kp-text); font-family: var(--kp-font-serif); font-size: 1.22rem; line-height: 1.05; }}
+        .kp-card p {{ margin: 0; color: var(--kp-muted); font-size: 0.82rem; line-height: 1.45; }}
+        .kp-card-category {{ margin-top: 13px; color: rgba(255,241,184,0.74); font-size: 0.66rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; }}
+
+        .kp-metric, .kp-admin-card, .kp-inbox-card, .kp-request-card {{
+            padding: 14px; border-radius: 20px; background: linear-gradient(145deg, rgba(255,255,255,0.10), rgba(255,255,255,0.035)), rgba(12,15,44,0.68);
+            border: 1px solid rgba(217,183,110,0.22); box-shadow: 0 18px 38px rgba(0,0,0,0.24), inset 0 1px 0 rgba(255,255,255,0.10);
+            margin-bottom: 12px;
+        }}
+        .kp-metric-label {{ color: var(--kp-muted-2); font-size: 0.70rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; }}
+        .kp-metric-value {{ margin-top: 7px; font-family: var(--kp-font-serif); color: var(--kp-gold-2); font-size: 1.42rem; font-weight: 700; line-height: 1; }}
+        .kp-metric-detail {{ margin-top: 7px; color: var(--kp-muted); font-size: 0.74rem; }}
+
+        .kp-plan {{ min-height: 296px; padding: 18px; border-radius: 24px; background: linear-gradient(145deg, rgba(255,255,255,0.11), rgba(255,255,255,0.04)), rgba(13,16,48,0.68); border: 1px solid rgba(217,183,110,0.24); box-shadow: 0 20px 48px rgba(0,0,0,0.30); margin-bottom: 12px; }}
+        .kp-plan-popular {{ border-color: rgba(255,241,184,0.66); box-shadow: 0 26px 62px rgba(0,0,0,0.36), 0 0 34px rgba(217,183,110,0.18); }}
+        .kp-badge {{ display: inline-flex; padding: 7px 10px; border-radius: 999px; background: rgba(217,183,110,0.12); color: var(--kp-gold-2); border: 1px solid rgba(255,241,184,0.18); font-size: 0.70rem; font-weight: 800; margin-bottom: 12px; }}
+        .kp-price {{ font-family: var(--kp-font-serif); font-size: 1.58rem; font-weight: 700; color: var(--kp-gold-2); margin: 4px 0 10px; }}
+        .kp-feature {{ color: var(--kp-muted); margin: 8px 0; font-size: 0.82rem; line-height: 1.34; }}
+
+        .kp-notice, .kp-safe {{ padding: 14px 15px; border-radius: 18px; background: rgba(255,241,184,0.075); border: 1px solid rgba(255,241,184,0.16); color: rgba(255,248,232,0.82); margin: 14px 0 20px; line-height: 1.55; font-size: 0.86rem; backdrop-filter: blur(18px); }}
+        .kp-safe {{ background: rgba(36,109,181,0.10); border-color: rgba(140,182,255,0.18); }}
+        .kp-footer {{ color: var(--kp-muted-2); text-align: center; font-size: 0.70rem; padding: 26px 0 10px; }}
+        .kp-footer-disclaimer {{
+            max-width: 520px;
+            margin: 0 auto 8px;
+            padding: 8px 10px;
+            border-radius: 14px;
+            color: rgba(242, 226, 202, 0.54);
+            background: rgba(255, 241, 184, 0.035);
+            border: 1px solid rgba(255, 241, 184, 0.08);
+            font-size: 0.66rem;
+            line-height: 1.45;
+        }}
+        .kp-footer-legal-links {{
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 6px;
+    max-width: 560px;
+    margin: 0 auto;
+    color: rgba(242, 226, 202, 0.62);
+    font-size: 0.66rem;
+    line-height: 1.45;
+}}
+.kp-footer-legal-links a,
+.kp-footer-legal-links a:visited {{
+    color: rgba(255, 241, 184, 0.78) !important;
+    text-decoration: none !important;
+    border-bottom: 1px solid rgba(255, 241, 184, 0.24);
+}}
+.kp-footer-legal-links a:hover {{
+    color: #fff1b8 !important;
+    border-bottom-color: rgba(255, 241, 184, 0.58);
+}}
+        .kp-auth-heading {{
+            max-width: 520px;
+            margin: 4px auto 22px;
+            padding: 4px 10px 8px;
+            text-align: center;
+            background: transparent;
+            border: none;
+            box-shadow: none;
+            backdrop-filter: none;
+        }}
+        .kp-auth-heading::after {{
+            content: "";
+            display: block;
+            width: 96px;
+            height: 1px;
+            margin: 14px auto 0;
+            background: linear-gradient(90deg, transparent, rgba(255,241,184,0.58), transparent);
+        }}
+        .kp-auth-title {{
+            font-family: var(--kp-font-serif);
+            color: var(--kp-text);
+            font-size: clamp(2.10rem, 7vw, 3.05rem);
+            font-weight: 800;
+            line-height: 0.98;
+            margin: 0 0 8px;
+            letter-spacing: -0.035em;
+            text-shadow: 0 12px 34px rgba(0,0,0,0.34), 0 0 26px rgba(217,183,110,0.14);
+        }}
+        .kp-auth-subtitle {{
+            color: var(--kp-gold-2);
+            font-size: 0.92rem;
+            font-weight: 900;
+            line-height: 1.25;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            text-shadow: 0 8px 24px rgba(0,0,0,0.26);
+            margin-bottom: 7px;
+        }}
+        .kp-auth-note {{
+            max-width: 430px;
+            margin: 0 auto;
+            color: rgba(242,226,202,0.72);
+            font-size: 0.88rem;
+            font-weight: 650;
+            line-height: 1.52;
+            text-shadow: 0 8px 22px rgba(0,0,0,0.30);
+        }}
+        .kp-auth-head {{
+            margin: 12px auto 18px;
+            padding: 0;
+            max-width: 430px;
+            text-align: center;
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            backdrop-filter: none !important;
+            animation: kpFadeUp 0.55s ease both;
+        }}
+        .kp-auth-moon {{
+            width: 46px;
+            height: 46px;
+            margin: 0 auto 8px;
+            border-radius: 50%;
+            display: grid;
+            place-items: center;
+            color: var(--kp-gold-2);
+            font-family: var(--kp-font-serif);
+            font-size: 1.55rem;
+            background: radial-gradient(circle at 35% 28%, rgba(255,241,184,0.44), rgba(123,75,214,0.30) 48%, rgba(9,15,47,0.18));
+            border: 1px solid rgba(255,241,184,0.28);
+            box-shadow: 0 0 24px rgba(217,183,110,0.18), inset 0 1px 0 rgba(255,255,255,0.16);
+        }}
+        .kp-auth-title {{
+            font-family: var(--kp-font-serif);
+            color: var(--kp-text);
+            font-size: 1.84rem;
+            font-weight: 800;
+            line-height: 1.02;
+            text-align: center;
+            text-shadow: 0 12px 30px rgba(0,0,0,0.34), 0 0 22px rgba(217,183,110,0.12);
+            margin: 0;
+        }}
+        .kp-auth-subtitle {{
+            margin-top: 5px;
+            color: var(--kp-gold-2);
+            font-size: 0.92rem;
+            line-height: 1.35;
+            font-weight: 850;
+            letter-spacing: 0.02em;
+            text-align: center;
+            text-shadow: 0 10px 24px rgba(0,0,0,0.28);
+        }}
+        .kp-auth-note {{
+            margin: 5px auto 0;
+            max-width: 360px;
+            color: rgba(242,226,202,0.74);
+            font-size: 0.76rem;
+            line-height: 1.45;
+            text-align: center;
+            text-shadow: 0 10px 24px rgba(0,0,0,0.28);
+        }}
+        body:has(.kp-auth-head) [data-testid="stAppViewContainer"] .block-container {{
+            max-width: 620px !important;
+        }}
+        body:has(.kp-auth-head) .stTextInput,
+        body:has(.kp-auth-head) .stTextArea,
+        body:has(.kp-auth-head) .stButton,
+        body:has(.kp-auth-head) .streamlit-expanderHeader,
+        body:has(.kp-auth-head) [data-testid="stExpander"] {{
+            max-width: 360px !important;
+            margin-left: auto !important;
+            margin-right: auto !important;
+        }}
+        body:has(.kp-auth-head) .stTextInput label {{
+            font-size: 0.72rem !important;
+            margin-bottom: 0.18rem !important;
+        }}
+        body:has(.kp-auth-head) .stTextInput input {{
+            min-height: 34px !important;
+            height: 34px !important;
+            border-radius: 14px !important;
+            padding: 0.34rem 0.78rem !important;
+            font-size: 0.76rem !important;
+        }}
+        body:has(.kp-auth-head) .stTextInput div[data-baseweb="input"] {{
+            min-height: 34px !important;
+        }}
+        body:has(.kp-auth-head) div.stButton > button {{
+            min-height: 32px !important;
+            max-width: 170px !important;
+            margin-left: auto !important;
+            margin-right: auto !important;
+            padding: 0.34rem 0.82rem !important;
+            font-size: 0.74rem !important;
+            display: flex !important;
+            justify-content: center !important;
+        }}
+        body:has(.kp-auth-head) [data-testid="stExpander"] {{
+            font-size: 0.74rem !important;
+        }}
+        .kp-page-top-spacer {{ height: 10px; }}
+        .kp-bottom-back-home {{ margin: 10px 0 4px; }}
+        .kp-bottom-back-home div.stButton > button {{ max-width: 220px !important; }}
+        div[data-testid="stVerticalBlock"] > div:has(div.stButton) {{ margin-bottom: 0.18rem !important; }}
+        hr {{ margin: 0.75rem 0 !important; }}
+        .kp-tag {{ display: inline-flex; padding: 4px 8px; border-radius: 999px; background: rgba(217,183,110,0.10); border: 1px solid rgba(255,241,184,0.16); color: var(--kp-gold-2); font-size: 0.68rem; font-weight: 800; margin: 2px 4px 2px 0; }}
+        .kp-card-choice {{ text-align: center; min-height: 96px; display: grid; place-items: center; font-family: var(--kp-font-serif); font-size: 1.05rem; color: var(--kp-gold-2); }}
+
+        div.stButton > button, button[kind="primary"], button[kind="secondary"] {{
+            border-radius: 999px !important; border: 1px solid rgba(255,241,184,0.34) !important;
+            background: linear-gradient(135deg, rgba(217,183,110,0.98), rgba(154,112,52,0.98)) !important;
+            color: #120d23 !important; font-weight: 900 !important; padding: 0.66rem 1.05rem !important;
+            box-shadow: 0 14px 32px rgba(217,183,110,0.20), inset 0 1px 0 rgba(255,255,255,0.30) !important;
+        }}
+        div.stButton > button:hover {{ filter: brightness(1.05); transform: translateY(-1px); }}
+        /* Professional form fields */
+        .stTextInput label, .stTextArea label, .stNumberInput label, .stDateInput label, .stTimeInput label,
+        .stSelectbox label, .stFileUploader label, .stSlider label, .stCheckbox label, .stRadio label {{
+            color: var(--kp-gold-2) !important;
+            font-weight: 850 !important;
+            letter-spacing: 0.035em !important;
+            font-size: var(--kp-form-label-size) !important;
+        }}
+
+        .stTextInput input, .stTextArea textarea, .stNumberInput input, .stDateInput input, .stTimeInput input,
+        div[data-baseweb="select"] > div, div[data-baseweb="base-input"] > input {{
+            color: #fff8e8 !important;
+            background:
+                linear-gradient(145deg, rgba(255,255,255,0.105), rgba(255,255,255,0.035)),
+                rgba(7, 10, 34, 0.82) !important;
+            border: 1px solid rgba(255,241,184,0.34) !important;
+            border-radius: 18px !important;
+            min-height: 44px !important;
+            box-shadow:
+                0 14px 34px rgba(0,0,0,0.24),
+                inset 0 1px 0 rgba(255,255,255,0.12) !important;
+            caret-color: var(--kp-gold-2) !important;
+        }}
+
+        .stTextArea textarea {{
+            min-height: 110px !important;
+            padding-top: 0.85rem !important;
+        }}
+
+        .stTextInput input:focus, .stTextArea textarea:focus, .stNumberInput input:focus,
+        .stDateInput input:focus, .stTimeInput input:focus, div[data-baseweb="select"] > div:focus-within {{
+            border-color: rgba(255,241,184,0.72) !important;
+            box-shadow:
+                0 0 0 3px rgba(217,183,110,0.14),
+                0 18px 42px rgba(0,0,0,0.28),
+                inset 0 1px 0 rgba(255,255,255,0.16) !important;
+        }}
+
+        .stTextInput input::placeholder, .stTextArea textarea::placeholder {{
+            color: rgba(255,241,184,0.40) !important;
+        }}
+
+        div[data-baseweb="select"] span, div[data-baseweb="select"] svg {{
+            color: #fff8e8 !important;
+            fill: var(--kp-gold-2) !important;
+        }}
+
+        [data-testid="stFileUploader"] section {{
+            background: rgba(7,10,34,0.68) !important;
+            border: 1px dashed rgba(255,241,184,0.38) !important;
+            border-radius: 20px !important;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.08) !important;
+        }}
+
+        /* Polished form system: embedded light glass fields + readable gold labels */
+        .stCheckbox label,
+.stCheckbox label[data-baseweb="checkbox"],
+.stCheckbox [data-baseweb="checkbox"] {{
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 0.42rem !important;
+    min-height: 22px !important;
+    line-height: 1.18 !important;
+}}
+.stCheckbox label p,
+.stCheckbox label span,
+.stCheckbox [data-testid="stMarkdownContainer"] p {{
+    margin: 0 !important;
+    padding: 0 !important;
+    line-height: 1.18 !important;
+    transform: translateY(1px) !important;
+}}
+.stCheckbox input[type="checkbox"] {{
+    margin-top: 0 !important;
+}}
+        .stTextInput > div,
+        .stTextArea > div,
+        .stDateInput > div,
+        .stTimeInput > div,
+        .stNumberInput > div,
+        .stSelectbox > div {{
+            margin-top: 0.24rem !important;
+        }}
+
+        .stTextInput div[data-baseweb="input"],
+        .stDateInput div[data-baseweb="input"],
+        .stTimeInput div[data-baseweb="input"],
+        .stNumberInput div[data-baseweb="input"],
+        div[data-baseweb="base-input"],
+        div[data-baseweb="select"] > div,
+        .stTextArea textarea {{
+            color: #171326 !important;
+            background:
+                radial-gradient(circle at 18% 0%, rgba(255,255,255,0.92), transparent 34%),
+                linear-gradient(145deg, rgba(255,250,235,0.96), rgba(214,207,184,0.90)) !important;
+            border: 1px solid rgba(255,241,184,0.70) !important;
+            border-radius: 18px !important;
+            min-height: 48px !important;
+            box-shadow:
+                0 14px 34px rgba(0,0,0,0.28),
+                0 0 0 1px rgba(217,183,110,0.08),
+                inset 0 2px 8px rgba(255,255,255,0.72),
+                inset 0 -8px 18px rgba(19,16,44,0.10) !important;
+            backdrop-filter: blur(18px) !important;
+            -webkit-backdrop-filter: blur(18px) !important;
+            transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease !important;
+        }}
+
+        .stTextInput div[data-baseweb="input"]:focus-within,
+        .stDateInput div[data-baseweb="input"]:focus-within,
+        .stTimeInput div[data-baseweb="input"]:focus-within,
+        .stNumberInput div[data-baseweb="input"]:focus-within,
+        div[data-baseweb="select"] > div:focus-within,
+        .stTextArea textarea:focus {{
+            border-color: rgba(255,241,184,0.95) !important;
+            box-shadow:
+                0 0 0 3px rgba(217,183,110,0.18),
+                0 18px 44px rgba(0,0,0,0.34),
+                0 0 30px rgba(217,183,110,0.12),
+                inset 0 2px 8px rgba(255,255,255,0.78),
+                inset 0 -8px 18px rgba(19,16,44,0.10) !important;
+            transform: translateY(-1px) !important;
+        }}
+
+        .stTextInput input,
+        .stDateInput input,
+        .stTimeInput input,
+        .stNumberInput input,
+        div[data-baseweb="base-input"] input,
+        div[data-baseweb="select"] input,
+        .stTextArea textarea {{
+            color: #171326 !important;
+            -webkit-text-fill-color: #171326 !important;
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            caret-color: #8b6425 !important;
+            font-weight: 750 !important;
+            font-size: 0.94rem !important;
+        }}
+
+        .stTextArea textarea {{
+            min-height: 118px !important;
+            padding: 0.9rem 1rem !important;
+            line-height: 1.55 !important;
+        }}
+
+        .stTextInput input::placeholder,
+        .stTextArea textarea::placeholder {{
+            color: rgba(23,19,38,0.48) !important;
+            -webkit-text-fill-color: rgba(23,19,38,0.48) !important;
+        }}
+
+        div[data-baseweb="select"] span,
+        div[data-baseweb="select"] div,
+        div[data-baseweb="select"] svg {{
+            color: #171326 !important;
+            fill: #8b6425 !important;
+        }}
+
+        div[data-baseweb="popover"] ul,
+        div[data-baseweb="menu"] {{
+            background: #fff8e8 !important;
+            border: 1px solid rgba(217,183,110,0.45) !important;
+            border-radius: 16px !important;
+            box-shadow: 0 22px 48px rgba(0,0,0,0.32) !important;
+        }}
+
+        div[data-baseweb="popover"] li,
+        div[data-baseweb="menu"] li {{
+            color: #171326 !important;
+            font-weight: 700 !important;
+        }}
+
+        div[data-baseweb="popover"] li:hover,
+        div[data-baseweb="menu"] li:hover {{
+            background: rgba(217,183,110,0.22) !important;
+        }}
+
+        div[data-baseweb="input"] button,
+        div[data-baseweb="base-input"] button {{
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            color: #8b6425 !important;
+            padding: 0 0.7rem !important;
+            min-width: auto !important;
+        }}
+
+        div[data-baseweb="input"] button svg,
+        div[data-baseweb="base-input"] button svg {{
+            fill: #8b6425 !important;
+            color: #8b6425 !important;
+        }}
+
+        /* Performance-focused professional icons and embedded form fields */
+        .kp-icon-svg {{
+            width: 72% !important;
+            height: 72% !important;
+            display: block !important;
+            color: var(--kp-gold-2) !important;
+            stroke: currentColor !important;
+            stroke-width: 1.72 !important;
+            stroke-linecap: round !important;
+            stroke-linejoin: round !important;
+            fill: none !important;
+            filter: none !important;
+        }}
+        .kp-side-nav-icon .kp-icon-svg,
+        .kp-mobile-menu-icon .kp-icon-svg {{
+            width: 18px !important;
+            height: 18px !important;
+            stroke-width: 1.85 !important;
+        }}
+        .kp-icon.kp-icon-asset,
+        .kp-content-visual-icon-asset {{
+            background:
+                linear-gradient(145deg, rgba(255,241,184,0.12), rgba(123,75,214,0.08)),
+                rgba(6, 8, 23, 0.42) !important;
+            border: 1px solid rgba(255,241,184,0.22) !important;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.08) !important;
+        }}
+        .kp-side-nav-icon,
+        .kp-mobile-menu-icon {{
+            background: rgba(217,183,110,0.075) !important;
+            border-color: rgba(255,241,184,0.13) !important;
+            box-shadow: none !important;
+        }}
+        .kp-icon-fallback {{
+            color: var(--kp-gold-2) !important;
+            font-family: var(--kp-font-serif) !important;
+            font-size: 0.92rem !important;
+            line-height: 1 !important;
+        }}
+
+        [data-testid="stWidgetLabel"],
+        [data-testid="stWidgetLabel"] p,
+        [data-testid="stWidgetLabel"] label,
+        [data-testid="stWidgetLabel"] span,
+        .stTextInput label, .stTextArea label, .stNumberInput label, .stDateInput label, .stTimeInput label,
+        .stSelectbox label, .stFileUploader label, .stSlider label, .stCheckbox label, .stRadio label {{
+            color: rgba(255,241,184,0.88) !important;
+            font-weight: 800 !important;
+            letter-spacing: 0.025em !important;
+            font-size: var(--kp-form-label-size) !important;
+            text-shadow: none !important;
+        }}
+        .stTextInput > div,
+        .stTextArea > div,
+        .stDateInput > div,
+        .stTimeInput > div,
+        .stNumberInput > div,
+        .stSelectbox > div {{
+            margin-top: 0.16rem !important;
+        }}
+        .stTextInput div[data-baseweb="input"],
+        .stDateInput div[data-baseweb="input"],
+        .stTimeInput div[data-baseweb="input"],
+        .stNumberInput div[data-baseweb="input"],
+        div[data-baseweb="base-input"],
+        div[data-baseweb="select"] > div,
+        .stTextArea textarea {{
+            color: #fff8e8 !important;
+            background: rgba(3, 6, 20, 0.38) !important;
+            border: 1px solid rgba(255,241,184,0.18) !important;
+            border-radius: 14px !important;
+            min-height: 42px !important;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.055) !important;
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+            transform: none !important;
+            transition: border-color 120ms ease, background-color 120ms ease !important;
+        }}
+        .stTextInput div[data-baseweb="input"]:focus-within,
+        .stDateInput div[data-baseweb="input"]:focus-within,
+        .stTimeInput div[data-baseweb="input"]:focus-within,
+        .stNumberInput div[data-baseweb="input"]:focus-within,
+        div[data-baseweb="select"] > div:focus-within,
+        .stTextArea textarea:focus {{
+            border-color: rgba(255,241,184,0.58) !important;
+            background: rgba(5, 8, 26, 0.52) !important;
+            box-shadow: inset 0 -1px 0 rgba(255,241,184,0.50) !important;
+            transform: none !important;
+        }}
+        .stTextInput input,
+        .stDateInput input,
+        .stTimeInput input,
+        .stNumberInput input,
+        div[data-baseweb="base-input"] input,
+        div[data-baseweb="select"] input,
+        .stTextArea textarea {{
+            color: #fff8e8 !important;
+            -webkit-text-fill-color: #fff8e8 !important;
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            caret-color: var(--kp-gold-2) !important;
+            font-weight: 650 !important;
+            font-size: 0.92rem !important;
+        }}
+        .stTextArea textarea {{
+            min-height: 104px !important;
+            padding: 0.78rem 0.9rem !important;
+            line-height: 1.5 !important;
+        }}
+        .stTextInput input::placeholder,
+        .stTextArea textarea::placeholder {{
+            color: rgba(255,241,184,0.38) !important;
+            -webkit-text-fill-color: rgba(255,241,184,0.38) !important;
+        }}
+        div[data-baseweb="select"] span,
+        div[data-baseweb="select"] div,
+        div[data-baseweb="select"] svg {{
+            color: #fff8e8 !important;
+            fill: var(--kp-gold-2) !important;
+        }}
+        div[data-baseweb="popover"] ul,
+        div[data-baseweb="menu"] {{
+            background: rgba(6,8,23,0.98) !important;
+            border: 1px solid rgba(255,241,184,0.20) !important;
+            border-radius: 14px !important;
+            box-shadow: 0 16px 36px rgba(0,0,0,0.28) !important;
+        }}
+        div[data-baseweb="popover"] li,
+        div[data-baseweb="menu"] li {{
+            color: #fff8e8 !important;
+            font-weight: 700 !important;
+        }}
+        div[data-baseweb="popover"] li:hover,
+        div[data-baseweb="menu"] li:hover {{
+            background: rgba(217,183,110,0.14) !important;
+        }}
+        [data-testid="stFileUploader"] section {{
+            background: rgba(3,6,20,0.34) !important;
+            border: 1px dashed rgba(255,241,184,0.20) !important;
+            border-radius: 16px !important;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.045) !important;
+        }}
+
+        .stProgress > div > div > div > div {{ background: linear-gradient(90deg, #7755d7, #d9b76e) !important; }}
+        hr {{ border-color: rgba(217,183,110,0.16) !important; }}
+
+
+
+        .kp-result-card {{
+            padding: 20px;
+            border-radius: 26px;
+            background:
+                linear-gradient(145deg, rgba(255,255,255,0.13), rgba(255,255,255,0.045)),
+                rgba(12,15,44,0.76);
+            border: 1px solid rgba(255,241,184,0.30);
+            box-shadow: 0 24px 58px rgba(0,0,0,0.34), inset 0 1px 0 rgba(255,255,255,0.12);
+            margin: 16px 0 14px;
+        }}
+        .kp-result-title {{
+            font-family: var(--kp-font-serif);
+            color: var(--kp-gold-2);
+            font-size: 1.72rem;
+            line-height: 1.04;
+            margin-bottom: 8px;
+        }}
+        .kp-result-meta {{
+            color: var(--kp-muted);
+            font-size: 0.82rem;
+            line-height: 1.5;
+            margin-bottom: 15px;
+        }}
+        .kp-result-body {{
+            color: var(--kp-text);
+            font-size: 0.96rem;
+            line-height: 1.75;
+            white-space: normal;
+        }}
+        .kp-result-body h3, .kp-result-body h4 {{
+            color: var(--kp-gold-2);
+            margin: 14px 0 7px;
+        }}
+        .kp-result-body h3 {{ font-family: var(--kp-font-serif); font-size: 1.38rem; }}
+        .kp-result-body h4 {{ font-size: 1.02rem; font-weight: 900; }}
+        .kp-result-body p {{ margin: 0 0 10px; }}
+        .kp-result-body ul {{ margin: 6px 0 12px 18px; padding: 0; }}
+        .kp-share-card, .kp-lead-card, .kp-upgrade-card {{
+            padding: 16px;
+            border-radius: 22px;
+            background: rgba(255,241,184,0.075);
+            border: 1px solid rgba(255,241,184,0.18);
+            box-shadow: 0 18px 40px rgba(0,0,0,0.22);
+            margin: 14px 0;
+        }}
+        .kp-share-links {{
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 8px;
+        }}
+        .kp-share-links a {{
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 9px 12px;
+            border-radius: 999px;
+            background: rgba(217,183,110,0.14);
+            border: 1px solid rgba(255,241,184,0.22);
+            color: var(--kp-gold-2) !important;
+            text-decoration: none !important;
+            font-weight: 850;
+            font-size: 0.78rem;
+        }}
+        .kp-login-note {{
+            color: var(--kp-muted);
+            font-size: 0.82rem;
+            line-height: 1.5;
+            margin-bottom: 10px;
+        }}
+
+
+        .kp-content-visual {{
+            position: relative;
+            min-height: 210px;
+            padding: 24px;
+            border-radius: 28px;
+            overflow: hidden;
+            border: 1px solid rgba(255,241,184,0.24);
+            background:
+                radial-gradient(circle at 20% 20%, rgba(255,241,184,0.18), transparent 28%),
+                radial-gradient(circle at 78% 28%, rgba(123,75,214,0.32), transparent 34%),
+                radial-gradient(circle at 50% 95%, rgba(36,109,181,0.28), transparent 36%),
+                linear-gradient(145deg, rgba(255,255,255,0.11), rgba(255,255,255,0.035)),
+                rgba(10, 12, 36, 0.78);
+            box-shadow: 0 24px 58px rgba(0,0,0,0.34), inset 0 1px 0 rgba(255,255,255,0.12);
+            margin: 12px 0 18px;
+        }}
+        .kp-content-visual::after {{
+            content: "☽  ✦  ◌  ✺  ☉";
+            position: absolute;
+            right: -18px;
+            bottom: 12px;
+            color: rgba(255,241,184,0.12);
+            font-family: var(--kp-font-serif);
+            font-size: 3.15rem;
+            letter-spacing: 0.35rem;
+            transform: rotate(-12deg);
+            white-space: nowrap;
+        }}
+        .kp-content-visual.ritual {{
+            background:
+                radial-gradient(circle at 20% 20%, rgba(217,183,110,0.23), transparent 30%),
+                radial-gradient(circle at 80% 35%, rgba(170,90,52,0.30), transparent 34%),
+                radial-gradient(circle at 50% 95%, rgba(123,75,214,0.28), transparent 36%),
+                linear-gradient(145deg, rgba(255,255,255,0.11), rgba(255,255,255,0.035)),
+                rgba(12, 15, 44, 0.78);
+        }}
+        .kp-content-visual-icon {{
+            width: 58px;
+            height: 58px;
+            display: grid;
+            place-items: center;
+            border-radius: 22px;
+            background: rgba(217,183,110,0.14);
+            border: 1px solid rgba(255,241,184,0.24);
+            color: var(--kp-gold-2);
+            font-family: var(--kp-font-serif);
+            font-size: 2rem;
+            margin-bottom: 16px;
+            overflow: hidden;
+        }}
+        .kp-content-visual-icon-asset .kp-icon-img {{
+            width: 100%;
+            height: 100%;
+            display: block;
+            object-fit: cover;
+            border-radius: 22px;
+        }}
+        .kp-content-visual-title {{
+            position: relative;
+            z-index: 2;
+            font-family: var(--kp-font-serif);
+            font-size: 2rem;
+            line-height: 1.05;
+            color: var(--kp-gold-2);
+            margin-bottom: 8px;
+        }}
+        .kp-content-visual-text {{
+            position: relative;
+            z-index: 2;
+            max-width: 420px;
+            color: var(--kp-muted);
+            font-size: 0.92rem;
+            line-height: 1.6;
+        }}
+
+        .kp-upload-slot {{
+            min-height: 96px;
+            display: grid;
+            place-items: center;
+            text-align: center;
+            border-radius: 20px;
+            border: 1px dashed rgba(255,241,184,0.36);
+            background: rgba(255,241,184,0.075);
+            color: var(--kp-gold-2);
+            font-family: var(--kp-font-serif);
+            font-size: 1.05rem;
+            margin-bottom: 8px;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 14px 30px rgba(0,0,0,0.18);
+        }}
+        [data-testid="stFileUploader"] label p {{
+            text-align: center !important;
+            width: 100% !important;
+        }}
+        [data-testid="stFileUploader"] section {{
+            min-height: 94px !important;
+            padding: 0.45rem !important;
+            display: grid !important;
+            place-items: center !important;
+            cursor: pointer !important;
+        }}
+        [data-testid="stFileUploader"] small {{
+            display: none !important;
+        }}
+
+        .kp-written-template {{
+            padding: 22px;
+            border-radius: 26px;
+            border: 1px solid rgba(255,241,184,0.24);
+            background: linear-gradient(145deg, rgba(255,255,255,0.12), rgba(255,255,255,0.04)), rgba(12,15,44,0.74);
+            box-shadow: 0 22px 52px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.11);
+            margin: 14px 0;
+            color: var(--kp-text);
+            line-height: 1.72;
+            overflow: hidden;
+            position: relative;
+            isolation: isolate;
+        }}
+        .kp-written-template::before {{
             content: "";
             position: absolute;
             inset: 0;
+            pointer-events: none;
             background:
-                linear-gradient(180deg, rgba(2,4,14,0.26), rgba(2,4,14,0.40) 56%, rgba(2,4,14,0.72)),
-                radial-gradient(circle at 50% 92%, rgba(28, 47, 92, 0.34), transparent 42%);
+                radial-gradient(circle at 14% 12%, rgba(255,241,184,0.13), transparent 30%),
+                radial-gradient(circle at 86% 88%, rgba(123,75,214,0.14), transparent 32%);
+            z-index: -1;
         }}
-        [data-testid="stAppViewContainer"] > .main,
-        [data-testid="stAppViewContainer"] .block-container {{
+        .kp-written-text {{
             position: relative;
-            z-index: 2;
-            background: transparent !important;
+            z-index: 1;
         }}
-        [data-testid="stAppViewContainer"] .block-container {{
-            padding-top: 0.35rem !important;
+        .kp-written-title {{
+            color: var(--kp-gold-2);
+            line-height: 1.05;
+            margin: 10px 0 14px;
+            text-shadow: 0 12px 28px rgba(0,0,0,0.32), 0 0 20px rgba(217,183,110,0.10);
         }}
-        .kp-home-story-image-wrap {{
-            position: relative;
-            z-index: 3;
-            width: min(640px, 94vw);
-            max-width: 640px;
-            margin: 0.45rem auto 3.1rem;
+        .kp-written-body {{
+            color: rgba(255,248,232,0.93);
+            line-height: 1.72;
+        }}
+        .kp-written-body p {{
+            margin: 0 0 0.88rem;
+            color: inherit;
+            line-height: inherit;
+            font: inherit;
+        }}
+        .kp-written-subhead {{
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin: 0.82rem 0 0.32rem;
+            padding: 4px 9px;
+            border-radius: 999px;
+            color: var(--kp-gold-2);
+            background: rgba(217,183,110,0.12);
+            border: 1px solid rgba(255,241,184,0.18);
+            font-size: 0.74em;
+            font-weight: 900;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            clear: none;
+        }}
+        .kp-written-image {{
+            width: min(var(--kp-written-image-width, 220px), 44vw);
+            margin: 0;
             padding: 0;
-            text-align: center;
         }}
-        .kp-home-story-image {{
+        .kp-written-image img {{
             display: block;
             width: 100%;
             height: auto;
+            border-radius: 18px;
+            border: 1px solid rgba(255,241,184,0.24);
+            box-shadow: 0 18px 40px rgba(0,0,0,0.34), inset 0 1px 0 rgba(255,255,255,0.12);
+            background: rgba(255,255,255,0.04);
+        }}
+        .kp-image-float-left {{
+            float: left;
+            margin: 0.22rem 1.08rem 0.72rem 0;
+        }}
+        .kp-image-float-right {{
+            float: right;
+            margin: 0.22rem 0 0.72rem 1.08rem;
+        }}
+        .kp-image-center {{
+            width: min(var(--kp-written-image-width, 260px), 100%);
+            max-width: 100%;
+            margin: 0.7rem auto 1rem;
+        }}
+        .image-bottom .kp-image-center {{
+            margin: 1rem auto 0;
+        }}
+        .kp-written-clear {{
+            clear: both;
+            display: block;
+            height: 0;
+        }}
+        .kp-template-parchment {{
+            background: linear-gradient(145deg, rgba(255,248,232,0.18), rgba(217,183,110,0.08)), rgba(18, 14, 38, 0.82);
+        }}
+        .kp-template-calm {{
+            background: linear-gradient(145deg, rgba(36,109,181,0.16), rgba(255,255,255,0.04)), rgba(8, 12, 36, 0.78);
+        }}
+        .kp-template-ritual {{
+            background: radial-gradient(circle at 18% 12%, rgba(217,183,110,0.18), transparent 32%), linear-gradient(145deg, rgba(123,75,214,0.18), rgba(255,255,255,0.04)), rgba(12,15,44,0.78);
+        }}
+        @media (max-width: 640px) {{
+            .kp-written-template {{
+                padding: 18px;
+            }}
+            .kp-written-image,
+            .kp-image-float-left,
+            .kp-image-float-right,
+            .kp-image-center {{
+                float: none !important;
+                width: min(var(--kp-written-image-width, 240px), 100%) !important;
+                margin: 0 auto 1rem !important;
+            }}
+        }}
+
+        .kp-deck-grid {{
+            display: grid;
+            grid-template-columns: repeat(12, minmax(0, 1fr));
+            gap: 5px 3px;
+            align-items: center;
+            margin: 12px 0 14px;
+        }}
+        .kp-deck-card-link, .kp-deck-card-static {{
+            display: block;
+            width: 100%;
+            min-height: 0;
+            padding: 0 !important;
+            margin: 0 !important;
+            border: none !important;
+            outline: none !important;
+            background: transparent !important;
+            box-shadow: none !important;
+            text-decoration: none !important;
+            overflow: visible;
+            line-height: 0;
+            transition: transform 130ms ease, opacity 130ms ease, filter 130ms ease;
+        }}
+        .kp-deck-card-link:hover {{
+            transform: translateY(-2px) scale(1.06);
+            filter: brightness(1.08);
+        }}
+        .kp-deck-card-link.selected {{
+            opacity: 0.34;
+            filter: grayscale(0.35) brightness(0.82);
+            pointer-events: none;
+        }}
+        .kp-deck-card-static.disabled {{ opacity: 0.34; }}
+        .kp-deck-card-face {{
+            display: block;
+            width: 36px;
+            height: 54px;
+            margin: 0 auto;
+            border: none !important;
+            border-radius: 5px;
+            box-shadow: none !important;
+            background-color: transparent !important;
+            background-repeat: no-repeat !important;
+            background-position: center center !important;
+            background-size: contain !important;
+        }}
+        .kp-deck-card-img {{
+            display: block;
+            width: 36px;
+            max-width: 36px;
+            height: auto;
+            aspect-ratio: 2 / 3;
             object-fit: contain;
-            border: none;
+            margin: 0 auto;
+            border: none !important;
+            border-radius: 5px;
+            box-shadow: none !important;
+            background: transparent !important;
+        }}
+        .kp-deck-card-overlay {{ display: none !important; }}
+        .kp-selected-card-panel {{
+            margin: 14px 0;
+            padding: 12px 0 4px;
             background: transparent;
-            filter: drop-shadow(0 20px 36px rgba(0,0,0,0.46));
-            user-select: none;
-            -webkit-user-drag: none;
+            border: none;
+            box-shadow: none;
         }}
-        .kp-home-story {{
-            position: relative;
-            z-index: 3;
-            max-width: 620px;
-            margin: 0.75rem auto 3.1rem;
-            padding: 0 0.45rem;
-            color: rgba(255, 246, 221, 0.92);
-            font-family: "Dancing Script", "Segoe Script", "Lucida Handwriting", "Brush Script MT", "Apple Chancery", cursive !important;
-            font-size: clamp(0.92rem, 2.2vw, 1.12rem);
-            line-height: 1.55;
-            letter-spacing: 0.01em;
-            text-align: center;
-            text-shadow: 0 2px 11px rgba(0,0,0,0.82), 0 0 18px rgba(255,241,184,0.18);
-        }}
-        .kp-home-story p,
-        .kp-home-story span,
-        .kp-home-story div {{
-            font-family: "Dancing Script", "Segoe Script", "Lucida Handwriting", "Brush Script MT", "Apple Chancery", cursive !important;
-        }}
-        .kp-home-story p {{
-            margin: 0 0 0.78rem;
-        }}
-        .kp-home-story strong {{
-            color: #fff1b8;
+        .kp-selected-card-title {{
+            color: var(--kp-gold-2);
+            font-family: var(--kp-font-serif);
+            font-size: 1.35rem;
             font-weight: 700;
-            text-shadow: 0 2px 12px rgba(0,0,0,0.86), 0 0 18px rgba(255,241,184,0.28);
+            margin-bottom: 10px;
         }}
+        .kp-open-card-grid {{
+            display: grid;
+            grid-template-columns: repeat(7, minmax(0, 1fr));
+            gap: 8px;
+            align-items: start;
+        }}
+        .kp-open-card-img {{
+            display: block;
+            width: 100%;
+            max-width: 58px;
+            height: auto;
+            margin: 0 auto;
+            border: none !important;
+            border-radius: 8px;
+            box-shadow: 0 10px 24px rgba(0,0,0,0.22);
+        }}
+
+
+        /* Deck button CSS is injected separately outside this f-string. */
+
+        @keyframes kpParticleDrift {{ 0% {{ background-position: 0 0, 28px 46px; }} 100% {{ background-position: 120px 160px, -40px 190px; }} }}
+        @keyframes kpFadeUp {{ from {{ opacity: 0; transform: translateY(12px); }} to {{ opacity: 1; transform: translateY(0); }} }}
+
         @media (max-width: 760px) {{
-            .kp-home-video-bg {{
-                background-position: center center;
+            [data-testid="stSidebar"], [data-testid="stSidebar"] > div {{ width: 260px !important; min-width: 260px !important; max-width: 260px !important; }}
+            [data-testid="stAppViewContainer"] .block-container {{ max-width: 100%; padding-left: 0.85rem; padding-right: 0.85rem; padding-top: 0.45rem; }}
+            .kp-hero {{
+    max-width: min(320px, 80vw) !important;
+    width: min(320px, 80vw) !important;
+    min-height: 150px !important;
+    border-radius: 20px !important;
+    padding: 12px 12px 12px !important;
+    margin: 0.20rem auto 0.75rem auto !important;
+}}
+            .kp-hero-top {{ gap: 8px; margin-bottom: 8px; }}
+            .kp-avatar-wrap {{ width: 42px; height: 42px; }}
+            .kp-avatar {{ font-size: 1.18rem; }}
+            .kp-eyebrow {{ font-size: 0.52rem; padding: 4px 7px; }}
+            .kp-username {{ font-size: 0.72rem; margin-top: 4px; }}
+            .kp-title {{ font-size: clamp(1.32rem, 5.8vw, 1.78rem); margin: 6px 0 5px; letter-spacing: -0.035em; white-space: nowrap; }}
+            .kp-subtitle {{ font-size: 0.60rem; line-height: 1.24; margin-bottom: 0; letter-spacing: 0.055em; }}
+            .kp-chip, .kp-element-chip {{ padding: 7px 9px; font-size: 0.72rem; }}
+            .kp-section-title {{ font-size: 1.62rem; }}
+            .kp-card, .kp-plan, .kp-result-card, .kp-share-card, .kp-lead-card, .kp-upgrade-card {{ border-radius: 20px; }}
+            div.stButton > button, button[kind="primary"], button[kind="secondary"] {{ width: 100% !important; min-height: 46px !important; }}
+            [data-testid="column"] {{ width: 100% !important; flex: 1 1 100% !important; }}
+            div[data-testid="stHorizontalBlock"]:has(.kp-card-slot-wrap) {{
+                display: flex !important;
+                flex-wrap: nowrap !important;
+                overflow-x: auto !important;
+                gap: 4px !important;
+                padding-bottom: 4px !important;
+                -webkit-overflow-scrolling: touch !important;
             }}
-            .kp-home-story-image-wrap {{
-                width: min(92vw, 390px);
-                max-width: 390px;
-                margin-top: 0.30rem;
-                margin-bottom: 2.2rem;
+            div[data-testid="stHorizontalBlock"]:has(.kp-card-slot-wrap) > div[data-testid="column"] {{
+                flex: 0 0 38px !important;
+                width: 38px !important;
+                min-width: 38px !important;
+                max-width: 38px !important;
             }}
-            .kp-home-story-image {{
-                filter: drop-shadow(0 14px 24px rgba(0,0,0,0.42));
-            }}
-            .kp-home-story {{
-                font-size: 1.03rem;
-                line-height: 1.48;
-                margin-top: 0.55rem;
-                padding: 0 0.35rem;
-            }}
+            .kp-open-card-grid {{ grid-template-columns: repeat(4, minmax(0, 1fr)); }}
+            .kp-admin-user-row {{ grid-template-columns: 52px minmax(0, 1fr) 66px; padding: 6px 7px; }}
+        }}
+
+
+        /* Modern ve daha sakin tipografi: ağır bold hissini azaltır, tasarımı sadeleştirir. */
+        h1, h2, h3, h4, h5,
+        .kp-title, .kp-title span, .kp-section-title, .kp-card h3,
+        .kp-sidebar-brand-title, .kp-metric-value, .kp-price,
+        .kp-result-body h3, .kp-auth-title, .kp-content-title {{
+            font-family: var(--kp-font-sans) !important;
+            font-weight: 620 !important;
+            letter-spacing: -0.022em !important;
+        }}
+        .kp-sidebar-menu-title, .kp-section-kicker, .kp-card-category,
+        .kp-badge, .kp-lock, .kp-top-account-name, .kp-top-account-link,
+        .kp-admin-user-role, .kp-admin-user-plan {{
+            font-family: var(--kp-font-sans) !important;
+            font-weight: 620 !important;
+            letter-spacing: 0.045em !important;
+        }}
+        .kp-card p, .kp-card li, .kp-safe, .kp-notice, .kp-login-note,
+        .kp-result-body, .kp-inbox-preview, .kp-admin-request-preview {{
+            font-family: var(--kp-font-sans) !important;
+            font-weight: 400 !important;
+            letter-spacing: 0 !important;
         }}
         </style>
-        <div class="kp-home-video-bg" aria-hidden="true"></div>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.markdown(DECK_WIDGET_CSS, unsafe_allow_html=True)
+
+
+def render_sidebar_brand() -> None:
+    st.sidebar.markdown(
+        """
+        <div class="kp-sidebar-brand">
+            <div class="kp-sidebar-orb"><span>☽</span></div>
+            <div>
+                <div class="kp-sidebar-brand-title">Kalbimin<br>Pusulası</div>
+                <div class="kp-sidebar-brand-subtitle">Kalbin Seni Çağırıyor</div>
+            </div>
+        </div>
         """,
         unsafe_allow_html=True,
     )
 
 
-@st.cache_data(ttl=86400, show_spinner=False)
-def _home_story_image_data_uri() -> str:
-    """Return the uploaded home letter image as a compact data URI."""
-    image_path = Path(__file__).resolve().parent / "assets" / "backgrounds" / "kp_home_story_letter.webp"
-    if not image_path.exists():
-        return ""
-    encoded = base64.b64encode(image_path.read_bytes()).decode("utf-8")
-    return f"data:image/webp;base64,{encoded}"
-
-
-def render_home_story_text() -> None:
-    story_image_uri = _home_story_image_data_uri()
-    if not story_image_uri:
-        return
-    safe_uri = html_escape(story_image_uri, quote=True)
+def render_hero(user: Optional[Dict[str, Any]] = None) -> None:
+    display_name = escape(_display_name(user))
     st.markdown(
-        f'''
-        <div class="kp-home-story-image-wrap">
-            <img class="kp-home-story-image" src="{safe_uri}" alt="Kalbimin Pusulası giriş mektubu" loading="lazy" />
-        </div>
-        ''',
+        f"""
+        <div class="kp-hero">
+            <div class="kp-hero-top">
+                <div class="kp-avatar-wrap"><div class="kp-avatar">☽</div></div>
+                <div>
+                    <div class="kp-eyebrow">✦ Aşk & ilişki pusulası</div>
+                    <div class="kp-username">Hoş geldin, {display_name}</div>
+                </div>
+            </div>
+            <div class="kp-title">Kalbimin <span>Pusulası</span></div>
+            <div class="kp-subtitle">
+                KADER GÜRÜLTÜDE DEĞİL, SÜKûTTA KONUŞUR
+            </div>
+            </div>
+        """,
         unsafe_allow_html=True,
     )
 
 
-def page_home(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]]) -> None:
-    # Video arka plan artık tüm uygulamada global olarak main() içinde uygulanır.
-    # Ana sayfada yalnızca marka kutusu ve giriş mektubu görseli gösterilir.
-    render_hero(user)
-    render_home_story_text()
-
-def page_subscription(user: Dict[str, Any]) -> None:
-    if user.get("is_guest"):
-        st.info("Yükseltme talebi için hesapla giriş yapmalısın. Planları yine de inceleyebilirsin.")
-    current_plan = user.get("plan", "free")
-    st.markdown("## 💎 Planlar & Abonelik")
-    st.write("Freemium sistem aktif: Ücretsiz plan günlük sınırlı deneme sunar; Premium ve Premium+ daha yüksek limit, detaylı sonuç ve özel admin yorumlu talepler açar.")
-    render_plan_cards(current_plan)
-
-    if user.get("is_guest"):
-        return
-
-    st.divider()
-    st.markdown("### Yükseltme talebi")
-    target_plan = st.selectbox("Geçmek istediğin plan", ["premium", "premium_plus"], format_func=lambda p: PLAN_CONFIG[p]["name"])
-    note = st.text_area("Not", placeholder="Ödeme linki istiyorum, demo erişim talep ediyorum vb.", height=90)
-    upgrade_clicked = st.button("Yükseltme talebi gönder")
-    upgrade_request_consents = legal_consent_form("upgrade_request")
-    if upgrade_clicked:
-        if not validate_legal_consents(upgrade_request_consents):
-            return
-        try:
-            submit_upgrade_request(user["email"], target_plan, note)
-            st.success("Talebin kaydedildi. Firestore'da upgrade_requests koleksiyonunda görünecek.")
-        except Exception as exc:
-            st.error(f"Talep kaydedilemedi: {exc}")
+def render_section_header(title: str, subtitle: str = "", kicker: str = "Cosmic dashboard") -> None:
+    subtitle_html = f'<div class="kp-section-subtitle">{escape(subtitle)}</div>' if subtitle else ""
+    st.markdown(
+        f"""
+        <div class="kp-section-head">
+            <div class="kp-section-kicker">{escape(kicker)}</div>
+            <div class="kp-section-title">{escape(title)}</div>
+            {subtitle_html}
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
-
-def birth_time_input(prefix: str, label: str = "Doğum saati") -> str:
-    unknown = st.checkbox("Doğum saatimi bilmiyorum", key=f"{prefix}_birth_time_unknown")
-    if unknown:
-        st.caption("Doğum saati bilinmiyor olarak kaydedilecek.")
-        return "Bilinmiyor"
-    birth_time = st.time_input(label, value=dt.time(12, 0), key=f"{prefix}_birth_time")
-    return birth_time.strftime("%H:%M")
-
-
-def birth_place_input(prefix: str) -> str:
-    return st.text_input(
-        "Doğum yeri / şehir",
-        key=f"{prefix}_birth_place_manual",
-        placeholder="Şehrinizi yazınız...",
-    ).strip()
+def render_metric_card(label: str, value: str, detail: str = "") -> None:
+    st.markdown(
+        f"""
+        <div class="kp-metric">
+            <div class="kp-metric-label">{escape(label)}</div>
+            <div class="kp-metric-value">{escape(str(value))}</div>
+            <div class="kp-metric-detail">{escape(detail)}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
-def birth_details_form(prefix: str, include_birth_date: bool = False, include_zodiac: bool = True) -> Dict[str, Any]:
-    details: Dict[str, Any] = {}
-    if include_birth_date:
-        details["doğum_tarihi"] = str(
-            st.date_input(
-                "Doğum tarihi",
-                value=dt.date(1995, 1, 1),
-                min_value=dt.date(1950, 1, 1),
-                max_value=dt.date.today(),
-                format="DD/MM/YYYY",
-                key=f"{prefix}_birth_date",
+def render_module_card(module_key: str, module: Dict[str, Any], locked: bool = False) -> None:
+    category, icon, element = module_visual(module_key)
+    lock_html = '<span class="kp-lock">Hesap gerekli</span>' if locked else '<span class="kp-lock">Açık</span>'
+    title = escape(str(module.get("title", "")))
+    description = escape(str(module.get("description", "")))
+    icon_html = module_icon_html(module_key, icon)
+    icon_class = "kp-icon kp-icon-asset" if MODULE_ICON_ASSETS.get(module_key) else "kp-icon"
+    st.markdown(
+        f"""
+        <div class="kp-card kp-module-card {element}">
+          <div class="kp-card-top">
+            <div class="{icon_class}">{icon_html}</div>
+            {lock_html}
+          </div>
+          <h3>{title}</h3>
+          <p>{description}</p>
+          <div class="kp-card-category">{escape(category)}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_drawn_cards(cards: list[str], element: str = "fire") -> None:
+    for start in range(0, len(cards), 2):
+        cols = st.columns(2)
+        for col, card in zip(cols, cards[start : start + 2]):
+            with col:
+                st.markdown(
+                    f"""
+                    <div class="kp-card {escape(element)} kp-card-choice">
+                        <div>✦</div>
+                        <div>{escape(card)}</div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+
+
+
+def render_content_visual(content_type: str) -> None:
+    is_meditation = content_type == "meditation"
+    module_key = "meditation" if is_meditation else "rituals"
+    klass = "meditation" if is_meditation else "ritual"
+    icon = "☽" if is_meditation else "✺"
+    icon_html = module_icon_html(module_key, icon)
+    title = "Kalp Meditasyonları" if is_meditation else "Aşk Ritüelleri"
+    text = (
+        "Nefesini yavaşlat, kalbinin sesini duy. Aşağıdan bir meditasyon seçtiğinde metin burada açılacak."
+        if is_meditation
+        else "Romantik niyet, öz değer ve sakinleşme için sembolik ritüeller. Aşağıdan bir ritüel seçtiğinde tarif burada açılacak."
+    )
+    st.markdown(
+        f"""
+        <div class="kp-content-visual {klass}">
+            <div class="kp-content-visual-icon kp-content-visual-icon-asset">{icon_html}</div>
+            <div class="kp-content-visual-title">{escape(title)}</div>
+            <div class="kp-content-visual-text">{escape(text)}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+def render_safety_notice() -> None:
+    st.markdown(
+        """
+        <div class="kp-footer-disclaimer">
+            Bu uygulama eğlence ve kişisel farkındalık amaçlıdır.
+        <div class="kp-footer-disclaimer">
+            Terapi, tıbbi teşhis veya kesinlik sunmaz.
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_module_intro(module_key: str, plan: str, module_override: Optional[Dict[str, Any]] = None) -> None:
+    module = module_override or MODULES[module_key]
+    render_module_card(module_key, module, locked=False)
+
+
+def render_plan_cards(current_plan: str) -> None:
+    cols = st.columns(3)
+    for i, plan_key in enumerate(["free", "premium", "premium_plus"]):
+        plan = PLAN_CONFIG[plan_key]
+        popular_class = " kp-plan-popular" if plan_key == "premium" else ""
+        current_badge = " · Aktif" if current_plan == plan_key else ""
+        features_html = "".join([f"<div class='kp-feature'>✦ {escape(str(f))}</div>" for f in plan["features"]])
+        locked_html = "".join([f"<div class='kp-feature'>＋ {escape(str(f))}</div>" for f in plan.get("locked_features", [])])
+        with cols[i]:
+            st.markdown(
+                f"""
+                <div class="kp-plan{popular_class}">
+                    <div class="kp-badge">{escape(plan['badge'])}{current_badge}</div>
+                    <h3>{escape(plan['name'])}</h3>
+                    <div class="kp-price">{escape(plan['price'])}</div>
+                    <p style="color:rgba(242,226,202,0.72); min-height:66px; line-height:1.45;">{escape(plan['description'])}</p>
+                    <hr style="border:none; border-top:1px solid rgba(217,183,110,0.16); margin:14px 0;" />
+                    {features_html}
+                    {locked_html}
+                </div>
+                """,
+                unsafe_allow_html=True,
             )
-        )
-    if include_zodiac:
-        details["burç"] = st.selectbox("Burç", ZODIAC_SIGNS, key=f"{prefix}_sign")
-    details["doğum_saati"] = birth_time_input(prefix)
-    details["doğum_yeri"] = birth_place_input(prefix)
-    return details
-
-def page_relationship(user: Dict[str, Any], prompts: Dict[str, str], module_settings: Dict[str, Dict[str, Any]]) -> None:
-    render_module_intro("relationship", "free", module_meta("relationship", module_settings))
-    if not require_account(user):
-        return
-    render_module_access_notice(user, "relationship")
-    situation = st.text_area("İlişkindeki güncel durumu bizimle paylaş", height=210, placeholder="Aramızda son zamanlarda şöyle bir şey oluyor...")
-    question = st.text_input("En çok neyi merak ediyorsun?", placeholder="Beni seviyor mu, mesafe neden arttı, ne yapmalıyım?")
-    relationship_stage = st.selectbox("İlişki Türü", ["Flört", "İlişki", "Eski partner", "Platonik", "Karmaşık bağ"])
-    relationship_duration = st.selectbox(
-        "İlişki süresi",
-        ["Yeni tanıştık", "0-3 ay", "3-6 ay", "6-12 ay", "1-3 yıl", "3 yıldan uzun", "Ayrı/mesafeliyiz"],
-    )
-    relationship_definition = st.selectbox(
-        "İlişkinizi nasıl tanımlarsınız?",
-        [
-            "Sakin ve güvenli",
-            "Tutkulu ama inişli çıkışlı",
-            "Belirsiz ve karmaşık",
-            "Uzak/mesafeli",
-            "Kopuk ama bağ hâlâ var",
-            "Yeni umut veren bir bağ",
-        ],
-    )
-    relationship_clicked = st.button("İlişkimi yorumla")
-    relationship_consents = legal_consent_form("relationship")
-    if relationship_clicked:
-        if not validate_legal_consents(relationship_consents):
-            return
-        if not situation.strip():
-            st.warning("Durumu birkaç cümleyle anlatmalısın.")
-            return
-        run_ai_free(
-            user,
-            "relationship",
-            {
-                "bağ_türü": relationship_stage,
-                "ilişki_süresi": relationship_duration,
-                "ilişki_tanımı": relationship_definition,
-                "durum": situation,
-                "soru": question,
-            },
-            prompts,
-        )
 
 
-def page_love_fortune(user: Dict[str, Any], prompts: Dict[str, str], module_settings: Dict[str, Dict[str, Any]]) -> None:
-    render_module_intro("love_fortune", "free", module_meta("love_fortune", module_settings))
-    if not require_account(user):
-        return
-    render_module_access_notice(user, "love_fortune")
-    col1, col2 = st.columns(2)
-    with col1:
-        first_name = st.text_input("Ad")
-    with col2:
-        last_name = st.text_input("Soyad")
-    sign = st.selectbox("Burç", ZODIAC_SIGNS, key="love_fortune_sign")
-    birth_details = birth_details_form("love_fortune", include_birth_date=False, include_zodiac=False)
-    intention = st.text_area("Aşk hayatınla ilgili niyetin veya sorun nedir?", height=130)
-    love_fortune_clicked = st.button("Aşk falımı yorumla")
-    love_fortune_consents = legal_consent_form("love_fortune")
-    if love_fortune_clicked:
-        if not validate_legal_consents(love_fortune_consents):
-            return
-        payload = {"ad": first_name, "soyad": last_name, "burç": sign, **birth_details, "niyet": intention}
-        run_ai_free(user, "love_fortune", payload, prompts)
 
-
-BIRTH_CHART_PLANETS = [
-    "Güneş", "Ay", "Merkür", "Venüs", "Mars", "Jüpiter", "Satürn", "Uranüs", "Neptün", "Plüton"
-]
-
-BIRTH_CHART_ASPECT_TYPES = ["Kavuşum", "Karşıt", "Kare", "Üçgen", "Sekstil"]
-BIRTH_CHART_FOCUS_AREAS = ["Genel", "Aşk", "Kariyer", "Yaşam Amacı"]
-YILDIZNAME_FOCUS_AREAS = ["Genel", "Aşk", "Kariyer", "Para/Kısmet", "Aile", "Ruhsal Yol"]
-
-
-def _degree_number(label: str, key: str) -> float:
-    return float(st.number_input(label, min_value=0.0, max_value=29.99, value=0.0, step=0.1, key=key))
-
-
-def _birth_chart_planet_form(prefix: str = "birth_chart") -> Dict[str, Dict[str, Any]]:
-    st.markdown("#### Gezegen Konumları")
-    st.caption("Her gezegen için burç, derece ve ev bilgisini gir. Bu sekme hesaplama yapmaz; girdiğin harita verilerini derinlemesine yorumlar.")
-    planets: Dict[str, Dict[str, Any]] = {}
-    for planet in BIRTH_CHART_PLANETS:
-        col1, col2, col3, col4 = st.columns([1.25, 1.2, 0.9, 0.8])
-        with col1:
-            st.markdown(f"**{planet}**")
-        with col2:
-            sign = st.selectbox("Burç", ZODIAC_SIGNS, key=f"{prefix}_{planet}_sign", label_visibility="collapsed")
-        with col3:
-            degree = _degree_number("Derece", f"{prefix}_{planet}_degree")
-        with col4:
-            house = st.selectbox("Ev", list(range(1, 13)), key=f"{prefix}_{planet}_house", label_visibility="collapsed")
-        planets[planet] = {"burç": sign, "derece": degree, "ev": house}
-    return planets
-
-
-def _birth_chart_houses_form(planets: Dict[str, Dict[str, Any]], prefix: str = "birth_chart") -> Dict[str, Dict[str, Any]]:
-    st.markdown("#### 12 Ev Yerleşimi")
-    st.caption("Ev başlangıç burçlarını gir. Evlerin içindeki gezegenler, yukarıdaki gezegen-ev seçimlerine göre otomatik eklenir.")
-    houses: Dict[str, Dict[str, Any]] = {}
-    for row_start in range(1, 13, 3):
-        cols = st.columns(3)
-        for offset, house_no in enumerate(range(row_start, min(row_start + 3, 13))):
-            with cols[offset]:
-                cusp_sign = st.selectbox(f"{house_no}. ev başlangıç burcu", ZODIAC_SIGNS, key=f"{prefix}_house_{house_no}_cusp")
-                house_planets = [planet for planet, data in planets.items() if int(data.get("ev", 0)) == house_no]
-                if house_planets:
-                    st.caption("Gezegenler: " + ", ".join(house_planets))
-                houses[str(house_no)] = {
-                    "başlangıç_burcu": cusp_sign,
-                    "içindeki_gezegenler": house_planets,
-                }
-    return houses
-
-
-def _birth_chart_aspects_form(prefix: str = "birth_chart") -> List[Dict[str, Any]]:
-    st.markdown("#### Majör Açılar")
-    st.caption("Bildiğin majör açıları ekle. Boş bırakılan satırlar analize dahil edilmez.")
-    aspects: List[Dict[str, Any]] = []
-    aspect_planet_options = BIRTH_CHART_PLANETS + ["Kuzey Ay Düğümü", "Güney Ay Düğümü", "Şiron"]
-    for idx in range(1, 11):
-        active = st.checkbox(f"{idx}. açıyı kullan", value=(idx <= 3), key=f"{prefix}_aspect_{idx}_active")
-        if not active:
+def _result_markdown_to_html(result: str) -> str:
+    parts = []
+    in_list = False
+    for raw_line in result.strip().splitlines():
+        line = raw_line.strip()
+        if not line:
+            if in_list:
+                parts.append("</ul>")
+                in_list = False
             continue
-        col1, col2, col3, col4 = st.columns([1.2, 1.0, 1.2, 0.75])
-        with col1:
-            planet_a = st.selectbox("Gezegen 1", aspect_planet_options, key=f"{prefix}_aspect_{idx}_a", label_visibility="collapsed")
-        with col2:
-            aspect_type = st.selectbox("Açı", BIRTH_CHART_ASPECT_TYPES, key=f"{prefix}_aspect_{idx}_type", label_visibility="collapsed")
-        with col3:
-            planet_b = st.selectbox("Gezegen 2", aspect_planet_options, index=min(1, len(aspect_planet_options)-1), key=f"{prefix}_aspect_{idx}_b", label_visibility="collapsed")
-        with col4:
-            orb = float(st.number_input("Orb", min_value=0.0, max_value=12.0, value=2.0, step=0.1, key=f"{prefix}_aspect_{idx}_orb", label_visibility="collapsed"))
-        if planet_a != planet_b:
-            aspects.append({"gezegen_1": planet_a, "açı": aspect_type, "gezegen_2": planet_b, "orb": orb})
-    return aspects
+        if line.startswith("#### "):
+            if in_list:
+                parts.append("</ul>")
+                in_list = False
+            parts.append(f"<h4>{escape(line[5:].strip())}</h4>")
+        elif line.startswith("### "):
+            if in_list:
+                parts.append("</ul>")
+                in_list = False
+            parts.append(f"<h3>{escape(line[4:].strip())}</h3>")
+        elif line.startswith("## "):
+            if in_list:
+                parts.append("</ul>")
+                in_list = False
+            parts.append(f"<h3>{escape(line[3:].strip())}</h3>")
+        elif line.startswith("- "):
+            if not in_list:
+                parts.append("<ul>")
+                in_list = True
+            parts.append(f"<li>{escape(line[2:].strip())}</li>")
+        else:
+            if in_list:
+                parts.append("</ul>")
+                in_list = False
+            parts.append(f"<p>{escape(line)}</p>")
+    if in_list:
+        parts.append("</ul>")
+    return "".join(parts)
 
 
-def _node_and_chiron_form(prefix: str = "birth_chart") -> Dict[str, Any]:
-    st.markdown("#### Kadersel Eksen ve Şiron")
-    col1, col2 = st.columns(2)
-    with col1:
-        north_sign = st.selectbox("Kuzey Ay Düğümü burcu", ZODIAC_SIGNS, key=f"{prefix}_north_node_sign")
-        north_house = st.selectbox("Kuzey Ay Düğümü evi", list(range(1, 13)), key=f"{prefix}_north_node_house")
-        chiron_sign = st.selectbox("Şiron burcu", ZODIAC_SIGNS, key=f"{prefix}_chiron_sign")
-    with col2:
-        south_sign = st.selectbox("Güney Ay Düğümü burcu", ZODIAC_SIGNS, key=f"{prefix}_south_node_sign")
-        south_house = st.selectbox("Güney Ay Düğümü evi", list(range(1, 13)), key=f"{prefix}_south_node_house")
-        chiron_house = st.selectbox("Şiron evi", list(range(1, 13)), key=f"{prefix}_chiron_house")
-    return {
-        "kuzey_ay_düğümü": {"burç": north_sign, "ev": north_house},
-        "güney_ay_düğümü": {"burç": south_sign, "ev": south_house},
-        "şiron": {"burç": chiron_sign, "ev": chiron_house},
-    }
-
-
-def _birth_chart_payload_from_form() -> Dict[str, Any]:
-    st.markdown("### Doğum Haritası Bilgileri")
-    col1, col2 = st.columns(2)
-    with col1:
-        first_name = st.text_input("Ad", key="birth_chart_first_name")
-    with col2:
-        last_name = st.text_input("Soyad", key="birth_chart_last_name")
-
-    birth_date = st.date_input(
-        "Doğum tarihi",
-        value=dt.date(1995, 1, 1),
-        min_value=dt.date(1900, 1, 1),
-        max_value=dt.date.today(),
-        format="DD/MM/YYYY",
-        key="birth_chart_birth_date",
-    )
-    birth_time = birth_time_input("birth_chart")
-    birth_place = birth_place_input("birth_chart")
-    focus_area = st.selectbox("Odak alanı", BIRTH_CHART_FOCUS_AREAS, key="birth_chart_focus_area")
-
-    with st.expander("Gezegen konumlarını gir", expanded=True):
-        planets = _birth_chart_planet_form("birth_chart")
-    with st.expander("12 ev başlangıç burçlarını gir", expanded=False):
-        houses = _birth_chart_houses_form(planets, "birth_chart")
-    with st.expander("Majör açıları gir", expanded=False):
-        aspects = _birth_chart_aspects_form("birth_chart")
-    with st.expander("Ay düğümleri ve Şiron bilgilerini gir", expanded=False):
-        karmic_axis = _node_and_chiron_form("birth_chart")
-
-    return {
-        "kişisel_bilgiler": {
-            "ad": first_name,
-            "soyad": last_name,
-            "doğum_tarihi": str(birth_date),
-            "doğum_saati": birth_time,
-            "doğum_yeri": birth_place,
-        },
-        "kullanıcı_odak_alanı": focus_area,
-        "gezegen_konumları": planets,
-        "ev_yerleşimleri": houses,
-        "açılar": aspects,
-        "kuzey_ve_güney_ay_düğümleri": {
-            "kuzey": karmic_axis["kuzey_ay_düğümü"],
-            "güney": karmic_axis["güney_ay_düğümü"],
-        },
-        "şiron": karmic_axis["şiron"],
-    }
-
-
-def _birth_chart_payload_from_json(raw_json: str, focus_area: str) -> Optional[Dict[str, Any]]:
-    try:
-        data = json.loads(raw_json)
-    except Exception as exc:
-        st.warning(f"JSON okunamadı: {exc}")
-        return None
-    if not isinstance(data, dict):
-        st.warning("Harita verisi JSON nesnesi olmalı.")
-        return None
-    data["kullanıcı_odak_alanı"] = data.get("kullanıcı_odak_alanı") or focus_area
-    return data
-
-
-def build_birth_chart_prompt(payload: Dict[str, Any], prompts: Dict[str, str]) -> str:
-    admin_prompt = prompts.get("birth_chart", "")
-    payload_text = json.dumps(payload, ensure_ascii=False, indent=2, default=str)
-    return f"""
-Admin tarafından belirlenen doğum haritası yönlendirmesi:
-{admin_prompt}
-
-Sen ileri seviye astroloji analizi yapan, psikolojik derinliği yüksek bir yorumlayıcısın.
-Sana verilen doğum haritası JSON verilerini kullanarak eksiksiz, derinlikli ve tamamen kişiye özel bir "Doğum Haritası Analizi" oluştur.
-
-GİRDİ VERİSİ JSON:
-{payload_text}
-
-GENEL TALİMATLAR:
-- ASLA kısa veya yüzeysel içerik üretme.
-- HER ZAMAN detaylı, katmanlı ve derin psikolojik analiz yap.
-- Klişelerden ve genel geçer astroloji cümlelerinden kaçın.
-- Her yorum mutlaka psikolojik anlam, davranışsal yansıma, gölge yön ve gelişim/iyileştirme önerisi içersin.
-- Anlatım tutarlı olmalı; çıktı kişisel rehber kitabı gibi hissettirmeli.
-- Verilen doğum haritası verileri dışında kesin astronomik hesap iddiası kurma; yalnızca sağlanan verileri yorumla.
-
-ÇIKTI FORMATI:
-- Çıktı MUTLAKA HTML olmalı.
-- Sadece şu etiketleri kullan: <h3>, <h4>, <strong>, <p>, <ul>, <li>.
-- Markdown kullanma. Kod bloğu kullanma. HTML dışında açıklama yazma.
-- Paragraflar ferah, okunabilir ve uzun olmalı.
-
-ZORUNLU İÇERİK YAPISI:
-<h3>1. Giriş ve Büyük Üçlü Analizi</h3>
-- Güneş, Ay ve Yükselen kombinasyonunun derin analizi.
-- Kimlik, duygular ve dış dünya yansıması.
-- İçsel çatışmalar ve uyum noktaları.
-- Kişinin psikolojik çekirdek yapısı.
-
-<h3>2. Kişisel ve Sosyal Gezegenler</h3>
-<h4>Merkür</h4>
-<h4>Venüs</h4>
-<h4>Mars</h4>
-<h4>Jüpiter</h4>
-<h4>Satürn</h4>
-Her gezegen için burç etkisi, ev yerleşimi, gerçek hayattaki yansıma, gölge yön ve gelişim stratejisi açıkla.
-
-<h3>3. 12 Evin Detaylı Analizi</h3>
-1. evden 12. eve kadar her evi ayrı açıkla:
-- Yaşam alanı açıklaması.
-- Ev başlangıç burcu.
-- İçindeki gezegenler.
-- Gerçek hayata etkileri.
-
-<h3>4. Majör Açılar (Psikodinamik Analiz)</h3>
-Kavuşum, Karşıt, Kare, Üçgen ve Sekstil açılarını verilen veriye göre açıkla:
-- Davranış kalıpları.
-- İçsel gerilimler.
-- Doğal güçlü yönler.
-- Dengeleme stratejileri.
-
-<h3>5. Kadersel Eksen ve Şifa Alanı</h3>
-<h4>Kuzey Ay Düğümü</h4>
-<h4>Güney Ay Düğümü</h4>
-<h4>Şiron</h4>
-Karmik temalar, duygusal döngüler ve dönüşüm önerilerini açıkla.
-
-<h3>6. Odak Alanı Derin Analizi</h3>
-Kullanıcı odak alanı: {payload.get("kullanıcı_odak_alanı", "Genel")}
-Eğer odak Aşk ise ilişki dinamikleri, partner seçimi ve bağlanma kalıplarını;
-Kariyer ise mesleki yönelimler ve başarı stratejisini;
-Yaşam Amacı ise ruhsal yön ve potansiyel açılımı;
-Genel ise dengeli geniş analizi derinleştir.
-
-<h3>7. Final Sentez ve Stratejik Rehberlik</h3>
-- Tüm haritayı tek bir bütün olarak yorumla.
-- Net ve uygulanabilir hayat önerileri ver.
-- Kritik yaşam pattern'lerini ortaya çıkar.
-- Gerçekçi ve güçlü yönlendirme yap.
-
-TON & ÜSLUP:
-- Derin, bilge, içgörülü, empatik ama analitik.
-- Abartılı mistisizm kullanma; dengeli spiritüellik kullan.
-- Premium kişisel analiz hissi ver.
-
-KESİN KURALLAR:
-- Asla özet geçme; derinleştir.
-- Verilen hiçbir yerleşimi atlama.
-- Genelleme yapma; sağlanan veriye göre kişiselleştir.
-- Çıktı çok uzun ve detaylı olmalı.
-- İçerik 3000 kelimenin altında kalacak gibi görünürse bölümleri genişlet.
-"""
-
-
-def _clean_birth_chart_html(result: str) -> str:
-    cleaned = result.strip()
-    if cleaned.startswith("```"):
-        cleaned = cleaned.strip("`").strip()
-        if cleaned.lower().startswith("html"):
-            cleaned = cleaned[4:].strip()
-    return cleaned
-
-
-def render_birth_chart_html_result(result: str, plan: str) -> None:
-    module = MODULES.get("birth_chart", {"title": "Doğum Haritası Analizi"})
-    title = html_escape(str(module.get("title", "Doğum Haritası Analizi")))
-    plan_name = html_escape(str(PLAN_CONFIG.get(plan, PLAN_CONFIG["free"])["name"]))
-    body = _clean_birth_chart_html(result)
+def render_result_panel(module_key: str, result: str, plan: str = "free") -> None:
+    module = MODULES.get(module_key, {"title": "Yorum"})
+    title = escape(str(module.get("title", "Yorum")))
+    plan_name = escape(str(PLAN_CONFIG.get(plan, PLAN_CONFIG["free"])["name"]))
+    body = _result_markdown_to_html(result)
     st.markdown(
         f"""
         <div class="kp-result-card">
-            <div class="kp-result-title">Analizin hazır: {title}</div>
-            <div class="kp-result-meta">Plan: {plan_name} · Kişisel doğum haritası yorumu · Eğlence ve farkındalık amaçlıdır.</div>
+            <div class="kp-result-title">Yorumun hazır: {title}</div>
+            <div class="kp-result-meta">Plan: {plan_name} · Detaylı sonuç ekranı · Eğlence ve farkındalık amaçlıdır.</div>
             <div class="kp-result-body">{body}</div>
         </div>
         """,
         unsafe_allow_html=True,
     )
+    render_viral_share_box(module_key, result)
 
 
-def run_birth_chart_ai(user: Dict[str, Any], payload: Dict[str, Any], prompts: Dict[str, str]) -> None:
-    plan = "premium_plus" if is_admin(user) else "free"
+def render_viral_share_box(module_key: str, result: str) -> None:
+    module = MODULES.get(module_key, {"title": "Kalbimin Pusulası"})
+    title = str(module.get("title", "Kalbimin Pusulası"))
 
-    if user.get("is_guest"):
-        st.warning("Doğum Haritası Analizi için hesapla giriş yapmalısın.")
-        return
-
-    prompt = build_birth_chart_prompt(payload, prompts)
-    with st.spinner("Doğum haritası analizin hazırlanıyor... Bu bölüm uzun ve detaylı üretildiği için biraz zaman alabilir."):
-        try:
-            result = generate_text(prompt, plan="birth_chart", max_output_tokens=8500, temperature=0.72)
-            if st.session_state.get("save_history", False):
-                save_reading(user["email"], "birth_chart", payload, result)
-            st.success("Doğum haritası analizin hazır.")
-            render_birth_chart_html_result(result, plan)
-            render_page_rating("birth_chart", user)
-        except Exception as exc:
-            st.error(f"Doğum haritası analizi oluşturulamadı: {exc}")
-
-
-def page_birth_chart(user: Dict[str, Any], prompts: Dict[str, str], module_settings: Dict[str, Dict[str, Any]]) -> None:
-    render_module_intro("birth_chart", "premium", module_meta("birth_chart", module_settings))
-    if not require_account(user):
-        return
-    render_module_access_notice(user, "birth_chart")
-
-    st.info(
-        "Doğum Haritası talebin admin paneline düşer. "
-        "Admin; doğum bilgilerine ve sorularına göre metin yanıtı ve gerekirse görsel yükleyerek cevap verir."
+    short_result = " ".join(result.strip().split())[:230]
+    share_text = (
+        f"Kalbimin Pusulası'nda {title} yorumumu aldım. "
+        f"Bana çıkan kısa mesaj: {short_result}... "
+        f"Sen de kendi aşk pusulanı dene."
     )
 
-    info = personal_info_form("birth_chart")
-    focus_area = st.selectbox("Odak alanı", BIRTH_CHART_FOCUS_AREAS, key="birth_chart_focus_area_manual")
-
-    st.markdown("### Varsa özel soruların")
-    question_1 = st.text_input(
-        "1. soru",
-        key="birth_chart_question_1",
-        placeholder="Örn: Kariyerimde hangi yöne ilerlemeliyim?",
-    )
-    question_2 = st.text_input(
-        "2. soru",
-        key="birth_chart_question_2",
-        placeholder="Örn: İlişkilerimde tekrar eden döngü nedir?",
-    )
-    question_3 = st.text_input(
-        "3. soru",
-        key="birth_chart_question_3",
-        placeholder="Örn: Yaşam amacımla ilgili hangi potansiyeller öne çıkıyor?",
-    )
-    note = st.text_area(
-        "Eklemek istediğin özel not",
-        height=110,
-        key="birth_chart_note",
-        placeholder="Varsa hayatında özellikle yorumlanmasını istediğin dönem, konu veya hassas noktayı yazabilirsin.",
-    )
-
-    birth_chart_clicked = st.button("Doğum haritası talebimi gönder", key="submit_birth_chart", use_container_width=True)
-    birth_chart_consents = legal_consent_form("birth_chart")
-    if birth_chart_clicked:
-        if not validate_legal_consents(birth_chart_consents):
-            return
-        if not validate_personal_info(info):
-            return
-        questions = [q.strip() for q in [question_1, question_2, question_3] if q.strip()]
-        payload = {
-            "title": "Doğum Haritası Analizi",
-            "kişisel_bilgiler": info,
-            "odak_alanı": focus_area,
-            "sorular": questions,
-            "not": note,
-            "admin_notu": (
-                "Kullanıcıdan yalnızca temel doğum bilgileri ve özel sorular alınmıştır. "
-                "Gezegen konumları, evler, açılar, Ay Düğümleri ve Şiron bilgileri admin tarafından hazırlanıp yorumlanmalıdır."
-            ),
-        }
-        if not _manual_module_usage_allowed(user, "birth_chart"):
-            return
-        if not _record_manual_module_usage(user, "birth_chart"):
-            return
-        request_id = submit_manual_request(user, "birth_chart", payload)
-        show_manual_request_sent_notice(request_id)
-
-
-
-
-def page_yildizname(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]]) -> None:
-    render_module_intro("yildizname", "premium", module_meta("yildizname", module_settings))
-    if not require_account(user):
-        return
-    render_module_access_notice(user, "yildizname")
-
-    st.info(
-        "Yıldızname talebin admin paneline düşer. "
-        "Admin; doğum bilgilerine, anne adına, odak alanına ve özel sorularına göre yanıt hazırlar."
-    )
-
-    info = personal_info_form("yildizname", include_mother_name=True)
-    focus_area = st.selectbox("Odak alanı", YILDIZNAME_FOCUS_AREAS, key="yildizname_focus_area_manual")
-
-    st.markdown("### Varsa özel soruların")
-    question_1 = st.text_input(
-        "1. soru",
-        key="yildizname_question_1",
-        placeholder="Örn: Hayatımda hangi konuya odaklanmalıyım?",
-    )
-    question_2 = st.text_input(
-        "2. soru",
-        key="yildizname_question_2",
-        placeholder="Örn: Aşk/kısmet alanında beni hangi enerji bekliyor?",
-    )
-    question_3 = st.text_input(
-        "3. soru",
-        key="yildizname_question_3",
-        placeholder="Örn: Yakın dönemde dikkat etmem gereken tema nedir?",
-    )
-    note = st.text_area(
-        "Eklemek istediğin özel not",
-        height=110,
-        key="yildizname_note",
-        placeholder="Varsa özellikle yorumlanmasını istediğin dönem, konu veya hassas noktayı yazabilirsin.",
-    )
-
-    yildizname_clicked = st.button("Yıldızname talebimi gönder", key="submit_yildizname", use_container_width=True)
-    yildizname_consents = legal_consent_form("yildizname")
-    if yildizname_clicked:
-        if not validate_legal_consents(yildizname_consents):
-            return
-        if not validate_personal_info(info, require_mother_name=True):
-            return
-        questions = [q.strip() for q in [question_1, question_2, question_3] if q.strip()]
-        payload = {
-            "title": "Yıldızname",
-            "kişisel_bilgiler": info,
-            "odak_alanı": focus_area,
-            "sorular": questions,
-            "not": note,
-            "admin_notu": (
-                "Kullanıcıdan Yıldızname için ad, soyad, doğum tarihi, doğum saati, doğum yeri, anne adı, "
-                "odak alanı, varsa özel sorular ve ek not alınmıştır. Yanıt eğlence ve kişisel farkındalık "
-                "amacıyla, kesin gelecek iddiası kurmadan hazırlanmalıdır."
-            ),
-        }
-        if not _manual_module_usage_allowed(user, "yildizname"):
-            return
-        if not _record_manual_module_usage(user, "yildizname"):
-            return
-        request_id = submit_manual_request(user, "yildizname", payload)
-        show_manual_request_sent_notice(request_id)
-
-
-
-def page_mini_tarot(user: Dict[str, Any], prompts: Dict[str, str], module_settings: Dict[str, Dict[str, Any]]) -> None:
-    render_module_intro("mini_tarot", "free", module_meta("mini_tarot", module_settings))
-    if not require_account(user):
-        return
-    render_module_access_notice(user, "mini_tarot")
-    birth_details = birth_details_form("mini_tarot", include_birth_date=True, include_zodiac=True)
-    question = st.text_area("Tarota sormak istediğin niyet veya soru", height=130)
-    mini_tarot_clicked = st.button("Benim adıma kart çek ve yorumla")
-    mini_tarot_consents = legal_consent_form("mini_tarot")
-    if mini_tarot_clicked:
-        if not validate_legal_consents(mini_tarot_consents):
-            return
-        cards = select_tarot_cards(mini=True)
-        render_drawn_cards(cards, "fire")
-        run_ai_free(user, "mini_tarot", {"soru": question, "çekilen_kart": cards[0], **birth_details}, prompts)
-
-
-def page_mini_katina(user: Dict[str, Any], prompts: Dict[str, str], module_settings: Dict[str, Dict[str, Any]]) -> None:
-    render_module_intro("mini_katina", "free", module_meta("mini_katina", module_settings))
-    if not require_account(user):
-        return
-    render_module_access_notice(user, "mini_katina")
-    question = st.text_area("Katina'ya sormak istediğin konu", height=130)
-    mini_katina_clicked = st.button("Benim adıma kart çek ve yorumla")
-    mini_katina_consents = legal_consent_form("mini_katina")
-    if mini_katina_clicked:
-        if not validate_legal_consents(mini_katina_consents):
-            return
-        cards = select_katina_cards(mini=True)
-        render_drawn_cards(cards, "earth")
-        run_ai_free(user, "mini_katina", {"soru": question, "çekilen_sembol": cards[0]}, prompts)
-
-
-def page_coffee_text(user: Dict[str, Any], prompts: Dict[str, str], module_settings: Dict[str, Dict[str, Any]]) -> None:
-    render_module_intro("coffee_text", "free", module_meta("coffee_text", module_settings))
-    if not require_account(user):
-        return
-    render_module_access_notice(user, "coffee_text")
-    birth_details = birth_details_form("coffee_text", include_birth_date=True, include_zodiac=True)
-    symbols = st.text_area("Fincanda gördüğün şekilleri yaz.", height=170, placeholder="Kalbe benzeyen bir şekil, uzun bir yol, kuş gibi bir iz...")
-    intention = st.text_input("Niyetin", placeholder="Aşk hayatım, barışma, yeni başlangıç...")
-    coffee_text_clicked = st.button("Kahve falımı yorumla")
-    coffee_text_consents = legal_consent_form("coffee_text")
-    if coffee_text_clicked:
-        if not validate_legal_consents(coffee_text_consents):
-            return
-        if not symbols.strip():
-            st.warning("En az birkaç sembol yazmalısın.")
-            return
-        run_ai_free(user, "coffee_text", {"semboller": symbols, "niyet": intention, **birth_details}, prompts)
-
-
-def personal_info_form(prefix: str, include_zodiac: bool = False, include_mother_name: bool = False) -> Dict[str, Any]:
-    col1, col2 = st.columns(2)
-    with col1:
-        first_name = st.text_input("Ad", key=f"{prefix}_first")
-    with col2:
-        last_name = st.text_input("Soyad", key=f"{prefix}_last")
-
-    birth_date = st.date_input(
-        "Doğum tarihi",
-        value=dt.date(1995, 1, 1),
-        min_value=dt.date(1950, 1, 1),
-        max_value=dt.date.today(),
-        format="DD/MM/YYYY",
-        key=f"{prefix}_birth_date",
-    )
-    info = {
-        "ad": first_name,
-        "soyad": last_name,
-        "doğum_tarihi": str(birth_date),
-        "doğum_saati": birth_time_input(prefix),
-        "doğum_yeri": birth_place_input(prefix),
-    }
-    if include_mother_name:
-        info["anne_adı"] = st.text_input("Anne adı", key=f"{prefix}_mother_name").strip()
-    if include_zodiac:
-        info["burç"] = st.selectbox("Burç", ZODIAC_SIGNS, key=f"{prefix}_sign")
-    return info
-
-
-def validate_personal_info(info: Dict[str, Any], require_mother_name: bool = False) -> bool:
-    required = ["ad", "soyad", "doğum_yeri"]
-    if require_mother_name:
-        required.append("anne_adı")
-    missing = [label for label in required if not str(info.get(label, "")).strip()]
-    if missing:
-        warning_text = "Lütfen ad, soyad ve doğum yeri alanlarını doldur."
-        if require_mother_name:
-            warning_text = "Lütfen ad, soyad, doğum yeri ve anne adı alanlarını doldur."
-        st.warning(warning_text)
-        return False
-    return True
-
-
-def image_to_data_url(uploaded_file, max_side: int = 720, quality: int = 68) -> Dict[str, Any]:
-    raw = uploaded_file.getvalue()
-    mime = uploaded_file.type or "image/jpeg"
-    if Image is not None:
-        try:
-            img = Image.open(io.BytesIO(raw)).convert("RGB")
-            img.thumbnail((max_side, max_side))
-            buffer = io.BytesIO()
-            img.save(buffer, format="JPEG", quality=quality, optimize=True)
-            raw = buffer.getvalue()
-            mime = "image/jpeg"
-        except Exception:
-            pass
-    encoded = base64.b64encode(raw).decode("utf-8")
-    return {"filename": uploaded_file.name, "mime_type": mime, "data_url": f"data:{mime};base64,{encoded}", "size_bytes": len(raw)}
-
-
-def show_data_image(image_item: Optional[Dict[str, Any]]) -> None:
-    if not image_item:
-        return
-    data_url = image_item.get("data_url", "")
-    if not data_url:
-        return
-    try:
-        encoded = data_url.split(",", 1)[1]
-        st.image(base64.b64decode(encoded), caption=image_item.get("filename", "Görsel"), use_container_width=True)
-    except Exception:
-        st.caption("Görsel önizlenemedi.")
-
-
-
-def _content_image_data_url(value: Any) -> str:
-    if isinstance(value, dict):
-        return str(value.get("data_url", ""))
-    return str(value or "")
-
-
-def _content_image_alt(value: Any, fallback: str = "İçerik görseli") -> str:
-    if isinstance(value, dict):
-        return str(value.get("alt") or value.get("filename") or fallback)
-    return fallback
-
-
-def _is_content_subheading(line: str) -> bool:
-    clean = line.strip().strip(":")
-    if not clean:
-        return False
-    known = {
-        "AMAÇ", "AMAC", "NİYET", "NIYET", "HAZIRLIK", "UYGULAMA", "MALZEMELER",
-        "SÜRE", "SURE", "KAPANIŞ", "KAPANIS", "NOT", "ÖNERİ", "ONERI", "FAYDA",
-        "ADIMLAR", "MANTRA", "DUA", "RİTÜEL", "RITUEL", "MEDİTASYON", "MEDITASYON",
-    }
-    if clean.upper() in known:
-        return True
-    letters = [ch for ch in clean if ch.isalpha()]
-    return 2 <= len(clean) <= 44 and bool(letters) and clean == clean.upper()
-
-
-def _render_inline_content_html(text: str) -> str:
-    """Admin metin alaninda parcali bicimlendirme icin guvenli mini markup.
-
-    Desteklenen isaretler:
-    - **kalin**
-    - *italik*
-    - [u]alti cizili[/u]
-    - ***kalin italik***
-    """
-    from html import escape as html_escape
-
-    safe = html_escape(str(text or ""))
-    safe = re.sub(r"\[u\](.+?)\[/u\]", r'<span class="kp-inline-underline">\1</span>', safe, flags=re.S)
-    safe = re.sub(r"\*\*\*(.+?)\*\*\*", r"<strong><em>\1</em></strong>", safe, flags=re.S)
-    safe = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", safe, flags=re.S)
-    safe = re.sub(r"(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)", r"<em>\1</em>", safe, flags=re.S)
-    return safe
-
-
-def _render_content_body_html(body: str) -> str:
-    from html import escape as html_escape
-
-    parts: List[str] = []
-    paragraph_lines: List[str] = []
-
-    def flush_paragraph() -> None:
-        nonlocal paragraph_lines
-        if paragraph_lines:
-            parts.append("<p>" + "<br>".join(paragraph_lines) + "</p>")
-            paragraph_lines = []
-
-    for raw_line in str(body or "").splitlines():
-        line = raw_line.strip()
-        if not line:
-            flush_paragraph()
-            continue
-        if _is_content_subheading(line):
-            flush_paragraph()
-            parts.append(f'<div class="kp-written-subhead">{html_escape(line)}</div>')
-        else:
-            paragraph_lines.append(_render_inline_content_html(line))
-    flush_paragraph()
-    return "".join(parts) or "<p></p>"
-
-
-def _content_bool(item: Dict[str, Any], key: str, default: bool = False) -> bool:
-    value = item.get(key, default)
-    if isinstance(value, str):
-        return value.strip().lower() in {"1", "true", "yes", "evet", "on"}
-    return bool(value)
-
-
-def _safe_css_font_family(value: str) -> str:
-    # Admin panelindeki yazı tipi seçimi CSS içine güvenli şekilde yerleşsin.
-    # Bu alan artık kullanıcı ekranında da aynen uygulanır.
-    safe = re.sub(r"[^A-Za-z0-9ığüşöçİĞÜŞÖÇ ,_\-\'\"]", "", str(value or "")).strip()
-    return safe[:140] or "Inter, system-ui, sans-serif"
-
-
-def _estimate_content_html_height(item: Dict[str, Any], has_image: bool = False) -> int:
-    body = str(item.get("body", "") or "")
-    # components.html iframe yüksekliği sabit ister. İçerik uzunluğuna göre yeterli alan bırakıyoruz.
-    line_count = max(1, body.count("\n") + 1)
-    char_height = int(len(body) / 3.1)
-    line_height = line_count * 18
-    image_height = 210 if has_image else 0
-    return max(360, min(2600, 290 + char_height + line_height + image_height))
-
-
-def _estimate_content_html_height(item: Dict[str, Any], has_image: bool = False) -> int:
-    body = str(item.get("body", "") or "")
-    font_size = max(0, min(int(item.get("font_size", 17) or 17), 100))
-    title_size = max(0, min(int(item.get("title_size", 30) or 30), 100))
-    image_width = max(0, min(int(item.get("image_width", 220) or 0), 560)) if has_image else 0
-    line_count = max(1, body.count("\n") + 1)
-    # components.html iframe yuksekligi sabit ister. Metin buyuklugu, satir sayisi ve gorsel genisligine gore pay birakilir.
-    text_part = int((len(body) / 2.7) * max(font_size, 12) / 16)
-    line_part = int(line_count * max(font_size, 12) * 1.25)
-    image_part = int(image_width * 0.82) if image_width else 0
-    return max(360, min(6000, 260 + title_size + text_part + line_part + image_part))
-
-
-def _render_content_html_document(content_html: str, height: int) -> None:
-    # Streamlit Markdown bazen HTML'i duz metin gibi gosterebildigi icin icerik kartlarini
-    # iframe icinde gercek HTML olarak render ediyoruz. Boylece <div class=...> kullaniciya gorunmez.
-    html_doc = f"""
-    <!doctype html>
-    <html lang="tr">
-    <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <link rel="preconnect" href="https://fonts.googleapis.com">
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;500;600;700&family=Cormorant+Garamond:wght@500;600;700&family=Dancing+Script:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800;900&family=Patrick+Hand&display=swap" rel="stylesheet">
-        <style>
-            :root {{
-                --kp-gold: #d9b76e;
-                --kp-gold-2: #fff1b8;
-                --kp-text: #fff8e8;
-                --kp-muted: rgba(242, 226, 202, 0.72);
-            }}
-            html, body {{
-                margin: 0;
-                padding: 0;
-                background: transparent;
-                color: var(--kp-text);
-                overflow: hidden;
-                font-family: Inter, system-ui, sans-serif;
-            }}
-            .kp-written-template {{
-                box-sizing: border-box;
-                width: 100%;
-                padding: 22px;
-                border-radius: 26px;
-                border: 1px solid rgba(255,241,184,0.24);
-                background: linear-gradient(145deg, rgba(255,255,255,0.12), rgba(255,255,255,0.04)), rgba(12,15,44,0.74);
-                box-shadow: 0 22px 52px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.11);
-                margin: 0;
-                color: var(--kp-text);
-                line-height: 1.72;
-                overflow: hidden;
-                position: relative;
-                isolation: isolate;
-            }}
-            .kp-written-template::before {{
-                content: "";
-                position: absolute;
-                inset: 0;
-                pointer-events: none;
-                background:
-                    radial-gradient(circle at 14% 12%, rgba(255,241,184,0.13), transparent 30%),
-                    radial-gradient(circle at 86% 88%, rgba(123,75,214,0.14), transparent 32%);
-                z-index: -1;
-            }}
-            .kp-written-text {{ position: relative; z-index: 1; }}
-            .kp-tag {{
-                display: inline-flex;
-                align-items: center;
-                margin: 0 0 10px;
-                padding: 5px 10px;
-                border-radius: 999px;
-                color: var(--kp-gold-2);
-                background: rgba(217,183,110,0.12);
-                border: 1px solid rgba(255,241,184,0.18);
-                font-size: 0.76rem;
-                font-weight: 900;
-            }}
-            .kp-written-title {{
-                color: var(--kp-gold-2);
-                line-height: 1.08;
-                margin: 8px 0 14px;
-                text-shadow: 0 12px 28px rgba(0,0,0,0.32), 0 0 20px rgba(217,183,110,0.10);
-            }}
-            .kp-written-body {{
-                color: rgba(255,248,232,0.93);
-                line-height: 1.72;
-            }}
-            .kp-written-body p {{
-                margin: 0 0 0.88rem;
-                color: inherit;
-                line-height: inherit;
-                font: inherit;
-            }}
-            .kp-written-title strong,
-            .kp-written-body strong {{ font-weight: 900; }}
-            .kp-written-title em,
-            .kp-written-body em {{ font-style: italic; }}
-            .kp-inline-underline {{ text-decoration: underline; text-underline-offset: 0.16em; }}
-            .kp-written-subhead {{
-                display: inline-flex;
-                align-items: center;
-                gap: 6px;
-                margin: 0.82rem 0 0.32rem;
-                padding: 4px 9px;
-                border-radius: 999px;
-                color: var(--kp-gold-2);
-                background: rgba(217,183,110,0.12);
-                border: 1px solid rgba(255,241,184,0.18);
-                font-size: 0.74em;
-                font-weight: 900;
-                letter-spacing: 0.12em;
-                text-transform: uppercase;
-                clear: none;
-            }}
-            .kp-written-image {{
-                width: min(var(--kp-written-image-width, 220px), 96%);
-                max-width: 96%;
-                margin: 0;
-                padding: 0;
-            }}
-            .kp-written-image img {{
-                display: block;
-                width: 100%;
-                height: auto;
-                border-radius: 18px;
-                border: 1px solid rgba(255,241,184,0.24);
-                box-shadow: 0 18px 40px rgba(0,0,0,0.34), inset 0 1px 0 rgba(255,255,255,0.12);
-                background: rgba(255,255,255,0.04);
-            }}
-            .kp-image-float-left {{
-                float: left;
-                margin: 0.22rem 1.08rem 0.72rem 0;
-                shape-outside: inset(0 round 18px);
-            }}
-            .kp-image-float-right {{
-                float: right;
-                margin: 0.22rem 0 0.72rem 1.08rem;
-                shape-outside: inset(0 round 18px);
-            }}
-            .kp-image-center {{
-                width: min(var(--kp-written-image-width, 260px), 96%);
-                margin: 0.35rem auto 1rem;
-            }}
-            .kp-written-clear {{ clear: both; }}
-            @media (max-width: 620px) {{
-                .kp-written-template {{ padding: 18px; }}
-                .kp-written-image,
-                .kp-image-float-left,
-                .kp-image-float-right,
-                .kp-image-center {{
-                    float: none !important;
-                    width: min(var(--kp-written-image-width, 240px), 94%) !important;
-                    margin: 0 auto 1rem !important;
-                    shape-outside: none !important;
-                }}
-            }}
-        </style>
-    </head>
-    <body>{content_html}</body>
-    </html>
-    """
-    components.html(html_doc, height=int(height), scrolling=False)
-
-
-def render_styled_content_item(item: Dict[str, Any]) -> None:
-    from html import escape as html_escape
-
-    template = str(item.get("template", "mistik_kart") or "mistik_kart")
-    layout = str(item.get("image_layout", "image_left_wrap") or "image_left_wrap")
-    font_family = _safe_css_font_family(str(item.get("font_family", "Inter, system-ui, sans-serif") or "Inter, system-ui, sans-serif"))
-    font_size = max(0, min(int(item.get("font_size", 16) or 0), 100))
-    title_size = max(0, min(int(item.get("title_size", 28) or 0), 100))
-    image_width = max(0, min(int(item.get("image_width", 220) or 0), 560))
-
-    title = _render_inline_content_html(str(item.get("title", "") or ""))
-    category = html_escape(str(item.get("category", "") or ""))
-    body_html = _render_content_body_html(str(item.get("body", "") or ""))
-    category_html = f"<span class='kp-tag'>{category}</span>" if category else ""
-
-    image_url = _content_image_data_url(item.get("image"))
-    image_alt = html_escape(_content_image_alt(item.get("image"), str(item.get("title", "İçerik görseli"))), quote=True)
-    image_html = ""
-    if image_url and image_width > 0:
-        safe_image = html_escape(image_url, quote=True)
-        image_html = (
-            f'<figure class="kp-written-image" style="--kp-written-image-width:{image_width}px;">'
-            f'<img src="{safe_image}" alt="{image_alt}" loading="lazy">'
-            f'</figure>'
+    # Uygulamanın yayındaki adresini Streamlit Secrets üzerinden alır.
+    # Secrets içine APP_PUBLIC_URL eklemezsen aşağıdaki varsayılan adres kullanılır.
+    app_url = str(
+        st.secrets.get(
+            "APP_PUBLIC_URL",
+            "https://kalbimin-pusulasi.streamlit.app",
         )
+    ).strip()
 
-    image_class = ""
-    floating_image = ""
-    after_header = ""
-    after_body = ""
-    if image_html:
-        if layout in {"image_left_wrap", "text_right_image_left", "image_left"}:
-            image_class = " has-float-image image-left-wrap"
-            floating_image = image_html.replace('class="kp-written-image"', 'class="kp-written-image kp-image-float-left"')
-        elif layout in {"image_right_wrap", "text_left_image_right", "image_right"}:
-            image_class = " has-float-image image-right-wrap"
-            floating_image = image_html.replace('class="kp-written-image"', 'class="kp-written-image kp-image-float-right"')
-        elif layout in {"image_top", "image_center_top"}:
-            image_class = " image-top"
-            after_header = image_html.replace('class="kp-written-image"', 'class="kp-written-image kp-image-center"')
-        elif layout in {"image_bottom", "text_top_image_bottom"}:
-            image_class = " image-bottom"
-            after_body = image_html.replace('class="kp-written-image"', 'class="kp-written-image kp-image-center"')
-        else:
-            image_class = " image-top"
-            after_header = image_html.replace('class="kp-written-image"', 'class="kp-written-image kp-image-center"')
+    encoded_text = quote(share_text)
+    encoded_url = quote(app_url, safe="")
+    encoded_text_with_url = quote(f"{share_text} {app_url}")
 
-    content_html = f"""
-    <div class="kp-written-template kp-template-{html_escape(template, quote=True)}{image_class}"
-         style="font-family:{font_family}; font-size:{font_size}px;">
-        <div class="kp-written-text">
-            {floating_image}
-            {category_html}
-            <div class="kp-written-title"
-                 style="font-family:{font_family}; font-size:{title_size}px; font-weight:700; font-style:normal; text-decoration:none;">
-                {title}
-            </div>
-            {after_header}
-            <div class="kp-written-body"
-                 style="font-family:{font_family}; font-size:{font_size}px; font-weight:500; font-style:normal; text-decoration:none;">
-                {body_html}
-            </div>
-            {after_body}
-        </div>
-        <div class="kp-written-clear"></div>
-    </div>
-    """
-    _render_content_html_document(content_html, _estimate_content_html_height(item, has_image=bool(image_html)))
+    whatsapp_url = f"https://wa.me/?text={encoded_text_with_url}"
+    x_url = f"https://twitter.com/intent/tweet?text={encoded_text}&url={encoded_url}"
+    facebook_url = f"https://www.facebook.com/sharer/sharer.php?u={encoded_url}&quote={encoded_text}"
 
+    # Instagram web tarafında WhatsApp/X/Facebook gibi doğrudan metin paylaşım linki vermez.
+    # Bu yüzden Instagram butonu Instagram'ı açar; kullanıcı sonucu hikaye/gönderi olarak paylaşabilir.
+    instagram_url = "https://www.instagram.com/"
 
-def _svg_data_uri(svg: str) -> str:
-    encoded = base64.b64encode(svg.encode("utf-8")).decode("utf-8")
-    return f"data:image/svg+xml;base64,{encoded}"
-
-
-def _default_card_back_svg_uri(deck_key: str = "tarot") -> str:
-    title = "TAROT" if deck_key == "tarot" else "KATINA"
-    svg = f'''
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 240">
-      <defs>
-        <radialGradient id="g" cx="50%" cy="38%" r="70%">
-          <stop offset="0" stop-color="#46306f"/>
-          <stop offset="0.55" stop-color="#151437"/>
-          <stop offset="1" stop-color="#070914"/>
-        </radialGradient>
-        <linearGradient id="gold" x1="0" x2="1" y1="0" y2="1">
-          <stop offset="0" stop-color="#fff1b8"/>
-          <stop offset="1" stop-color="#b8873a"/>
-        </linearGradient>
-      </defs>
-      <rect width="160" height="240" rx="14" fill="url(#g)"/>
-      <rect x="10" y="10" width="140" height="220" rx="11" fill="none" stroke="url(#gold)" stroke-width="2" opacity=".88"/>
-      <rect x="22" y="22" width="116" height="196" rx="9" fill="none" stroke="#d9b76e" stroke-width="1" opacity=".45"/>
-      <circle cx="80" cy="118" r="42" fill="none" stroke="#d9b76e" stroke-width="1.6" opacity=".78"/>
-      <path d="M80 45 L91 93 L126 120 L91 147 L80 195 L69 147 L34 120 L69 93 Z" fill="none" stroke="#fff1b8" stroke-width="1.6" opacity=".85"/>
-      <circle cx="80" cy="120" r="13" fill="#d9b76e" opacity=".25"/>
-      <text x="80" y="124" text-anchor="middle" font-family="Georgia,serif" font-size="16" fill="#fff1b8" font-weight="700">☽</text>
-      <text x="80" y="207" text-anchor="middle" font-family="Georgia,serif" font-size="13" fill="#fff1b8" font-weight="700">{title}</text>
-    </svg>
-    '''
-    return _svg_data_uri(svg)
-
-
-def _card_front_svg_uri(card_name: str, order: int, element: str = "fire") -> str:
-    safe_name = html_escape(str(card_name))
-    palette = {
-        "fire": ("#2b123e", "#7b4bd6", "#d9b76e"),
-        "earth": ("#1a2032", "#365b46", "#d9b76e"),
-        "water": ("#091b37", "#236cb2", "#fff1b8"),
-        "air": ("#11153d", "#6f4bd5", "#fff1b8"),
-    }.get(element, ("#151437", "#46306f", "#d9b76e"))
-    bg1, bg2, gold = palette
-    symbol = "✧" if element == "fire" else ("☽" if element == "earth" else "✦")
-    svg = f'''
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 270">
-      <defs>
-        <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
-          <stop offset="0" stop-color="{bg1}"/>
-          <stop offset="1" stop-color="{bg2}"/>
-        </linearGradient>
-        <radialGradient id="glow" cx="50%" cy="35%" r="70%">
-          <stop offset="0" stop-color="{gold}" stop-opacity=".28"/>
-          <stop offset="1" stop-color="{gold}" stop-opacity="0"/>
-        </radialGradient>
-      </defs>
-      <rect width="180" height="270" rx="16" fill="url(#bg)"/>
-      <rect width="180" height="270" rx="16" fill="url(#glow)"/>
-      <rect x="10" y="10" width="160" height="250" rx="12" fill="none" stroke="{gold}" stroke-width="2" opacity=".88"/>
-      <rect x="21" y="21" width="138" height="228" rx="10" fill="none" stroke="#fff1b8" stroke-width="1" opacity=".32"/>
-      <text x="90" y="39" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-size="13" fill="#fff1b8" font-weight="800">{order}. KART</text>
-      <circle cx="90" cy="112" r="42" fill="none" stroke="{gold}" stroke-width="2" opacity=".70"/>
-      <text x="90" y="126" text-anchor="middle" font-family="Georgia,serif" font-size="48" fill="#fff1b8" font-weight="700">{symbol}</text>
-      <foreignObject x="20" y="172" width="140" height="64">
-        <div xmlns="http://www.w3.org/1999/xhtml" style="height:64px;display:flex;align-items:center;justify-content:center;text-align:center;color:#fff1b8;font-family:Georgia,serif;font-size:18px;font-weight:700;line-height:1.08;">
-          {safe_name}
-        </div>
-      </foreignObject>
-    </svg>
-    '''
-    return _svg_data_uri(svg)
-
-
-
-def _render_selected_cards(chosen_cards: List[str], element: str) -> None:
-    if not chosen_cards:
-        return
-    cards_html = []
-    for order, card_name in enumerate(chosen_cards, start=1):
-        uri = _card_front_svg_uri(card_name, order, element)
-        cards_html.append(f'<img class="kp-open-card-img" src="{uri}" alt="{html_escape(card_name)}">')
     st.markdown(
         f"""
-        <div class="kp-selected-card-panel">
-            <div class="kp-selected-card-title">Seçtiğin kartlar</div>
-            <div class="kp-open-card-grid">{''.join(cards_html)}</div>
+        <div class="kp-share-card">
+            <div class="kp-section-kicker">Paylaş ve arkadaşını davet et</div>
+            <div class="kp-login-note">
+                Yorumunu sosyal medyada paylaşabilir veya arkadaşlarını Kalbimin Pusulası'na davet edebilirsin.
+            </div>
+            <div class="kp-share-links">
+                <a href="{whatsapp_url}" target="_blank" rel="noopener noreferrer">WhatsApp</a>
+                <a href="{x_url}" target="_blank" rel="noopener noreferrer">X</a>
+                <a href="{facebook_url}" target="_blank" rel="noopener noreferrer">Facebook</a>
+                <a href="{instagram_url}" target="_blank" rel="noopener noreferrer">Instagram</a>
+            </div>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
 
-def _clear_old_deck_query_params(deck_key: str) -> None:
-    """Remove old link-based card pick params so card clicks cannot route away."""
-    _query_delete(f"{deck_key}_pick")
-
-
-def _select_deck_card(selected_state_key: str, deck_key: str, idx: int, required_count: int) -> None:
-    current_selected = list(st.session_state.get(selected_state_key, []))
-    if idx not in current_selected and len(current_selected) < required_count:
-        current_selected.append(idx)
-        st.session_state[selected_state_key] = current_selected
-    st.session_state["current_page"] = deck_key
-
-
-def closed_card_deck_selector(deck_key: str, card_pool: List[str], required_count: int, element: str = "fire") -> List[str]:
-    deck_state_key = f"{deck_key}_closed_deck"
-    selected_state_key = f"{deck_key}_selected_indices"
-    page_state_key = f"{deck_key}_deck_page"
-
-    st.session_state["current_page"] = deck_key
-    _clear_old_deck_query_params(deck_key)
-
-    if deck_state_key not in st.session_state or len(st.session_state.get(deck_state_key, [])) != len(card_pool):
-        st.session_state[deck_state_key] = random.sample(card_pool, len(card_pool))
-        st.session_state[selected_state_key] = []
-        st.session_state[page_state_key] = 0
-
-    deck = st.session_state[deck_state_key]
-    selected_indices = list(st.session_state.get(selected_state_key, []))
-    chosen_cards = [deck[i] for i in selected_indices][:required_count]
-
-    st.caption(
-        f"Kapalı desteden {required_count} kart seç. Seçim tamamlandığında kapalı deste kapanır ve seçtiğin kartlar açılır."
-    )
-
-    if len(chosen_cards) >= required_count:
-        _render_selected_cards(chosen_cards, element)
-    else:
-        card_uri = (
-            asset_data_uri("Tarot_Kartları", max_side=48, quality=42)
-            or asset_data_uri("Tarot_Kartlari", max_side=48, quality=42)
-            or _default_card_back_svg_uri(deck_key)
-        )
-
-        st.markdown(
-            f"""
-            <style>
-            .kp-deck-button-scope div.stButton > button {{
-                background-image: url("{card_uri}") !important;
-            }}
-            </style>
-            """,
-            unsafe_allow_html=True,
-        )
-
-        cards_per_page = 24
-        total_pages = max((len(deck) + cards_per_page - 1) // cards_per_page, 1)
-        current_page = int(st.session_state.get(page_state_key, 0))
-        current_page = max(0, min(current_page, total_pages - 1))
-        st.session_state[page_state_key] = current_page
-
-        start_idx = current_page * cards_per_page
-        end_idx = min(start_idx + cards_per_page, len(deck))
-        visible_indexes = list(range(start_idx, end_idx))
-
-        st.caption(
-            f"Seçilen kart sayısı: {len(selected_indices)}/{required_count} · "
-            f"Destenin {current_page + 1}/{total_pages}. bölümü"
-        )
-
-        nav_col1, nav_col2, nav_col3 = st.columns([1, 1.4, 1])
-        with nav_col1:
-            if st.button("← Önceki", key=f"{deck_key}_prev_page", disabled=current_page <= 0, use_container_width=True):
-                st.session_state[page_state_key] = max(current_page - 1, 0)
-                st.rerun()
-        with nav_col2:
-            st.markdown(
-                f"<div style='text-align:center; color:rgba(255,241,184,0.78); font-weight:800; padding-top:8px;'>"
-                f"{start_idx + 1}-{end_idx} / {len(deck)} kart"
-                f"</div>",
-                unsafe_allow_html=True,
-            )
-        with nav_col3:
-            if st.button("Sonraki →", key=f"{deck_key}_next_page", disabled=current_page >= total_pages - 1, use_container_width=True):
-                st.session_state[page_state_key] = min(current_page + 1, total_pages - 1)
-                st.rerun()
-
-        safe_card_uri = html_escape(card_uri, quote=True)
-
-        for row_start in range(0, len(visible_indexes), 12):
-            cols = st.columns(12, gap="small")
-            for col_offset, idx in enumerate(visible_indexes[row_start : row_start + 12]):
-                with cols[col_offset]:
-                    already_selected = idx in selected_indices
-                    disabled = already_selected or len(selected_indices) >= required_count
-                    selected_class = " selected" if already_selected else ""
-
-                    st.markdown(
-                        f'<div class="kp-card-slot-wrap">'
-                        f'<div class="kp-card-slot{selected_class}" '
-                        f'style="background-image:url(&quot;{safe_card_uri}&quot;);"></div>'
-                        f'</div>',
-                        unsafe_allow_html=True,
-                    )
-
-                    st.button(
-                        " ",
-                        key=f"{deck_key}_card_btn_{idx}",
-                        disabled=disabled,
-                        use_container_width=True,
-                        on_click=_select_deck_card,
-                        args=(selected_state_key, deck_key, idx, required_count),
-                    )
-
-    if st.button("Desteyi sıfırla", key=f"{deck_key}_reset", use_container_width=True):
-        st.session_state.pop(deck_state_key, None)
-        st.session_state.pop(selected_state_key, None)
-        st.session_state.pop(page_state_key, None)
-        _clear_old_deck_query_params(deck_key)
-        st.session_state["current_page"] = deck_key
-        st.rerun()
-
-    final_selected = list(st.session_state.get(selected_state_key, []))[:required_count]
-    return [deck[i] for i in final_selected]
-
-
-def _reset_deck_selection(deck_key: str) -> None:
-    for suffix in ["closed_deck", "selected_indices", "deck_page"]:
-        st.session_state.pop(f"{deck_key}_{suffix}", None)
-    _clear_old_deck_query_params(deck_key)
-
-
-def _manual_module_usage_allowed(user: Dict[str, Any], module_key: str) -> bool:
-    return _check_access_or_warn(user, module_key)
-
-
-def _record_manual_module_usage(user: Dict[str, Any], module_key: str) -> bool:
-    return _consume_access_or_warn(user, module_key)
-
-
-
-
-MANUAL_REQUEST_SENT_NOTICE = "Talebiniz yorumcularımıza gönderilmiş olup 60 dakika içerisinde yorumunuz gönderilecektir."
-
-
-def show_manual_request_sent_notice(request_id: str) -> None:
-    st.success(MANUAL_REQUEST_SENT_NOTICE)
-    st.caption(f"Talep no: {request_id}")
-
-def _manual_cards_ready(deck_key: str, info: Dict[str, Any]) -> bool:
-    ready_key = f"{deck_key}_ready_for_cards"
-    if not bool(st.session_state.get(ready_key, False)):
-        if st.button("Bilgilerimi onaylıyorum. Kart seçimine geç", key=f"{deck_key}_start_cards", use_container_width=True):
-            if not validate_personal_info(info):
-                return False
-            st.session_state[ready_key] = True
-            _reset_deck_selection(deck_key)
-            st.rerun()
-        return False
-
-    if st.button("Bilgileri düzenle", key=f"{deck_key}_edit_info", use_container_width=True):
-        st.session_state[ready_key] = False
-        _reset_deck_selection(deck_key)
-        st.rerun()
-    return True
-
-
-def page_manual_tarot(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]]) -> None:
-    render_module_intro("tarot", "free", module_meta("tarot", module_settings))
-    if not require_account(user):
-        return
-    render_module_access_notice(user, "tarot")
-    info = personal_info_form("tarot", include_zodiac=True)
-    question = st.text_area("Tarot için niyetin veya sorun", height=120, key="tarot_question")
-    tarot_consents = legal_consent_form("tarot")
-
-    if not _manual_cards_ready("tarot", info):
-        return
-
-    cards = closed_card_deck_selector("tarot", TAROT_CARDS, 7, "fire")
-    tarot_clicked = st.button("Talebimi admin paneline gönder", key="submit_tarot")
-    if tarot_clicked:
-        if not validate_legal_consents(tarot_consents):
-            return
-        if not validate_personal_info(info):
-            return
-        if len(cards) != 7:
-            st.warning("Lütfen kapalı desteden 7 tarot kartı seç.")
-            return
-        if not _manual_module_usage_allowed(user, "tarot"):
-            return
-        payload = {"title": "Tarot Falı", "kişisel_bilgiler": info, "soru": question, "çekilen_kartlar": cards}
-        if not _record_manual_module_usage(user, "tarot"):
-            return
-        request_id = submit_manual_request(user, "tarot", payload)
-        show_manual_request_sent_notice(request_id)
-
-
-def page_manual_katina(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]]) -> None:
-    render_module_intro("katina", "free", module_meta("katina", module_settings))
-    if not require_account(user):
-        return
-    render_module_access_notice(user, "katina")
-    info = personal_info_form("katina", include_zodiac=True)
-    question = st.text_area("Katina için niyetin veya sorun", height=120, key="katina_question")
-    katina_consents = legal_consent_form("katina")
-
-    if not _manual_cards_ready("katina", info):
-        return
-
-    cards = closed_card_deck_selector("katina", KATINA_CARDS, 7, "earth")
-    katina_clicked = st.button("Talebimi admin paneline gönder", key="submit_katina")
-    if katina_clicked:
-        if not validate_legal_consents(katina_consents):
-            return
-        if not validate_personal_info(info):
-            return
-        if len(cards) != 7:
-            st.warning("Lütfen kapalı desteden 7 katina kartı seç.")
-            return
-        if not _manual_module_usage_allowed(user, "katina"):
-            return
-        payload = {"title": "Katina Falı", "kişisel_bilgiler": info, "soru": question, "çekilen_kartlar": cards}
-        if not _record_manual_module_usage(user, "katina"):
-            return
-        request_id = submit_manual_request(user, "katina", payload)
-        show_manual_request_sent_notice(request_id)
-
-
-def page_coffee_image(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]]) -> None:
-    render_module_intro("coffee_image", "free", module_meta("coffee_image", module_settings))
-    if not require_account(user):
-        return
-    render_module_access_notice(user, "coffee_image")
-    info = personal_info_form("coffee_image", include_zodiac=True)
-    note = st.text_area("Varsa niyetini yaz", height=100, placeholder="Aşk hayatımla ilgili bir işaret görmek istiyorum...")
-
-    st.markdown("### Fincan görselleri")
-    st.caption("Karelere tıklayarak en az 1, en fazla 5 fincan görseli yükleyebilirsin.")
-    st.markdown(
-        """
-        <style>
-        /* Bu stil yalnızca Kahve Falı sayfasında basılır. File uploader içindeki Upload/Browse metnini gizler. */
-        [data-testid="stFileUploader"] section {
-            min-height: 82px !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            padding: 0 !important;
-            cursor: pointer !important;
-        }
-        [data-testid="stFileUploader"] section div {
-            font-size: 0 !important;
-            line-height: 0 !important;
-        }
-        [data-testid="stFileUploader"] section button {
-            font-size: 0 !important;
-            color: transparent !important;
-            width: 56px !important;
-            height: 56px !important;
-            border-radius: 14px !important;
-            padding: 0 !important;
-        }
-        [data-testid="stFileUploader"] section button::after {
-            content: "+" !important;
-            display: inline-flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            color: #120d23 !important;
-            font-size: 1.6rem !important;
-            font-weight: 900 !important;
-            line-height: 1 !important;
-        }
-        [data-testid="stFileUploader"] small,
-        [data-testid="stFileUploader"] [data-testid="stFileUploaderDropzoneInstructions"] {
-            display: none !important;
-            visibility: hidden !important;
-        }
-        .kp-coffee-slot-title {
-            text-align: center;
-            margin: 0 0 8px;
-            color: var(--kp-gold-2);
-            font-weight: 900;
-            font-size: 0.78rem;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
-    uploaded_files = []
-    slot_cols = st.columns(5)
-    for i, col in enumerate(slot_cols, start=1):
-        with col:
-            st.markdown(f'<div class="kp-coffee-slot-title">☕ Kare {i}</div>', unsafe_allow_html=True)
-            file = st.file_uploader(
-                f"Kare {i}",
-                type=["png", "jpg", "jpeg", "webp"],
-                key=f"coffee_image_slot_{i}",
-                label_visibility="collapsed",
-            )
-            if file:
-                uploaded_files.append(file)
-                st.image(file, caption=f"Kare {i}", use_container_width=True)
-
-    coffee_image_clicked = st.button("Kahve falı talebimi gönder", key="submit_coffee_image")
-    coffee_image_consents = legal_consent_form("coffee_image")
-    if coffee_image_clicked:
-        if not validate_legal_consents(coffee_image_consents):
-            return
-        if not validate_personal_info(info):
-            return
-        if not uploaded_files:
-            st.warning("En az bir fincan görseli yüklemelisin.")
-            return
-        images = [image_to_data_url(file) for file in uploaded_files]
-        payload = {"title": "Kahve Falı (Resim Yüklemeli)", "kişisel_bilgiler": info, "niyet": note, "görseller": images}
-        if not _manual_module_usage_allowed(user, "coffee_image"):
-            return
-        if not _record_manual_module_usage(user, "coffee_image"):
-            return
-        request_id = submit_manual_request(user, "coffee_image", payload)
-        show_manual_request_sent_notice(request_id)
-
-
-def page_dream(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]]) -> None:
-    render_module_intro("dream", "free", module_meta("dream", module_settings))
-    if not require_account(user):
-        return
-    render_module_access_notice(user, "dream")
-    info = personal_info_form("dream")
-    dream_text = st.text_area("Gördüğün rüyayı anlat", height=210)
-    dream_clicked = st.button("Rüya tabiri talebimi gönder", key="submit_dream")
-    dream_consents = legal_consent_form("dream")
-    if dream_clicked:
-        if not validate_legal_consents(dream_consents):
-            return
-        if not validate_personal_info(info):
-            return
-        if not dream_text.strip():
-            st.warning("Rüyanı metin olarak yazmalısın.")
-            return
-        payload = {"title": "Rüya Tabirleri", "kişisel_bilgiler": info, "rüya": dream_text}
-        if not _manual_module_usage_allowed(user, "dream"):
-            return
-        if not _record_manual_module_usage(user, "dream"):
-            return
-        request_id = submit_manual_request(user, "dream", payload)
-        show_manual_request_sent_notice(request_id)
-
-
-def page_soulmate(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]]) -> None:
-    render_module_intro("soulmate", "free", module_meta("soulmate", module_settings))
-    if not require_account(user):
-        return
-    render_module_access_notice(user, "soulmate")
-    info = personal_info_form("soulmate")
-    note = st.text_area("Varsa özel notun", height=100)
-    soulmate_clicked = st.button("Ruh eşi çizimi talebimi gönder", key="submit_soulmate")
-    soulmate_consents = legal_consent_form("soulmate")
-    if soulmate_clicked:
-        if not validate_legal_consents(soulmate_consents):
-            return
-        if not validate_personal_info(info):
-            return
-        payload = {"title": "Ruh Eşi Çizimi", "kişisel_bilgiler": info, "not": note}
-        if not _manual_module_usage_allowed(user, "soulmate"):
-            return
-        if not _record_manual_module_usage(user, "soulmate"):
-            return
-        request_id = submit_manual_request(user, "soulmate", payload)
-        show_manual_request_sent_notice(request_id)
-
-
-def page_content(content_type: str, module_key: str, module_settings: Dict[str, Dict[str, Any]]) -> None:
-    render_module_intro(module_key, "free", module_meta(module_key, module_settings))
-    # Meditasyon/Rituel sayfalarinda ikinci tanitim kutusu gosterilmez.
-    # Sadece modul karti (Meditasyonlar / Ritueller) kalir.
-    items = get_content_items(content_type)
-    if not items:
-        st.info("Henüz içerik eklenmemiş.")
-        return
-
-    label = "Meditasyon seç" if content_type == "meditation" else "Ritüel seç"
-    placeholder = "Bir içerik seç..."
-    options = {f"{item.get('title', 'İçerik')} · {item.get('category', '')}": item for item in items}
-    selected_label = st.selectbox(label, [placeholder] + list(options.keys()))
-    if selected_label == placeholder:
-        st.info("Bir başlık seçtiğinde metin burada açılacak.")
-        return
-
-    item = options[selected_label]
-    render_styled_content_item(item)
-
-def render_inbox_message_list(user: Dict[str, Any], context_key: str = "inbox") -> None:
-    items = list_inbox(user)
-    if not items:
-        st.info("Henüz gelen kutunda mesaj yok.")
-        return
-
-    for idx, item in enumerate(items, start=1):
-        title = str(item.get("title") or "Admin mesajı")
-        message = str(item.get("message") or "")
-        preview = message.strip().replace("\n", " ")[:90]
-        label = f"✉ {title}"
-        with st.expander(label, expanded=False):
-            st.caption(f"Mesaj #{idx}")
-            if preview:
-                suffix = "..." if len(message) > 90 else ""
-                st.markdown(
-                    f"<div class='kp-inbox-preview'>{html_escape(preview)}{suffix}</div>",
-                    unsafe_allow_html=True,
-                )
-            st.markdown(
-                f"""
-                <div class="kp-inbox-card kp-inbox-card-detail">
-                    <span class="kp-tag">Admin mesajı</span>
-                    <h3>{html_escape(title)}</h3>
-                    <p>{html_escape(message)}</p>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-            show_data_image(item.get("image"))
-            response_module_key = str(item.get("request_type") or "")
-            if response_module_key in MODULES:
-                render_page_rating(response_module_key, user, context_id=str(item.get("id", "")))
-
-
-
-def page_feedback(user: Dict[str, Any]) -> None:
-    if not require_account(user):
-        return
-
-    render_section_header(
-        "İstek / Öneri / Şikayet",
-        "Sizi Dinliyoruz",
-        kicker="Geri Bildirim",
-    )
-    st.markdown(
-        """
-        <div class="kp-admin-card">
-            <strong>Görüşleriniz bizim için değerlidir</strong><br>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-    category = st.selectbox(
-        "Konu türü",
-        ["İstek", "Öneri", "Şikayet"],
-        key="feedback_category",
-    )
-    subject = st.text_input(
-        "Kısa başlık",
-        key="feedback_subject",
-        placeholder="Örn: Ana sayfa menüsü hakkında",
-    )
-    message = st.text_area(
-        "Mesajın",
-        height=150,
-        key="feedback_message",
-        placeholder="İsteğini, önerini veya şikayetini buraya yazabilirsin.",
-    )
-    feedback_clicked = st.button("Gönder", key="feedback_submit_btn", use_container_width=True)
-    feedback_consents = legal_consent_form("feedback")
-    if feedback_clicked:
-        if not validate_legal_consents(feedback_consents):
-            return
-        if not message.strip():
-            st.warning("Mesaj alanı boş olamaz.")
-            return
-        try:
-            feedback_id = submit_user_feedback(user, category, subject, message)
-            st.success(f"Mesajın iletildi. Kayıt no: {feedback_id}")
-        except Exception as exc:
-            st.error(f"Mesaj gönderilemedi: {exc}")
-
-
-
-def page_account(user: Dict[str, Any]) -> None:
-    if not require_account(user):
-        return
-
-    render_section_header("Hesabım", "Gelen kutusu, plan ve kullanım bilgilerin", kicker="Hesap")
-
-    plan = user.get("plan", "free")
-    plan_info = PLAN_CONFIG.get(plan, PLAN_CONFIG["free"])
-
-    balance = get_coin_balance(user)
-    unlimited = bool(user.get("unlimited_usage", False)) or is_admin(user)
-
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        render_metric_card("Plan", str(plan_info.get("name", plan)), "Hesap planı")
-    with col2:
-        render_metric_card("Jeton", str(balance), "Mevcut bakiye")
-    with col3:
-        render_metric_card("Erişim", "Sınırsız" if unlimited else "Standart", "Admin veya özel yetki")
-
-    with st.expander("Günlük giriş ve reklam ödülleri", expanded=False):
-        st.caption("Günlük giriş ödülü uygulama açıldığında otomatik tanımlanır. 7. günden sonra ödül döngüsü tekrar 1. güne döner.")
-        st.caption("Android/iOS ödüllü reklam entegrasyonunda doğrulanan her reklam izleme için grant_ad_reward(...) fonksiyonu 10 jeton ekler.")
-
-    with st.expander("Erişim kodu etkinleştir", expanded=False):
-        code = st.text_input("Erişim kodu", type="password", key="account_access_code")
-        if st.button("Kodu etkinleştir", key="account_activate_code_btn"):
-            ok, msg = activate_access_code(user["email"], code)
-            if ok:
-                st.success(msg)
-                fresh = get_or_create_user(user["email"])
-                st.session_state["auth_user"] = fresh
-                st.rerun()
-            else:
-                st.error(msg)
-
-    st.divider()
-    st.markdown("### Gelen Kutusu")
-    render_inbox_message_list(user, context_key="account")
-
-    st.divider()
-    if st.button("Çıkış yap", key="account_logout_btn", use_container_width=True):
-        logout()
-        st.rerun()
-
-
-def page_inbox(user: Dict[str, Any]) -> None:
-    if not require_account(user):
-        return
-    render_section_header("Gelen Kutusu", "Admin yanıtları ve özel mesajlar burada listelenir.", kicker="Hesabım")
-    render_inbox_message_list(user, context_key="inbox")
-
-
-def admin_overview() -> None:
-    requests_pending = list_manual_requests("pending", limit=20)
-    users = list_users(limit=20)
-    col1, col2 = st.columns(2)
-    with col1:
-        render_metric_card("Bekleyen talep", str(len(requests_pending)), "İlk 20 kayıt içinde")
-    with col2:
-        render_metric_card("Kullanıcı", str(len(users)), "İlk 20 kayıt içinde")
-    st.info("Admin panelinden AI promptlarını, manuel talepleri, geri bildirimleri, kullanıcıları ve puanları yönetebilirsin.")
-
-
-def admin_module_status(module_settings: Dict[str, Dict[str, Any]]) -> None:
-    st.markdown("### Sayfa Durumları")
-    selected = st.selectbox("Düzenlenecek sayfa", list(MODULES.keys()), format_func=lambda k: module_meta(k, module_settings)["title"])
-    current = module_settings.get(selected, {})
-    title = st.text_input("Sayfa başlığı", value=current.get("title", MODULES[selected]["title"]), key=f"mod_title_{selected}")
-    description = st.text_area("Açıklama", value=current.get("description", MODULES[selected]["description"]), height=90, key=f"mod_desc_{selected}")
-    active = st.checkbox("Menüde ve ana sayfada aktif göster", value=bool(current.get("active", True)), key=f"mod_active_{selected}")
-    guest_allowed = st.checkbox("Misafir kullanabilir", value=bool(current.get("guest_allowed", MODULES[selected].get("guest_allowed", True))), key=f"mod_guest_{selected}")
-    min_plan = st.selectbox("Minimum plan", ["free", "premium", "premium_plus"], index=["free", "premium", "premium_plus"].index(current.get("min_plan", "free")), key=f"mod_plan_{selected}")
-    if st.button("Sayfa ayarını kaydet", key=f"save_module_{selected}"):
-        save_module_setting(selected, {"title": title, "description": description, "active": active, "guest_allowed": guest_allowed, "min_plan": min_plan})
-        st.success("Sayfa ayarı kaydedildi. Değişikliği menüde görmek için sayfayı yenileyebilirsin.")
-
-
-def admin_prompts(prompts: Dict[str, str]) -> None:
-    st.markdown("### AI Prompt Yönetimi")
-    selected = st.selectbox("Prompt düzenlenecek sayfa", AI_PROMPT_MODULES, format_func=lambda k: MODULES[k]["title"])
-    text = st.text_area("Admin promptu", value=prompts.get(selected, ""), height=300, key=f"admin_prompt_{selected}")
-    st.caption("Prompt içindeki {{alan_adi}} ifadeleri kullanıcı formundan gelen değerlerle otomatik doldurulur.")
-    if st.button("Promptu kaydet", key=f"save_prompt_{selected}"):
-        save_prompt(selected, text)
-        st.success("Prompt kaydedildi. Yeni prompt yükleniyor...")
-        st.rerun()
-
-
-
-def admin_content() -> None:
-    st.markdown("### Meditasyon & Ritüel İçerikleri")
-    content_type = st.radio(
-        "İçerik türü",
-        ["meditation", "ritual"],
-        format_func=lambda x: "Meditasyon" if x == "meditation" else "Ritüel",
-        horizontal=True,
-    )
-    items = get_content_items(content_type, include_inactive=True)
-
-    template_options = {
-        "mistik_kart": "Mistik kart",
-        "parchment": "Parşömen görünümü",
-        "calm": "Sade ve sakin",
-        "ritual": "Ritüel adımları",
-    }
-    font_options = {
-        "Inter, system-ui, sans-serif": "Modern / Inter",
-        "'Cormorant Garamond', Georgia, serif": "Mistik başlık / Cormorant",
-        "Georgia, serif": "Klasik / Georgia",
-        "Arial, sans-serif": "Sade / Arial",
-        "'Caveat', cursive": "El yazısı / Caveat",
-        "'Dancing Script', cursive": "El yazısı / Dancing Script",
-        "'Patrick Hand', cursive": "El yazısı / Patrick Hand",
-    }
-    image_layout_options = {
-        "image_left_wrap": "Resim solda - metin etrafını sarar",
-        "image_right_wrap": "Resim sağda - metin etrafını sarar",
-        "image_top": "Resim üstte / ortada - metin altta",
-        "image_bottom": "Metin üstte - resim altta / ortada",
-        "text_only": "Sadece metin",
-    }
-
-    with st.expander("Yeni içerik ekle", expanded=True):
-        title = st.text_input("Başlık", key=f"new_{content_type}_title")
-        category = st.text_input("Kategori", key=f"new_{content_type}_category")
-        body = st.text_area(
-            "Metin / tarif",
-            height=260,
-            key=f"new_{content_type}_body",
-            placeholder="AMAÇ\n...\n\nNİYET\n...\n\nUYGULAMA\n1- ...",
-        )
-        st.caption("Parçalı biçimlendirme: **kalın**, *italik*, [u]altı çizili[/u]. Bu işaretleri sadece biçimlendirmek istediğin kelime veya cümlenin etrafına koy.")
-        st.caption("Bölüm başlıklarını AMAÇ, NİYET, HAZIRLIK, UYGULAMA gibi ayrı satıra yazarsan kullanıcı tarafında özel başlık olarak görünür.")
-        image_file = st.file_uploader("İçerik görseli", type=["png", "jpg", "jpeg", "webp"], key=f"new_{content_type}_image")
-
-        col1, col2 = st.columns(2)
-        with col1:
-            template = st.selectbox("Yazım şablonu", list(template_options.keys()), format_func=lambda k: template_options[k], key=f"new_{content_type}_template")
-            font_family = st.selectbox("Yazı tipi", list(font_options.keys()), format_func=lambda k: font_options[k], key=f"new_{content_type}_font")
-            image_layout = st.selectbox("Görsel / metin yerleşimi", list(image_layout_options.keys()), format_func=lambda k: image_layout_options[k], key=f"new_{content_type}_image_layout")
-        with col2:
-            title_size = st.slider("Başlık büyüklüğü", 0, 100, 30, key=f"new_{content_type}_title_size")
-            font_size = st.slider("Metin büyüklüğü", 0, 100, 17, key=f"new_{content_type}_font_size")
-            image_width = st.slider("Resim genişliği", 0, 560, 220, step=10, key=f"new_{content_type}_image_width")
-
-        active = st.checkbox("Aktif", value=True, key=f"new_{content_type}_active")
-
-        new_image_payload = image_to_data_url(image_file, max_side=1200, quality=76) if image_file else None
-        show_new_preview = st.checkbox("Yeni içerik önizlemesini göster", value=False, key=f"new_{content_type}_preview_toggle")
-        if show_new_preview and (title.strip() or body.strip() or new_image_payload):
-            st.markdown("#### Yeni içerik önizleme")
-            render_styled_content_item(
-                {
-                    "title": title or "Başlık önizlemesi",
-                    "category": category,
-                    "body": body or "Metin önizlemesi",
-                    "image": new_image_payload,
-                    "template": template,
-                    "font_family": font_family,
-                    "font_size": font_size,
-                    "title_size": title_size,
-                    "image_layout": image_layout,
-                    "image_width": image_width,
-                    "title_bold": False,
-                    "title_italic": False,
-                    "title_underline": False,
-                    "body_bold": False,
-                    "body_italic": False,
-                    "body_underline": False,
-                }
-            )
-
-        if st.button("İçerik ekle", key=f"add_{content_type}"):
-            if not title.strip() or not body.strip():
-                st.warning("Başlık ve metin zorunlu.")
-            else:
-                create_content_item(
-                    content_type,
-                    title,
-                    category,
-                    body,
-                    active,
-                    extra={
-                        "image": new_image_payload,
-                        "template": template,
-                        "font_family": font_family,
-                        "font_size": font_size,
-                        "title_size": title_size,
-                        "image_layout": image_layout,
-                        "image_width": image_width,
-                        "title_bold": False,
-                        "title_italic": False,
-                        "title_underline": False,
-                        "body_bold": False,
-                        "body_italic": False,
-                        "body_underline": False,
-                    },
-                )
-                st.success("İçerik eklendi.")
-                st.rerun()
-
-    st.divider()
-    st.markdown("#### Mevcut içerikler")
-    if not items:
-        st.info("Kayıtlı içerik yok. Varsayılan içerikler kullanıcı tarafında gösterilir.")
-        return
-
-    selected_state_key = f"admin_selected_content_{content_type}"
-    st.caption("İçerikler liste halinde gösterilir. Düzenleme ve önizleme için Detay butonuna bas.")
-    for idx, list_item in enumerate(items, start=1):
-        item_id = str(list_item.get("id", ""))
-        item_title = str(list_item.get("title", "Başlıksız") or "Başlıksız")
-        item_category = str(list_item.get("category", "") or "")
-        is_default = item_id.startswith("default_")
-        is_active = bool(list_item.get("active", True))
-        row = st.columns([0.35, 3.4, 1.05, 0.95])
-        with row[0]:
-            st.markdown(f"**{idx}**")
-        with row[1]:
-            st.markdown(
-                f"**{html_escape(item_title)}**  \n"
-                f"<span style='color:rgba(242,226,202,0.62);font-size:0.78rem;'>{html_escape(item_category or 'Kategori yok')}</span>",
-                unsafe_allow_html=True,
-            )
-        with row[2]:
-            st.caption("Varsayılan" if is_default else ("Aktif" if is_active else "Pasif"))
-        with row[3]:
-            if st.button("Detay", key=f"content_detail_{content_type}_{item_id}", use_container_width=True):
-                st.session_state[selected_state_key] = item_id
-                st.rerun()
-
-    selected_id = st.session_state.get(selected_state_key, "")
-    if not selected_id:
-        st.info("Bir içerikte Detay'a bastığında düzenleme ve önizleme alanı burada açılacak.")
-        return
-
-    matched_items = [i for i in items if str(i.get("id", "")) == str(selected_id)]
-    if not matched_items:
-        st.session_state.pop(selected_state_key, None)
-        st.warning("Seçilen içerik bulunamadı. Listeyi yenileyip tekrar seç.")
-        return
-
-    item = matched_items[0]
-    st.divider()
-    st.markdown("#### İçerik detayı ve düzenleme")
-
-    if str(selected_id).startswith("default_"):
-        st.info("Bu varsayılan içerik. Düzenlemek için aynı içerikten yeni kayıt oluşturabilirsin.")
-        render_styled_content_item(item)
-        return
-
-    edit_title = st.text_input("Başlık", value=item.get("title", ""), key=f"edit_title_{selected_id}")
-    edit_category = st.text_input("Kategori", value=item.get("category", ""), key=f"edit_category_{selected_id}")
-    edit_body = st.text_area("Metin / tarif", value=item.get("body", ""), height=260, key=f"edit_body_{selected_id}")
-    st.caption("Parçalı biçimlendirme: **kalın**, *italik*, [u]altı çizili[/u]. Sadece işaretlediğin kısımlar biçimlenir; tüm metin otomatik kalın/italik yapılmaz.")
-
-    current_image = item.get("image")
-    if _content_image_data_url(current_image):
-        st.caption("Mevcut görsel")
-        st.image(_content_image_data_url(current_image), use_container_width=True)
-    edit_image_file = st.file_uploader("Yeni görsel yükle", type=["png", "jpg", "jpeg", "webp"], key=f"edit_image_{selected_id}")
-    remove_image = st.checkbox("Mevcut görseli kaldır", value=False, key=f"remove_image_{selected_id}")
-
-    current_template = item.get("template", "mistik_kart")
-    current_font = item.get("font_family", "Inter, system-ui, sans-serif")
-    current_layout = item.get("image_layout", "image_left_wrap")
-
-    col1, col2 = st.columns(2)
-    with col1:
-        edit_template = st.selectbox(
-            "Yazım şablonu",
-            list(template_options.keys()),
-            index=list(template_options.keys()).index(current_template) if current_template in template_options else 0,
-            format_func=lambda k: template_options[k],
-            key=f"edit_template_{selected_id}",
-        )
-        edit_font = st.selectbox(
-            "Yazı tipi",
-            list(font_options.keys()),
-            index=list(font_options.keys()).index(current_font) if current_font in font_options else 0,
-            format_func=lambda k: font_options[k],
-            key=f"edit_font_{selected_id}",
-        )
-        edit_image_layout = st.selectbox(
-            "Görsel / metin yerleşimi",
-            list(image_layout_options.keys()),
-            index=list(image_layout_options.keys()).index(current_layout) if current_layout in image_layout_options else 0,
-            format_func=lambda k: image_layout_options[k],
-            key=f"edit_image_layout_{selected_id}",
-        )
-    with col2:
-        edit_title_size = st.slider("Başlık büyüklüğü", 0, 100, max(0, min(int(item.get("title_size", 30) or 30), 100)), key=f"edit_title_size_{selected_id}")
-        edit_font_size = st.slider("Metin büyüklüğü", 0, 100, max(0, min(int(item.get("font_size", 17) or 17), 100)), key=f"edit_font_size_{selected_id}")
-        edit_image_width = st.slider("Resim genişliği", 0, 560, max(0, min(int(item.get("image_width", 220) or 220), 560)), step=10, key=f"edit_image_width_{selected_id}")
-
-    edit_active = st.checkbox("Aktif", value=bool(item.get("active", True)), key=f"edit_active_{selected_id}")
-
-    edit_image_payload = None
-    if remove_image:
-        edit_image_payload = None
-    elif edit_image_file:
-        edit_image_payload = image_to_data_url(edit_image_file, max_side=1200, quality=76)
-    else:
-        edit_image_payload = current_image
-
-    show_detail_preview = st.checkbox("Detay önizlemesini göster", value=True, key=f"detail_preview_{selected_id}")
-    preview_item = {
-        **item,
-        "title": edit_title,
-        "category": edit_category,
-        "body": edit_body,
-        "image": edit_image_payload,
-        "template": edit_template,
-        "font_family": edit_font,
-        "font_size": edit_font_size,
-        "title_size": edit_title_size,
-        "image_layout": edit_image_layout,
-        "image_width": edit_image_width,
-        "title_bold": False,
-        "title_italic": False,
-        "title_underline": False,
-        "body_bold": False,
-        "body_italic": False,
-        "body_underline": False,
-    }
-    if show_detail_preview:
-        st.markdown("#### Önizleme")
-        render_styled_content_item(preview_item)
-
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button("Güncelle", key=f"update_content_{selected_id}"):
-            values = {
-                "title": edit_title,
-                "category": edit_category,
-                "body": edit_body,
-                "active": edit_active,
-                "image": edit_image_payload,
-                "template": edit_template,
-                "font_family": edit_font,
-                "font_size": edit_font_size,
-                "title_size": edit_title_size,
-                "image_layout": edit_image_layout,
-                "image_width": edit_image_width,
-                "title_bold": False,
-                "title_italic": False,
-                "title_underline": False,
-                "body_bold": False,
-                "body_italic": False,
-                "body_underline": False,
-            }
-            update_content_item(selected_id, values)
-            st.success("İçerik güncellendi. Kullanıcı ekranındaki içerik de bu ayarlarla güncellendi.")
-            st.rerun()
-    with col2:
-        if st.button("Sil", key=f"delete_content_{selected_id}"):
-            delete_content_item(selected_id)
-            st.session_state.pop(selected_state_key, None)
-            st.success("İçerik silindi.")
-            st.rerun()
-
-
-def render_request_payload(payload: Dict[str, Any]) -> None:
-    info = payload.get("kişisel_bilgiler")
-    if info:
-        st.markdown("#### Kişisel bilgiler")
-        st.json(info)
-    if payload.get("odak_alanı"):
-        st.markdown("#### Odak Alanı")
-        st.write(payload["odak_alanı"])
-    if payload.get("sorular"):
-        st.markdown("#### Kullanıcının Soruları")
-        for idx, question in enumerate(payload.get("sorular", []), start=1):
-            st.write(f"{idx}. {question}")
-    if payload.get("admin_notu"):
-        st.markdown("#### Admin Notu")
-        st.info(payload["admin_notu"])
-    for key in ["soru", "niyet", "rüya", "not"]:
-        if payload.get(key):
-            st.markdown(f"#### {key.title()}")
-            st.write(payload[key])
-    cards = payload.get("çekilen_kartlar")
-    if cards:
-        st.markdown("#### Çekilen kartlar")
-        st.write(format_card_spread(cards))
-    images = payload.get("görseller", [])
-    if images:
-        st.markdown("#### Yüklenen görseller")
-        for img in images:
-            show_data_image(img)
-
-
-def _manual_request_time_text(value: Any) -> str:
-    if not value:
-        return ""
-    if hasattr(value, "strftime"):
-        try:
-            return value.strftime("%d.%m.%Y %H:%M")
-        except Exception:
-            pass
-    text = str(value)
-    if len(text) > 19:
-        return text[:19]
-    return text
-
-
-def _manual_request_preview(req: Dict[str, Any]) -> str:
-    payload = req.get("payload", {}) or {}
-    for key in ["soru", "niyet", "rüya", "not", "admin_notu", "odak_alanı"]:
-        value = str(payload.get(key, "") or "").strip()
-        if value:
-            return value[:90] + ("..." if len(value) > 90 else "")
-    questions = payload.get("sorular") or []
-    if questions:
-        text = str(questions[0]).strip()
-        return text[:90] + ("..." if len(text) > 90 else "")
-    cards = payload.get("çekilen_kartlar") or []
-    if cards:
-        return "Kartlar: " + format_card_spread(cards)[:90]
-    return "Detayı görmek için aç."
-
-
-def admin_requests(user: Dict[str, Any]) -> None:
-    st.markdown("### Manuel Talepler")
-    status = st.selectbox(
-        "Durum",
-        ["pending", "completed", "all"],
-        format_func=lambda x: {"pending": "Bekleyen", "completed": "Tamamlanan", "all": "Tümü"}[x],
-        key="admin_manual_request_status",
-    )
-    requests = list_manual_requests(status, limit=120)
-    if not requests:
-        st.info("Bu durumda talep yok.")
-        st.session_state.pop("admin_selected_manual_request_id", None)
-        return
-
-    selected_key = "admin_selected_manual_request_id"
-    current_selected = str(st.session_state.get(selected_key, "") or "")
-    available_ids = {str(r.get("id", "")) for r in requests}
-    if current_selected not in available_ids:
-        st.session_state.pop(selected_key, None)
-        current_selected = ""
-
-    st.caption("Talepler liste halinde gösterilir. Detayı ve yanıt alanını açmak için Detay butonuna bas.")
-    st.markdown('<div class="kp-admin-request-list">', unsafe_allow_html=True)
-    for idx, req_item in enumerate(requests, start=1):
-        request_id = str(req_item.get("id", ""))
-        request_type = str(req_item.get("request_type", "") or "")
-        request_title = MANUAL_REQUEST_TYPES.get(request_type, request_type or "Talep")
-        request_status = str(req_item.get("status", "pending") or "pending")
-        status_label = "Bekliyor" if request_status == "pending" else "Tamamlandı" if request_status == "completed" else request_status
-        status_class = "pending" if request_status == "pending" else "completed" if request_status == "completed" else "neutral"
-        email = str(req_item.get("user_email", "") or "")
-        when = _manual_request_time_text(req_item.get("created_at") or req_item.get("updated_at"))
-        preview = _manual_request_preview(req_item)
-
-        row_cols = st.columns([0.16, 0.72, 0.12])
-        with row_cols[0]:
-            st.markdown(
-                f"""
-                <div class="kp-admin-request-mini-meta">
-                    <span class="kp-admin-request-number">#{idx}</span>
-                    <span class="kp-admin-request-status {html_escape(status_class)}">{html_escape(status_label)}</span>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-        with row_cols[1]:
-            st.markdown(
-                f"""
-                <div class="kp-admin-request-row{' active' if current_selected == request_id else ''}">
-                    <div class="kp-admin-request-title">{html_escape(str(request_title))}</div>
-                    <div class="kp-admin-request-sub">{html_escape(email)} · {html_escape(when)}</div>
-                    <div class="kp-admin-request-preview">{html_escape(preview)}</div>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-        with row_cols[2]:
-            if st.button("Detay", key=f"manual_request_detail_{request_id}", use_container_width=True):
-                st.session_state[selected_key] = request_id
-                st.rerun()
-    st.markdown('</div>', unsafe_allow_html=True)
-
-    selected_id = str(st.session_state.get(selected_key, "") or "")
-    if not selected_id:
-        st.info("Bir talep seçtiğinde detay ve yanıt alanı burada açılacak.")
-        return
-
-    matched_requests = [r for r in requests if str(r.get("id", "")) == selected_id]
-    if not matched_requests:
-        st.session_state.pop(selected_key, None)
-        st.warning("Seçilen talep bulunamadı. Listeyi yenileyip tekrar seç.")
-        return
-
-    req = matched_requests[0]
-    request_type = str(req.get("request_type", "") or "")
-    request_title = MANUAL_REQUEST_TYPES.get(request_type, request_type or "Talep")
-
-    st.divider()
-    st.markdown(f"#### Talep Detayı: {request_title}")
-    st.caption(f"Kullanıcı: {req.get('user_email')} | Durum: {req.get('status')} | Talep ID: {selected_id}")
-    render_request_payload(req.get("payload", {}) or {})
-
-    response = req.get("response", {}) or {}
-    if response.get("text"):
-        st.success("Bu talep daha önce yanıtlandı.")
-        with st.expander("Gönderilen yanıtı görüntüle", expanded=False):
-            st.write(response.get("text", ""))
-            show_data_image(response.get("image"))
-
-    st.divider()
-    response_text = st.text_area("Kullanıcıya gönderilecek yorum", height=240, key=f"response_{selected_id}")
-    response_image_file = st.file_uploader("Opsiyonel yanıt görseli", type=["png", "jpg", "jpeg", "webp"], key=f"response_image_{selected_id}")
-    if st.button("Yanıtı kullanıcının gelen kutusuna gönder", key=f"send_response_{selected_id}", use_container_width=True):
-        if not response_text.strip():
-            st.warning("Yanıt metni boş olamaz.")
-            return
-        response_image = image_to_data_url(response_image_file, max_side=900, quality=72) if response_image_file else None
-        send_manual_response(selected_id, response_text, user, response_image=response_image)
-        st.session_state.pop(selected_key, None)
-        st.success("Yanıt gönderildi ve talep tamamlandı.")
-        st.rerun()
-
-
-def admin_feedback(user: Dict[str, Any]) -> None:
-    st.markdown("### İstek / Öneri / Şikayetler")
-    status = st.selectbox(
-        "Durum",
-        ["pending", "completed", "all"],
-        format_func=lambda x: {"pending": "Bekleyen", "completed": "Yanıtlanan", "all": "Tümü"}[x],
-        key="admin_feedback_status",
-    )
-    items = list_user_feedback(status=status, limit=120)
-    if not items:
-        st.info("Bu durumda kayıt yok.")
-        st.session_state.pop("admin_selected_feedback_id", None)
-        return
-
-    selected_key = "admin_selected_feedback_id"
-    current_selected = str(st.session_state.get(selected_key, "") or "")
-    available_ids = {str(item.get("id", "")) for item in items}
-    if current_selected not in available_ids:
-        st.session_state.pop(selected_key, None)
-        current_selected = ""
-
-    st.caption("Kullanıcı geri bildirimlerini incelemek ve yanıtlamak için Detay butonuna bas.")
-    st.markdown('<div class="kp-admin-request-list">', unsafe_allow_html=True)
-    for idx, item in enumerate(items, start=1):
-        feedback_id = str(item.get("id", ""))
-        category = str(item.get("category", "Geri Bildirim") or "Geri Bildirim")
-        subject = str(item.get("subject", "") or category)
-        message = str(item.get("message", "") or "")
-        item_status = str(item.get("status", "pending") or "pending")
-        status_label = "Bekliyor" if item_status == "pending" else "Yanıtlandı" if item_status == "completed" else item_status
-        status_class = "pending" if item_status == "pending" else "completed" if item_status == "completed" else "neutral"
-        email = str(item.get("user_email", "") or "")
-        when = _manual_request_time_text(item.get("created_at") or item.get("updated_at"))
-        preview = message.strip().replace("\n", " ")[:90]
-        if len(message.strip()) > 90:
-            preview += "..."
-
-        row_cols = st.columns([0.16, 0.72, 0.12])
-        with row_cols[0]:
-            st.markdown(
-                f"""
-                <div class="kp-admin-request-mini-meta">
-                    <span class="kp-admin-request-number">#{idx}</span>
-                    <span class="kp-admin-request-status {html_escape(status_class)}">{html_escape(status_label)}</span>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-        with row_cols[1]:
-            st.markdown(
-                f"""
-                <div class="kp-admin-request-row{' active' if current_selected == feedback_id else ''}">
-                    <div class="kp-admin-request-title">{html_escape(category)} · {html_escape(subject)}</div>
-                    <div class="kp-admin-request-sub">{html_escape(email)} · {html_escape(when)}</div>
-                    <div class="kp-admin-request-preview">{html_escape(preview)}</div>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-        with row_cols[2]:
-            if st.button("Detay", key=f"feedback_detail_{feedback_id}", use_container_width=True):
-                st.session_state[selected_key] = feedback_id
-                st.rerun()
-    st.markdown('</div>', unsafe_allow_html=True)
-
-    selected_id = str(st.session_state.get(selected_key, "") or "")
-    if not selected_id:
-        st.info("Bir kayıt seçtiğinde detay ve yanıt alanı burada açılacak.")
-        return
-
-    matched = [item for item in items if str(item.get("id", "")) == selected_id]
-    if not matched:
-        st.session_state.pop(selected_key, None)
-        st.warning("Seçilen kayıt bulunamadı. Listeyi yenileyip tekrar seç.")
-        return
-
-    item = matched[0]
-    st.divider()
-    st.markdown(f"#### Geri Bildirim Detayı: {html_escape(str(item.get('category', '')))}")
-    st.caption(f"Kullanıcı: {item.get('user_email')} | Durum: {item.get('status')} | Kayıt ID: {selected_id}")
+def render_upgrade_prompt(required_plan: str, current_plan: str = "free") -> None:
+    required = PLAN_CONFIG.get(required_plan, PLAN_CONFIG["premium"])
+    current = PLAN_CONFIG.get(current_plan, PLAN_CONFIG["free"])
     st.markdown(
         f"""
-        <div class="kp-admin-card">
-            <span class="kp-tag">{html_escape(str(item.get('category', 'Geri Bildirim')))}</span>
-            <h3>{html_escape(str(item.get('subject', '') or 'Başlıksız'))}</h3>
-            <p>{html_escape(str(item.get('message', '')))}</p>
+        <div class="kp-upgrade-card">
+            <div class="kp-section-kicker">Freemium kilidi</div>
+            <div class="kp-section-title">Bu bölüm {escape(required['name'])} planında açılır.</div>
+            <div class="kp-login-note">Mevcut planın: {escape(current['name'])}. Daha detaylı yorumlar ve özel talepler için planını yükseltebilirsin.</div>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
-    response = item.get("response", {}) or {}
-    if response.get("text"):
-        st.success("Bu kayıt daha önce yanıtlandı.")
-        with st.expander("Gönderilen yanıtı görüntüle", expanded=False):
-            st.write(response.get("text", ""))
 
-    st.divider()
-    response_text = st.text_area("Kullanıcıya gönderilecek mesaj", height=160, key=f"feedback_response_{selected_id}")
-    if st.button("Yanıtı gelen kutusuna gönder", key=f"send_feedback_response_{selected_id}", use_container_width=True):
-        if not response_text.strip():
-            st.warning("Yanıt metni boş olamaz.")
-            return
-        send_feedback_response(selected_id, response_text, user)
-        st.session_state.pop(selected_key, None)
-        try:
-            _cached_inbox_message_count.clear()
-        except Exception:
-            pass
-        st.success("Yanıt gönderildi ve kayıt tamamlandı.")
-        st.rerun()
+def render_footer() -> None:
+    st.markdown(
+        """
+        <div class="kp-footer">
+            <div class="kp-footer-disclaimer">
+                Bu uygulama eğlence, kişisel farkındalık ve duygusal paylaşım amacı taşır. Terapi, psikolojik danışmanlık,
+                tıbbi teşhis veya kesin gelecek tahmini sunmaz.
+            </div>
+            <div class="kp-footer-legal-links">
+                <a href="KVKK Aydınlatma Metni.docx" target="_blank" rel="noopener noreferrer">KVKK Metni</a>
+                <span>·</span>
+                <a href="Gizlilik Politikası.docx" target="_blank" rel="noopener noreferrer">Gizlilik Politikası</a>
+                <span>·</span>
+                <a href="Açık Rıza Metni.docx" target="_blank" rel="noopener noreferrer">Açık Rıza Metni</a>
+                <span>·</span>
+                <a href="Çerez Politikası.docx" target="_blank" rel="noopener noreferrer">Çerez Politikası</a>
+                <span>·</span>
+                <a href="kullanım Koşulları.docx" target="_blank" rel="noopener noreferrer">Kullanım Koşulları</a>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
-
-
-def admin_style() -> None:
-    st.markdown("### Tasarım Ayarları")
-    try:
-        current = get_public_settings().get("style", {})
-    except Exception:
-        current = PUBLIC_SETTINGS.get("style", {})
-    title_font = st.text_input("Başlık yazı tipi", value=current.get("title_font", "'Cormorant Garamond', Georgia, serif"))
-    content_font = st.text_input("İçerik yazı tipi", value=current.get("content_font", "'Inter', system-ui, sans-serif"))
-    font_scale = st.slider("Genel yazı büyüklüğü", 0.85, 1.25, float(current.get("font_scale", 1.0)), 0.01)
-    sidebar_width = st.slider("Sol menü genişliği", 210, 300, int(current.get("sidebar_width", 238)), 2)
-    if st.button("Tasarım ayarlarını kaydet"):
-        save_style_settings({"title_font": title_font, "content_font": content_font, "font_scale": font_scale, "sidebar_width": sidebar_width})
-        st.success("Tasarım ayarları kaydedildi. Etkiyi görmek için sayfayı yenile.")
-
-
-def admin_users() -> None:
-    st.markdown("### Kullanıcılar")
-    users = list_users(limit=150)
-    if not users:
-        st.info("Kullanıcı bulunamadı.")
-        return
-
-    st.caption(f"Toplam gösterilen kullanıcı: {len(users)}")
-    for u in users:
-        role = html_escape(str(u.get('role', 'user')))
-        name = html_escape(str(u.get('display_name', '') or u.get('email', '').split('@')[0]))
-        email = str(u.get('email', ''))
-        safe_email = html_escape(email)
-        plan = html_escape(str(u.get('plan', 'free')))
-        coin_balance = int(u.get('coin_balance', 0) or 0)
-        unlimited = bool(u.get('unlimited_usage', False)) or str(u.get('role', '')).lower() == 'admin'
-        status_text = "Sınırsız" if unlimited else "Standart"
-
-        col1, col2 = st.columns([0.72, 0.28], vertical_alignment="center")
-        with col1:
-            st.markdown(
-                f"""
-                <div class="kp-admin-user-row">
-                    <span class="kp-admin-user-role">{role}</span>
-                    <span class="kp-admin-user-main"><strong>{name}</strong><small>{safe_email} · {coin_balance} jeton</small></span>
-                    <span class="kp-admin-user-plan">{plan} · {status_text}</span>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-        with col2:
-            if str(u.get('role', '')).lower() == 'admin':
-                st.caption("Admin sınırsız")
-            else:
-                button_label = "Sınırsızı kaldır" if unlimited else "Sınırsız yap"
-                if st.button(button_label, key=f"admin_toggle_unlimited_{u.get('id')}", use_container_width=True):
-                    set_user_unlimited_usage(email, not unlimited, admin_user=st.session_state.get("auth_user", {}))
-                    st.success("Kullanıcı sınırsız kullanım ayarı güncellendi.")
-                    st.rerun()
-
-
-def page_admin(user: Dict[str, Any], prompts: Dict[str, str], module_settings: Dict[str, Dict[str, Any]]) -> None:
-    if not is_admin(user):
-        st.error("Bu sayfaya sadece admin erişebilir.")
-        return
-    render_section_header("Admin Paneli", "Promptlar, talepler, geri bildirimler ve kullanıcıları yönet.", kicker="Yönetim")
-    tabs = st.tabs(["Genel", "Promptlar", "Talepler", "İstek/Öneri/Şikayetler", "Kullanıcılar", "Puanlar"])
-    with tabs[0]:
-        admin_overview()
-    with tabs[1]:
-        admin_prompts(prompts)
-    with tabs[2]:
-        admin_requests(user)
-    with tabs[3]:
-        admin_feedback(user)
-    with tabs[4]:
-        admin_users()
-    with tabs[5]:
-        admin_ratings()
-
-
-def render_page(page: str, user: Dict[str, Any], prompts: Dict[str, str], module_settings: Dict[str, Dict[str, Any]]) -> None:
-    if page in MODULES and not module_plan_allowed(user, page, module_settings):
-        show_plan_gate(user, page, module_settings)
-        render_back_home_button(page)
-        return
-
-    if page == "home":
-        page_home(user, module_settings)
-    elif page == "subscription":
-        page_subscription(user)
-    elif page == "account":
-        page_account(user)
-    elif page == "inbox":
-        page_inbox(user)
-    elif page == "feedback":
-        page_feedback(user)
-    elif page == "admin":
-        page_admin(user, prompts, module_settings)
-    elif page == "relationship":
-        page_relationship(user, prompts, module_settings)
-    elif page == "love_fortune":
-        page_love_fortune(user, prompts, module_settings)
-    elif page == "birth_chart":
-        page_birth_chart(user, prompts, module_settings)
-    elif page == "yildizname":
-        page_yildizname(user, module_settings)
-    elif page == "mini_tarot":
-        page_mini_tarot(user, prompts, module_settings)
-    elif page == "tarot":
-        page_manual_tarot(user, module_settings)
-    elif page == "mini_katina":
-        page_mini_katina(user, prompts, module_settings)
-    elif page == "katina":
-        page_manual_katina(user, module_settings)
-    elif page == "coffee_text":
-        page_coffee_text(user, prompts, module_settings)
-    elif page == "coffee_image":
-        page_coffee_image(user, module_settings)
-    elif page == "dream":
-        page_dream(user, module_settings)
-    elif page == "soulmate":
-        page_soulmate(user, module_settings)
-    else:
-        reset_navigation_to_home()
-        st.rerun()
-
-    render_back_home_button(page)
-
-
-def apply_daily_login_reward(user: Dict[str, Any]) -> None:
-    if not user or user.get("is_guest"):
-        return
-    reward_key = f"daily_login_reward_checked_{user.get('id', user.get('email', ''))}_{dt.date.today().isoformat()}"
-    if st.session_state.get(reward_key):
-        return
-    st.session_state[reward_key] = True
-    try:
-        awarded, msg, meta = grant_daily_login_reward(user)
-        if awarded:
-            st.toast(msg, icon="🪙")
-            fresh = get_or_create_user(user["email"])
-            st.session_state["auth_user"] = fresh
-    except Exception:
-        # Ödül sistemi hata verse bile uygulama açılışı engellenmez.
-        return
-
-
-def main() -> None:
-    # Arka planı önce bas: Firestore/auth işlemleri başlamadan koyu video katmanı görünür olsun.
-    # Bu, sayfa geçişindeki beyaz/parlak ekran hissini azaltır.
-    render_home_video_background()
-    user = auth_sidebar()
-
-    if not user:
-        hide_sidebar_for_landing()
-        render_hero()
-        render_landing_auth()
-        render_footer()
-        return
-
-    apply_daily_login_reward(user)
-    user = st.session_state.get("auth_user", user)
-
-    try:
-        module_settings = get_all_module_settings()
-    except Exception as exc:
-        stop_with_setup_error(exc)
-        return
-
-    render_top_account(user)
-    page = navigation(user, module_settings)
-
-    prompts: Dict[str, str] = {}
-    if page in AI_PROMPT_MODULES or page == "admin":
-        try:
-            prompts = get_all_prompts()
-        except Exception as exc:
-            stop_with_setup_error(exc)
-            return
-
-    render_user_message_notification(user, page)
-    render_page(page, user, prompts, module_settings)
-    render_footer()
-
-
-if __name__ == "__main__":
-    main()
-        
+    
