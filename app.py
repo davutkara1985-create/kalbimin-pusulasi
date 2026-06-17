@@ -746,7 +746,9 @@ def render_landing_auth() -> None:
         )
         st.caption("Şifre en az 6 karakter olmalı; 1 büyük harf, 1 küçük harf ve 1 rakam içermelidir.")
         register_consents = legal_consent_form("register", require_terms=True, require_age=True)
-        if st.button("Hesap oluştur", key="register_btn", use_container_width=True):
+        register_clicked = st.button("Hesap oluştur", key="register_btn", use_container_width=True)
+        render_legal_submit_note()
+        if register_clicked:
             if not validate_legal_consents(register_consents, require_terms=True, require_age=True):
                 return
             try:
@@ -794,7 +796,7 @@ def render_top_account(user: Dict[str, Any]) -> None:
             justify-content: flex-end !important;
             gap: 7px !important;
             width: auto !important;
-            max-width: min(360px, calc(100vw - var(--kp-sidebar-width) - 28px)) !important;
+            max-width: min(445px, calc(100vw - var(--kp-sidebar-width) - 28px)) !important;
             margin: 0 !important;
             padding: 6px 8px !important;
             border-radius: 999px !important;
@@ -867,7 +869,7 @@ def render_top_account(user: Dict[str, Any]) -> None:
                 padding: 5px 6px !important;
             }
             .kp-top-account-name-native {
-                max-width: 105px !important;
+                max-width: 92px !important;
                 font-size: 0.68rem !important;
             }
             div[data-testid="stHorizontalBlock"]:has(.kp-top-account-name-native) div.stButton > button {
@@ -885,7 +887,7 @@ def render_top_account(user: Dict[str, Any]) -> None:
         unsafe_allow_html=True,
     )
 
-    name_col, inbox_col, account_col = st.columns([1.25, 1.05, 0.82], gap="small", vertical_alignment="center")
+    name_col, inbox_col, account_col, logout_col = st.columns([1.18, 1.05, 0.82, 0.72], gap="small", vertical_alignment="center")
     with name_col:
         st.markdown(
             f'<span class="kp-top-account-name-native">{html_escape(display_name)}</span>',
@@ -901,6 +903,10 @@ def render_top_account(user: Dict[str, Any]) -> None:
             if current_page != "account":
                 go_to_page("account", user)
                 st.rerun()
+    with logout_col:
+        if st.button("Çıkış", key="kp_top_native_logout", use_container_width=False):
+            logout()
+            st.rerun()
 
 
 def unread_inbox_count(user: Optional[Dict[str, Any]]) -> int:
@@ -1812,16 +1818,9 @@ def run_ai_free(user: Dict[str, Any], module_key: str, payload: Dict[str, Any], 
 
 
 def render_back_home_button(page: str) -> None:
-    if not page or page == "home":
-        return
-
-    st.markdown('<div class="kp-bottom-back-home">', unsafe_allow_html=True)
-    left_col, _ = st.columns([1.35, 4.65])
-    with left_col:
-        if st.button("← Ana sayfa", key=f"back_home_{page}", use_container_width=True):
-            reset_navigation_to_home()
-            st.rerun()
-    st.markdown('</div>', unsafe_allow_html=True)
+    # Sayfa altındaki "← Ana sayfa" yönlendirmesi istek üzerine kaldırıldı.
+    # Fonksiyon çağrısı korunur; böylece mevcut sayfa akışı ve kod düzeni bozulmaz.
+    return
 
 
 HOME_STORY_TEXT = """
@@ -2032,7 +2031,9 @@ def page_subscription(user: Dict[str, Any]) -> None:
     target_plan = st.selectbox("Geçmek istediğin plan", ["premium", "premium_plus"], format_func=lambda p: PLAN_CONFIG[p]["name"])
     note = st.text_area("Not", placeholder="Ödeme linki istiyorum, demo erişim talep ediyorum vb.", height=90)
     upgrade_consents = legal_consent_form("upgrade", require_terms=True, require_sales=True)
-    if st.button("Yükseltme talebi gönder"):
+    upgrade_clicked = st.button("Yükseltme talebi gönder")
+    render_legal_submit_note()
+    if upgrade_clicked:
         if not validate_legal_consents(upgrade_consents, require_terms=True, require_sales=True):
             return
         try:
@@ -2107,7 +2108,9 @@ def page_relationship(user: Dict[str, Any], prompts: Dict[str, str], module_sett
         ],
     )
     legal_consents = legal_consent_form("relationship")
-    if st.button("İlişkimi yorumla"):
+    relationship_clicked = st.button("İlişkimi yorumla")
+    render_legal_submit_note()
+    if relationship_clicked:
         if not validate_legal_consents(legal_consents):
             return
         if not situation.strip():
@@ -2138,7 +2141,9 @@ def page_love_fortune(user: Dict[str, Any], prompts: Dict[str, str], module_sett
     sign = st.selectbox("Burç", ZODIAC_SIGNS, key="love_fortune_sign")
     birth_details = birth_details_form("love_fortune", include_birth_date=False, include_zodiac=False)
     intention = st.text_area("Aşk hayatınla ilgili niyetin veya sorun nedir?", height=130)
-    if st.button("Aşk falımı yorumla"):
+    love_clicked = st.button("Aşk falımı yorumla")
+    render_legal_submit_note()
+    if love_clicked:
         if not validate_legal_consents(_consent_from_values(birth_details)):
             return
         payload = {
@@ -2161,6 +2166,12 @@ BIRTH_CHART_FOCUS_AREAS = ["Genel", "Aşk", "Kariyer", "Yaşam Amacı"]
 YILDIZNAME_FOCUS_AREAS = ["Genel", "Aşk", "Kariyer", "Para/Kısmet", "Aile", "Ruhsal Yol"]
 
 LEGAL_CONSENT_VERSION = "2026-06-17"
+LEGAL_SUBMIT_NOTE = "KVKK Metni, Açık Rıza Metni ve yasal metinlere sayfa altındaki bağlantılardan ulaşabilirsin."
+
+
+def render_legal_submit_note() -> None:
+    st.caption(LEGAL_SUBMIT_NOTE)
+
 
 LEGAL_DOCUMENTS: Dict[str, Dict[str, str]] = {
     "legal_kvkk": {
@@ -2362,7 +2373,6 @@ def legal_consent_form(
     require_age: bool = False,
     require_sales: bool = False,
 ) -> Dict[str, Any]:
-    st.markdown("#### Yasal onaylar")
     kvkk = st.checkbox("KVKK Aydınlatma Metnini okudum, onaylıyorum.", value=False, key=f"{prefix}_legal_kvkk")
     explicit = st.checkbox("Açık Rıza Metnini okudum, onaylıyorum.", value=False, key=f"{prefix}_legal_explicit")
     terms = False
@@ -2374,7 +2384,6 @@ def legal_consent_form(
         sales = st.checkbox("Mesafeli Satış ve İade Koşullarını okudum, kabul ediyorum.", value=False, key=f"{prefix}_legal_sales")
     if require_age:
         age = st.checkbox("18 yaş ve üzeri olduğumu beyan ediyorum.", value=False, key=f"{prefix}_legal_age")
-    st.caption("Yasal metinlere sayfa altındaki bağlantılardan ulaşabilirsin.")
     return {
         "kvkk": bool(kvkk),
         "acik_riza": bool(explicit),
@@ -2766,7 +2775,9 @@ def page_birth_chart(user: Dict[str, Any], prompts: Dict[str, str], module_setti
         placeholder="Varsa hayatında özellikle yorumlanmasını istediğin dönem, konu veya hassas noktayı yazabilirsin.",
     )
 
-    if st.button("Doğum haritası talebimi gönder", key="submit_birth_chart", use_container_width=True):
+    birth_chart_clicked = st.button("Doğum haritası talebimi gönder", key="submit_birth_chart", use_container_width=True)
+    render_legal_submit_note()
+    if birth_chart_clicked:
         if not validate_personal_info(info):
             return
         questions = [q.strip() for q in [question_1, question_2, question_3] if q.strip()]
@@ -2827,7 +2838,9 @@ def page_yildizname(user: Dict[str, Any], module_settings: Dict[str, Dict[str, A
         placeholder="Varsa özellikle yorumlanmasını istediğin dönem, konu veya hassas noktayı yazabilirsin.",
     )
 
-    if st.button("Yıldızname talebimi gönder", key="submit_yildizname", use_container_width=True):
+    yildizname_clicked = st.button("Yıldızname talebimi gönder", key="submit_yildizname", use_container_width=True)
+    render_legal_submit_note()
+    if yildizname_clicked:
         if not validate_personal_info(info, require_mother_name=True):
             return
         questions = [q.strip() for q in [question_1, question_2, question_3] if q.strip()]
@@ -2856,7 +2869,9 @@ def page_mini_tarot(user: Dict[str, Any], prompts: Dict[str, str], module_settin
     render_module_intro("mini_tarot", "free", module_meta("mini_tarot", module_settings))
     birth_details = birth_details_form("mini_tarot", include_birth_date=True, include_zodiac=True)
     question = st.text_area("Tarota sormak istediğin niyet veya soru", height=130)
-    if st.button("Benim adıma kart çek ve yorumla"):
+    ai_submit_clicked = st.button("Benim adıma kart çek ve yorumla")
+    render_legal_submit_note()
+    if ai_submit_clicked:
         if not validate_legal_consents(_consent_from_values(birth_details)):
             return
         cards = select_tarot_cards(mini=True)
@@ -2878,7 +2893,9 @@ def page_mini_katina(user: Dict[str, Any], prompts: Dict[str, str], module_setti
     render_module_intro("mini_katina", "free", module_meta("mini_katina", module_settings))
     question = st.text_area("Katina'ya sormak istediğin konu", height=130)
     legal_consents = legal_consent_form("mini_katina")
-    if st.button("Benim adıma kart çek ve yorumla"):
+    ai_submit_clicked = st.button("Benim adıma kart çek ve yorumla")
+    render_legal_submit_note()
+    if ai_submit_clicked:
         if not validate_legal_consents(legal_consents):
             return
         cards = select_katina_cards(mini=True)
@@ -2896,7 +2913,9 @@ def page_coffee_text(user: Dict[str, Any], prompts: Dict[str, str], module_setti
     birth_details = birth_details_form("coffee_text", include_birth_date=True, include_zodiac=True)
     symbols = st.text_area("Fincanda gördüğün şekilleri yaz.", height=170, placeholder="Kalbe benzeyen bir şekil, uzun bir yol, kuş gibi bir iz...")
     intention = st.text_input("Niyetin", placeholder="Aşk hayatım, barışma, yeni başlangıç...")
-    if st.button("Kahve falımı yorumla"):
+    coffee_text_clicked = st.button("Kahve falımı yorumla")
+    render_legal_submit_note()
+    if coffee_text_clicked:
         if not validate_legal_consents(_consent_from_values(birth_details)):
             return
         if not symbols.strip():
@@ -3567,7 +3586,9 @@ def _manual_cards_ready(deck_key: str, info: Dict[str, Any]) -> bool:
     ready_key = f"{deck_key}_ready_for_cards"
     if not bool(st.session_state.get(ready_key, False)):
         st.info("Önce bilgileri doldurup onayla. Kart seçimi daha sonra açılacak.")
-        if st.button("Bilgileri onayla ve kart seçimine geç", key=f"{deck_key}_start_cards", use_container_width=True):
+        start_cards_clicked = st.button("Bilgileri onayla ve kart seçimine geç", key=f"{deck_key}_start_cards", use_container_width=True)
+        render_legal_submit_note()
+        if start_cards_clicked:
             if not validate_personal_info(info):
                 return False
             st.session_state[ready_key] = True
@@ -3593,7 +3614,9 @@ def page_manual_tarot(user: Dict[str, Any], module_settings: Dict[str, Dict[str,
         return
 
     cards = closed_card_deck_selector("tarot", TAROT_CARDS, 7, "fire")
-    if st.button("Talebimi admin paneline gönder", key="submit_tarot"):
+    tarot_submit_clicked = st.button("Talebimi admin paneline gönder", key="submit_tarot")
+    render_legal_submit_note()
+    if tarot_submit_clicked:
         if not validate_personal_info(info):
             return
         if len(cards) != 7:
@@ -3618,7 +3641,9 @@ def page_manual_katina(user: Dict[str, Any], module_settings: Dict[str, Dict[str
         return
 
     cards = closed_card_deck_selector("katina", KATINA_CARDS, 7, "earth")
-    if st.button("Talebimi admin paneline gönder", key="submit_katina"):
+    katina_submit_clicked = st.button("Talebimi admin paneline gönder", key="submit_katina")
+    render_legal_submit_note()
+    if katina_submit_clicked:
         if not validate_personal_info(info):
             return
         if len(cards) != 7:
@@ -3706,7 +3731,9 @@ def page_coffee_image(user: Dict[str, Any], module_settings: Dict[str, Dict[str,
                 uploaded_files.append(file)
                 st.image(file, caption=f"Kare {i}", use_container_width=True)
 
-    if st.button("Kahve falı talebimi gönder", key="submit_coffee_image"):
+    coffee_image_clicked = st.button("Kahve falı talebimi gönder", key="submit_coffee_image")
+    render_legal_submit_note()
+    if coffee_image_clicked:
         if not validate_personal_info(info):
             return
         if not uploaded_files:
@@ -3727,7 +3754,9 @@ def page_dream(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]])
         return
     info = personal_info_form("dream")
     dream_text = st.text_area("Gördüğün rüyayı anlat", height=210)
-    if st.button("Rüya tabiri talebimi gönder", key="submit_dream"):
+    dream_clicked = st.button("Rüya tabiri talebimi gönder", key="submit_dream")
+    render_legal_submit_note()
+    if dream_clicked:
         if not validate_personal_info(info):
             return
         if not dream_text.strip():
@@ -3747,7 +3776,9 @@ def page_soulmate(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any
         return
     info = personal_info_form("soulmate")
     note = st.text_area("Varsa özel notun", height=100)
-    if st.button("Ruh eşi çizimi talebimi gönder", key="submit_soulmate"):
+    soulmate_clicked = st.button("Ruh eşi çizimi talebimi gönder", key="submit_soulmate")
+    render_legal_submit_note()
+    if soulmate_clicked:
         if not validate_personal_info(info):
             return
         payload = {"title": "Ruh Eşi Çizimi", "kişisel_bilgiler": _strip_legal_consents(info), "not": note, "yasal_onaylar": legal_consent_payload(_consent_from_values(info), "soulmate")}
@@ -3848,7 +3879,9 @@ def page_feedback(user: Dict[str, Any]) -> None:
         placeholder="İsteğini, önerini veya şikayetini buraya yazabilirsin.",
     )
     feedback_consents = legal_consent_form("feedback")
-    if st.button("Gönder", key="feedback_submit_btn", use_container_width=True):
+    feedback_clicked = st.button("Gönder", key="feedback_submit_btn", use_container_width=True)
+    render_legal_submit_note()
+    if feedback_clicked:
         if not validate_legal_consents(feedback_consents):
             return
         if not message.strip():
