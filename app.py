@@ -48,12 +48,17 @@ from services.db import (
     get_all_prompts,
     get_content_items,
     get_or_create_user,
+    get_coin_balance,
+    get_module_access_status,
     get_public_settings,
     get_usage,
+    grant_ad_reward,
+    grant_daily_login_reward,
     list_inbox,
     list_manual_requests,
     list_users,
     record_usage,
+    consume_module_access,
     save_module_setting,
     save_prompt,
     save_reading,
@@ -63,6 +68,7 @@ from services.db import (
     submit_manual_request,
     submit_upgrade_request,
     update_content_item,
+    set_user_unlimited_usage,
 )
 from services.ui import (
     APP_NAME,
@@ -1833,15 +1839,66 @@ ZORUNLU GÜVENLİK SINIRLARI:
 """
 
 
-def run_ai_free(user: Dict[str, Any], module_key: str, payload: Dict[str, Any], prompts: Dict[str, str]) -> None:
-    # Tum AI yorum sayfalari ucretsiz ve sinirsiz kullanimdadir.
-    # Firestore kota kontrolu yapilmaz; boylece "Kullanim hakki kontrol edilemedi" hatasi olusmaz.
-    plan = "premium_plus" if is_admin(user) else "free"
+def _module_access_status(user: Dict[str, Any], module_key: str) -> Dict[str, Any]:
+    try:
+        return get_module_access_status(user, module_key)
+    except Exception as exc:
+        return {
+            "allowed": False,
+            "message": f"Kullanım hakkı kontrol edilemedi: {exc}",
+            "type": "error",
+            "module_key": module_key,
+        }
 
+
+def render_module_access_notice(user: Dict[str, Any], module_key: str) -> None:
+    if not user or user.get("is_guest"):
+        return
+    status = _module_access_status(user, module_key)
+    if status.get("bypass"):
+        st.caption("Sınırsız kullanım aktif. Bu modül jeton veya günlük hak düşmeden çalışır.")
+        return
+    if status.get("type") == "coin":
+        st.caption(f"Bu modül {int(status.get('cost', 0))} jeton. Mevcut bakiyen: {int(status.get('balance', 0))} jeton.")
+        return
+    if status.get("type") == "daily_free":
+        bonus = " İlk 3 gün yeni üye hakkı aktiftir." if status.get("new_user_bonus") else ""
+        st.caption(f"Bugünkü ücretsiz hakkın: {int(status.get('remaining', 0))}/{int(status.get('limit', 1))}.{bonus}")
+
+
+def _consume_access_or_warn(user: Dict[str, Any], module_key: str) -> bool:
+    try:
+        ok, msg, meta = consume_module_access(user, module_key)
+    except Exception as exc:
+        st.error(f"Kullanım hakkı işlenemedi: {exc}")
+        return False
+    if not ok:
+        st.warning(msg)
+        return False
+    if meta.get("type") == "coin" and not meta.get("bypass"):
+        st.success(msg)
+    return True
+
+
+def _check_access_or_warn(user: Dict[str, Any], module_key: str) -> bool:
+    status = _module_access_status(user, module_key)
+    if not status.get("allowed"):
+        st.warning(str(status.get("message", "Bu modül için kullanım hakkın yok.")))
+        return False
+    return True
+
+
+def run_ai_free(user: Dict[str, Any], module_key: str, payload: Dict[str, Any], prompts: Dict[str, str]) -> None:
+    if not _check_access_or_warn(user, module_key):
+        return
+
+    plan = "premium_plus" if is_admin(user) else "free"
     prompt = build_ai_prompt(module_key, payload, prompts)
     with st.spinner("Pusulan detaylı yorumunu hazırlıyor..."):
         try:
             result = generate_text(prompt, plan=plan)
+            if not _consume_access_or_warn(user, module_key):
+                return
             if (not user.get("is_guest")) and st.session_state.get("save_history", False):
                 save_reading(user["email"], module_key, payload, result)
             st.success("Yorum hazır.")
@@ -2083,6 +2140,9 @@ def birth_details_form(prefix: str, include_birth_date: bool = False, include_zo
 
 def page_relationship(user: Dict[str, Any], prompts: Dict[str, str], module_settings: Dict[str, Dict[str, Any]]) -> None:
     render_module_intro("relationship", "free", module_meta("relationship", module_settings))
+    if not require_account(user):
+        return
+    render_module_access_notice(user, "relationship")
     situation = st.text_area("İlişkindeki güncel durumu bizimle paylaş", height=210, placeholder="Aramızda son zamanlarda şöyle bir şey oluyor...")
     question = st.text_input("En çok neyi merak ediyorsun?", placeholder="Beni seviyor mu, mesafe neden arttı, ne yapmalıyım?")
     relationship_stage = st.selectbox("İlişki Türü", ["Flört", "İlişki", "Eski partner", "Platonik", "Karmaşık bağ"])
@@ -2125,6 +2185,9 @@ def page_relationship(user: Dict[str, Any], prompts: Dict[str, str], module_sett
 
 def page_love_fortune(user: Dict[str, Any], prompts: Dict[str, str], module_settings: Dict[str, Dict[str, Any]]) -> None:
     render_module_intro("love_fortune", "free", module_meta("love_fortune", module_settings))
+    if not require_account(user):
+        return
+    render_module_access_notice(user, "love_fortune")
     col1, col2 = st.columns(2)
     with col1:
         first_name = st.text_input("Ad")
@@ -2434,6 +2497,7 @@ def page_birth_chart(user: Dict[str, Any], prompts: Dict[str, str], module_setti
     render_module_intro("birth_chart", "premium", module_meta("birth_chart", module_settings))
     if not require_account(user):
         return
+    render_module_access_notice(user, "birth_chart")
 
     st.info(
         "Doğum Haritası talebin admin paneline düşer. "
@@ -2487,8 +2551,9 @@ def page_birth_chart(user: Dict[str, Any], prompts: Dict[str, str], module_setti
         }
         if not _manual_module_usage_allowed(user, "birth_chart"):
             return
+        if not _record_manual_module_usage(user, "birth_chart"):
+            return
         request_id = submit_manual_request(user, "birth_chart", payload)
-        _record_manual_module_usage(user, "birth_chart")
         show_manual_request_sent_notice(request_id)
 
 
@@ -2498,6 +2563,7 @@ def page_yildizname(user: Dict[str, Any], module_settings: Dict[str, Dict[str, A
     render_module_intro("yildizname", "premium", module_meta("yildizname", module_settings))
     if not require_account(user):
         return
+    render_module_access_notice(user, "yildizname")
 
     st.info(
         "Yıldızname talebin admin paneline düşer. "
@@ -2552,14 +2618,18 @@ def page_yildizname(user: Dict[str, Any], module_settings: Dict[str, Dict[str, A
         }
         if not _manual_module_usage_allowed(user, "yildizname"):
             return
+        if not _record_manual_module_usage(user, "yildizname"):
+            return
         request_id = submit_manual_request(user, "yildizname", payload)
-        _record_manual_module_usage(user, "yildizname")
         show_manual_request_sent_notice(request_id)
 
 
 
 def page_mini_tarot(user: Dict[str, Any], prompts: Dict[str, str], module_settings: Dict[str, Dict[str, Any]]) -> None:
     render_module_intro("mini_tarot", "free", module_meta("mini_tarot", module_settings))
+    if not require_account(user):
+        return
+    render_module_access_notice(user, "mini_tarot")
     birth_details = birth_details_form("mini_tarot", include_birth_date=True, include_zodiac=True)
     question = st.text_area("Tarota sormak istediğin niyet veya soru", height=130)
     mini_tarot_clicked = st.button("Benim adıma kart çek ve yorumla")
@@ -2574,6 +2644,9 @@ def page_mini_tarot(user: Dict[str, Any], prompts: Dict[str, str], module_settin
 
 def page_mini_katina(user: Dict[str, Any], prompts: Dict[str, str], module_settings: Dict[str, Dict[str, Any]]) -> None:
     render_module_intro("mini_katina", "free", module_meta("mini_katina", module_settings))
+    if not require_account(user):
+        return
+    render_module_access_notice(user, "mini_katina")
     question = st.text_area("Katina'ya sormak istediğin konu", height=130)
     mini_katina_clicked = st.button("Benim adıma kart çek ve yorumla")
     mini_katina_consents = legal_consent_form("mini_katina")
@@ -2587,6 +2660,9 @@ def page_mini_katina(user: Dict[str, Any], prompts: Dict[str, str], module_setti
 
 def page_coffee_text(user: Dict[str, Any], prompts: Dict[str, str], module_settings: Dict[str, Dict[str, Any]]) -> None:
     render_module_intro("coffee_text", "free", module_meta("coffee_text", module_settings))
+    if not require_account(user):
+        return
+    render_module_access_notice(user, "coffee_text")
     birth_details = birth_details_form("coffee_text", include_birth_date=True, include_zodiac=True)
     symbols = st.text_area("Fincanda gördüğün şekilleri yaz.", height=170, placeholder="Kalbe benzeyen bir şekil, uzun bir yol, kuş gibi bir iz...")
     intention = st.text_input("Niyetin", placeholder="Aşk hayatım, barışma, yeni başlangıç...")
@@ -3229,14 +3305,11 @@ def _reset_deck_selection(deck_key: str) -> None:
 
 
 def _manual_module_usage_allowed(user: Dict[str, Any], module_key: str) -> bool:
-    # Admin talepli tum sayfalar ucretsiz ve sinirsizdir.
-    # Kahve fali gorsel yukleme dahil herhangi bir kota kontrolu yapilmaz.
-    return True
+    return _check_access_or_warn(user, module_key)
 
 
-def _record_manual_module_usage(user: Dict[str, Any], module_key: str) -> None:
-    # Sinirsiz kullanim modunda usage kaydi tutulmaz.
-    return None
+def _record_manual_module_usage(user: Dict[str, Any], module_key: str) -> bool:
+    return _consume_access_or_warn(user, module_key)
 
 
 
@@ -3270,6 +3343,7 @@ def page_manual_tarot(user: Dict[str, Any], module_settings: Dict[str, Dict[str,
     render_module_intro("tarot", "free", module_meta("tarot", module_settings))
     if not require_account(user):
         return
+    render_module_access_notice(user, "tarot")
     info = personal_info_form("tarot", include_zodiac=True)
     question = st.text_area("Tarot için niyetin veya sorun", height=120, key="tarot_question")
     tarot_consents = legal_consent_form("tarot")
@@ -3290,8 +3364,9 @@ def page_manual_tarot(user: Dict[str, Any], module_settings: Dict[str, Dict[str,
         if not _manual_module_usage_allowed(user, "tarot"):
             return
         payload = {"title": "Tarot Falı", "kişisel_bilgiler": info, "soru": question, "çekilen_kartlar": cards}
+        if not _record_manual_module_usage(user, "tarot"):
+            return
         request_id = submit_manual_request(user, "tarot", payload)
-        _record_manual_module_usage(user, "tarot")
         show_manual_request_sent_notice(request_id)
 
 
@@ -3299,6 +3374,7 @@ def page_manual_katina(user: Dict[str, Any], module_settings: Dict[str, Dict[str
     render_module_intro("katina", "free", module_meta("katina", module_settings))
     if not require_account(user):
         return
+    render_module_access_notice(user, "katina")
     info = personal_info_form("katina", include_zodiac=True)
     question = st.text_area("Katina için niyetin veya sorun", height=120, key="katina_question")
     katina_consents = legal_consent_form("katina")
@@ -3319,8 +3395,9 @@ def page_manual_katina(user: Dict[str, Any], module_settings: Dict[str, Dict[str
         if not _manual_module_usage_allowed(user, "katina"):
             return
         payload = {"title": "Katina Falı", "kişisel_bilgiler": info, "soru": question, "çekilen_kartlar": cards}
+        if not _record_manual_module_usage(user, "katina"):
+            return
         request_id = submit_manual_request(user, "katina", payload)
-        _record_manual_module_usage(user, "katina")
         show_manual_request_sent_notice(request_id)
 
 
@@ -3328,6 +3405,7 @@ def page_coffee_image(user: Dict[str, Any], module_settings: Dict[str, Dict[str,
     render_module_intro("coffee_image", "free", module_meta("coffee_image", module_settings))
     if not require_account(user):
         return
+    render_module_access_notice(user, "coffee_image")
     info = personal_info_form("coffee_image", include_zodiac=True)
     note = st.text_area("Varsa niyetini yaz", height=100, placeholder="Aşk hayatımla ilgili bir işaret görmek istiyorum...")
 
@@ -3412,8 +3490,9 @@ def page_coffee_image(user: Dict[str, Any], module_settings: Dict[str, Dict[str,
         payload = {"title": "Kahve Falı (Resim Yüklemeli)", "kişisel_bilgiler": info, "niyet": note, "görseller": images}
         if not _manual_module_usage_allowed(user, "coffee_image"):
             return
+        if not _record_manual_module_usage(user, "coffee_image"):
+            return
         request_id = submit_manual_request(user, "coffee_image", payload)
-        _record_manual_module_usage(user, "coffee_image")
         show_manual_request_sent_notice(request_id)
 
 
@@ -3421,6 +3500,7 @@ def page_dream(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]])
     render_module_intro("dream", "free", module_meta("dream", module_settings))
     if not require_account(user):
         return
+    render_module_access_notice(user, "dream")
     info = personal_info_form("dream")
     dream_text = st.text_area("Gördüğün rüyayı anlat", height=210)
     dream_clicked = st.button("Rüya tabiri talebimi gönder", key="submit_dream")
@@ -3436,8 +3516,9 @@ def page_dream(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]])
         payload = {"title": "Rüya Tabirleri", "kişisel_bilgiler": info, "rüya": dream_text}
         if not _manual_module_usage_allowed(user, "dream"):
             return
+        if not _record_manual_module_usage(user, "dream"):
+            return
         request_id = submit_manual_request(user, "dream", payload)
-        _record_manual_module_usage(user, "dream")
         show_manual_request_sent_notice(request_id)
 
 
@@ -3445,6 +3526,7 @@ def page_soulmate(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any
     render_module_intro("soulmate", "free", module_meta("soulmate", module_settings))
     if not require_account(user):
         return
+    render_module_access_notice(user, "soulmate")
     info = personal_info_form("soulmate")
     note = st.text_area("Varsa özel notun", height=100)
     soulmate_clicked = st.button("Ruh eşi çizimi talebimi gönder", key="submit_soulmate")
@@ -3457,8 +3539,9 @@ def page_soulmate(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any
         payload = {"title": "Ruh Eşi Çizimi", "kişisel_bilgiler": info, "not": note}
         if not _manual_module_usage_allowed(user, "soulmate"):
             return
+        if not _record_manual_module_usage(user, "soulmate"):
+            return
         request_id = submit_manual_request(user, "soulmate", payload)
-        _record_manual_module_usage(user, "soulmate")
         show_manual_request_sent_notice(request_id)
 
 
@@ -3576,13 +3659,20 @@ def page_account(user: Dict[str, Any]) -> None:
     plan = user.get("plan", "free")
     plan_info = PLAN_CONFIG.get(plan, PLAN_CONFIG["free"])
 
+    balance = get_coin_balance(user)
+    unlimited = bool(user.get("unlimited_usage", False)) or is_admin(user)
+
     col1, col2, col3 = st.columns(3)
     with col1:
-        render_metric_card("Plan", str(plan_info.get("name", plan)), "Tüm sayfalar ücretsiz")
+        render_metric_card("Plan", str(plan_info.get("name", plan)), "Hesap planı")
     with col2:
-        render_metric_card("Kullanım", "Sınırsız", "Günlük kota uygulanmaz")
+        render_metric_card("Jeton", str(balance), "Mevcut bakiye")
     with col3:
-        render_metric_card("Erişim", "Açık", "Tüm modüller aktif")
+        render_metric_card("Erişim", "Sınırsız" if unlimited else "Standart", "Admin veya özel yetki")
+
+    with st.expander("Günlük giriş ve reklam ödülleri", expanded=False):
+        st.caption("Günlük giriş ödülü uygulama açıldığında otomatik tanımlanır. 7. günden sonra ödül döngüsü tekrar 1. güne döner.")
+        st.caption("Android/iOS ödüllü reklam entegrasyonunda doğrulanan her reklam izleme için grant_ad_reward(...) fonksiyonu 10 jeton ekler.")
 
     with st.expander("Erişim kodu etkinleştir", expanded=False):
         code = st.text_input("Erişim kodu", type="password", key="account_access_code")
@@ -4223,23 +4313,37 @@ def admin_users() -> None:
         return
 
     st.caption(f"Toplam gösterilen kullanıcı: {len(users)}")
-    st.markdown('<div class="kp-admin-user-list">', unsafe_allow_html=True)
     for u in users:
         role = html_escape(str(u.get('role', 'user')))
         name = html_escape(str(u.get('display_name', '') or u.get('email', '').split('@')[0]))
-        email = html_escape(str(u.get('email', '')))
+        email = str(u.get('email', ''))
+        safe_email = html_escape(email)
         plan = html_escape(str(u.get('plan', 'free')))
-        st.markdown(
-            f"""
-            <div class="kp-admin-user-row">
-                <span class="kp-admin-user-role">{role}</span>
-                <span class="kp-admin-user-main"><strong>{name}</strong><small>{email}</small></span>
-                <span class="kp-admin-user-plan">{plan}</span>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-    st.markdown('</div>', unsafe_allow_html=True)
+        coin_balance = int(u.get('coin_balance', 0) or 0)
+        unlimited = bool(u.get('unlimited_usage', False)) or str(u.get('role', '')).lower() == 'admin'
+        status_text = "Sınırsız" if unlimited else "Standart"
+
+        col1, col2 = st.columns([0.72, 0.28], vertical_alignment="center")
+        with col1:
+            st.markdown(
+                f"""
+                <div class="kp-admin-user-row">
+                    <span class="kp-admin-user-role">{role}</span>
+                    <span class="kp-admin-user-main"><strong>{name}</strong><small>{safe_email} · {coin_balance} jeton</small></span>
+                    <span class="kp-admin-user-plan">{plan} · {status_text}</span>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+        with col2:
+            if str(u.get('role', '')).lower() == 'admin':
+                st.caption("Admin sınırsız")
+            else:
+                button_label = "Sınırsızı kaldır" if unlimited else "Sınırsız yap"
+                if st.button(button_label, key=f"admin_toggle_unlimited_{u.get('id')}", use_container_width=True):
+                    set_user_unlimited_usage(email, not unlimited, admin_user=st.session_state.get("auth_user", {}))
+                    st.success("Kullanıcı sınırsız kullanım ayarı güncellendi.")
+                    st.rerun()
 
 
 def page_admin(user: Dict[str, Any], prompts: Dict[str, str], module_settings: Dict[str, Dict[str, Any]]) -> None:
@@ -4311,6 +4415,24 @@ def render_page(page: str, user: Dict[str, Any], prompts: Dict[str, str], module
     render_back_home_button(page)
 
 
+def apply_daily_login_reward(user: Dict[str, Any]) -> None:
+    if not user or user.get("is_guest"):
+        return
+    reward_key = f"daily_login_reward_checked_{user.get('id', user.get('email', ''))}_{dt.date.today().isoformat()}"
+    if st.session_state.get(reward_key):
+        return
+    st.session_state[reward_key] = True
+    try:
+        awarded, msg, meta = grant_daily_login_reward(user)
+        if awarded:
+            st.toast(msg, icon="🪙")
+            fresh = get_or_create_user(user["email"])
+            st.session_state["auth_user"] = fresh
+    except Exception:
+        # Ödül sistemi hata verse bile uygulama açılışı engellenmez.
+        return
+
+
 def main() -> None:
     # Arka planı önce bas: Firestore/auth işlemleri başlamadan koyu video katmanı görünür olsun.
     # Bu, sayfa geçişindeki beyaz/parlak ekran hissini azaltır.
@@ -4323,6 +4445,9 @@ def main() -> None:
         render_landing_auth()
         render_footer()
         return
+
+    apply_daily_login_reward(user)
+    user = st.session_state.get("auth_user", user)
 
     try:
         module_settings = get_all_module_settings()
