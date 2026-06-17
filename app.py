@@ -252,12 +252,8 @@ st.markdown(
         background: transparent !important;
     }
     html.kp-page-changing::before {
-        content: "";
-        position: fixed;
-        inset: 0;
-        background: #030613;
-        z-index: 2147483647;
-        pointer-events: none;
+        content: none !important;
+        display: none !important;
     }
     </style>
     """,
@@ -319,12 +315,8 @@ if (storedToken) {
                                 background-color: #030613 !important;
                             }
                             html.kp-page-changing::before {
-                                content: "";
-                                position: fixed;
-                                inset: 0;
-                                background: #030613;
-                                z-index: 2147483647;
-                                pointer-events: none;
+                                content: none !important;
+                                display: none !important;
                             }
                         `;
                         doc.head.appendChild(style);
@@ -341,19 +333,11 @@ if (storedToken) {
                     }
                     function showPageTransitionCover() {
                         try {
-                            parentWin.sessionStorage.setItem('kp_page_changing', '1');
-                            doc.documentElement.classList.add('kp-page-changing');
-                            doc.documentElement.style.backgroundColor = '#030613';
-                            if (doc.body) doc.body.style.backgroundColor = '#030613';
-
-                            let cover = doc.getElementById('kp-page-transition-cover');
-                            if (!cover && doc.body) {
-                                cover = doc.createElement('div');
-                                cover.id = 'kp-page-transition-cover';
-                                cover.setAttribute('aria-hidden', 'true');
-                                cover.style.cssText = 'position:fixed;inset:0;background:#030613;z-index:2147483647;pointer-events:none;opacity:1;';
-                                doc.body.appendChild(cover);
-                            }
+                            // Siyah ekranda takılma riskini kaldırmak için artık tam ekran örtü oluşturulmaz.
+                            if (parentWin.sessionStorage) parentWin.sessionStorage.removeItem('kp_page_changing');
+                            if (doc && doc.documentElement) doc.documentElement.classList.remove('kp-page-changing');
+                            const cover = doc ? doc.getElementById('kp-page-transition-cover') : null;
+                            if (cover && cover.parentNode) cover.parentNode.removeChild(cover);
                         } catch (e) {}
                     }
                     function hidePageTransitionCover() {
@@ -363,6 +347,11 @@ if (storedToken) {
                         } catch (e) {}
                         clearGuard();
                     }
+                    hidePageTransitionCover();
+                    setTimeout(hidePageTransitionCover, 40);
+                    setTimeout(hidePageTransitionCover, 250);
+                    setTimeout(hidePageTransitionCover, 900);
+
                     if (!parentWin.__kpNoWhiteFlashGuardV2) {
                         parentWin.__kpNoWhiteFlashGuardV2 = true;
                         doc.addEventListener('click', function(event) {
@@ -483,7 +472,8 @@ if (storedToken) {
             }
 
             syncRememberedAuth();
-            syncMobileViewportFlag();
+            // Mobil menü artık native panelle çalıştığı için açılışta URL değiştirilmez.
+            // Bu, giriş sonrası gereksiz reload ve siyah ekranda kalma riskini azaltır.
             installNoWhiteFlashGuard();
             applyNoTranslate();
             setTimeout(applyNoTranslate, 700);
@@ -869,6 +859,39 @@ def render_landing_auth() -> None:
     auth_mode = st.session_state.get("landing_auth_mode", "login")
 
     st.markdown(
+        """
+        <style id="kp-landing-auth-tight-buttons-css">
+        .st-key-kp_landing_auth_buttons [data-testid="stHorizontalBlock"],
+        [class*="st-key-kp_landing_auth_buttons"] [data-testid="stHorizontalBlock"] {
+            gap: 0.28rem !important;
+            column-gap: 0.28rem !important;
+        }
+        .st-key-kp_landing_auth_buttons [data-testid="column"],
+        [class*="st-key-kp_landing_auth_buttons"] [data-testid="column"] {
+            padding-left: 0 !important;
+            padding-right: 0 !important;
+        }
+        .st-key-kp_landing_auth_buttons .element-container,
+        [class*="st-key-kp_landing_auth_buttons"] .element-container {
+            margin-bottom: 0 !important;
+        }
+        [data-testid="stCaptionContainer"],
+        .stCaptionContainer {
+            text-align: center !important;
+        }
+        [data-testid="stCaptionContainer"] p,
+        .stCaptionContainer p {
+            text-align: center !important;
+            width: 100% !important;
+            margin-left: auto !important;
+            margin-right: auto !important;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    st.markdown(
         f"""
         <div class="kp-auth-head">
             <div class="kp-auth-moon">☽</div>
@@ -907,8 +930,8 @@ def render_landing_auth() -> None:
                     st.session_state["current_page"] = "home"
                     st.session_state["remember_me"] = False
                     st.session_state["landing_auth_mode"] = "login"
-                    persist_auth_query(auth_user, "home")
-                    st.success(msg)
+                    st.session_state["_kp_clear_login_cover_once"] = True
+                    _query_delete(LOGOUT_QUERY_KEY)
                     st.rerun()
                 else:
                     st.error(msg)
@@ -920,13 +943,14 @@ def render_landing_auth() -> None:
     login_password = st.text_input("Şifre", type="password", key="login_password")
     remember_me = st.checkbox("Beni hatırla", value=False, key="login_remember_me")
 
-    login_col, register_col = st.columns(2)
-    with login_col:
-        login_clicked = st.button("Giriş yap", key="login_btn", use_container_width=True)
-    with register_col:
-        if st.button("Yeni hesap oluştur", key="show_register_btn", use_container_width=True):
-            st.session_state["landing_auth_mode"] = "register"
-            st.rerun()
+    with st.container(key="kp_landing_auth_buttons"):
+        login_col, register_col = st.columns([1, 1], gap="small")
+        with login_col:
+            login_clicked = st.button("Giriş yap", key="login_btn", use_container_width=True)
+        with register_col:
+            if st.button("Yeni hesap oluştur", key="show_register_btn", use_container_width=True):
+                st.session_state["landing_auth_mode"] = "register"
+                st.rerun()
 
     if login_clicked:
         try:
@@ -935,8 +959,11 @@ def render_landing_auth() -> None:
                 st.session_state["auth_user"] = auth_user
                 st.session_state["current_page"] = "home"
                 st.session_state["remember_me"] = bool(remember_me)
-                persist_auth_query(auth_user, "home")
-                st.success(msg)
+                st.session_state["_kp_clear_login_cover_once"] = True
+                if bool(remember_me):
+                    persist_auth_query(auth_user, "home")
+                else:
+                    _query_delete(LOGOUT_QUERY_KEY)
                 st.rerun()
             else:
                 st.error(msg)
@@ -2071,7 +2098,7 @@ def _home_background_image_uri() -> str:
     Video background is intentionally replaced with a lightweight image to reduce
     page transition load without changing menus, text, layout or visual structure.
     """
-    return asset_data_uri("kp_home_background.jpg", max_side=1920, quality=82)
+    return asset_data_uri("kp_home_background.jpg", max_side=1280, quality=58)
 
 
 def render_home_video_background() -> None:
@@ -2242,6 +2269,52 @@ def hide_logged_in_home_safety_text() -> None:
             hideSafetyText();
             setTimeout(hideSafetyText, 250);
             setTimeout(hideSafetyText, 900);
+        } catch (e) {}
+        </script>
+        """,
+        height=0,
+        width=0,
+    )
+
+
+def hide_landing_footer_disclaimer() -> None:
+    # Sadece giriş/üyelik ana ekranındaki footer açıklama metnini gizler; yasal linkler kalır.
+    st.markdown(
+        """
+        <style id="kp-hide-landing-footer-disclaimer-css">
+        .kp-footer .kp-footer-disclaimer {
+            display: none !important;
+            visibility: hidden !important;
+            height: 0 !important;
+            min-height: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: hidden !important;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def clear_login_transition_cover() -> None:
+    # Giriş sonrası takılı kalabilen siyah geçiş katmanını tek sefer temizler.
+    components.html(
+        """
+        <script>
+        try {
+            const parentWin = window.parent || window;
+            const doc = parentWin.document || document;
+            if (doc && doc.documentElement) {
+                doc.documentElement.classList.remove('kp-page-changing');
+            }
+            if (parentWin.sessionStorage) {
+                parentWin.sessionStorage.removeItem('kp_page_changing');
+            }
+            const cover = doc ? doc.getElementById('kp-page-transition-cover') : null;
+            if (cover && cover.parentNode) {
+                cover.parentNode.removeChild(cover);
+            }
         } catch (e) {}
         </script>
         """,
@@ -4610,8 +4683,8 @@ def apply_daily_login_reward(user: Dict[str, Any]) -> None:
         awarded, msg, meta = grant_daily_login_reward(user)
         if awarded:
             st.toast(msg, icon="🪙")
-            fresh = get_or_create_user(user["email"])
-            st.session_state["auth_user"] = fresh
+            # Açılışı hızlandırmak için ödülden sonra ikinci kullanıcı okuması yapılmaz.
+            # Jeton bakiyesi sol menüde zaten get_coin_balance(user) ile ayrıca okunur.
     except Exception:
         # Ödül sistemi hata verse bile uygulama açılışı engellenmez.
         return
@@ -4627,8 +4700,12 @@ def main() -> None:
         hide_sidebar_for_landing()
         render_hero()
         render_landing_auth()
+        hide_landing_footer_disclaimer()
         render_footer()
         return
+
+    if st.session_state.pop("_kp_clear_login_cover_once", False):
+        clear_login_transition_cover()
 
     apply_daily_login_reward(user)
     user = st.session_state.get("auth_user", user)
