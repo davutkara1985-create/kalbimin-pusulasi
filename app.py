@@ -2180,7 +2180,7 @@ BIRTH_CHART_FOCUS_AREAS = ["Genel", "Aşk", "Kariyer", "Yaşam Amacı"]
 YILDIZNAME_FOCUS_AREAS = ["Genel", "Aşk", "Kariyer", "Para/Kısmet", "Aile", "Ruhsal Yol"]
 
 LEGAL_CONSENT_VERSION = "2026-06-17"
-
+LEGAL_SUBMIT_NOTE =
 
 def render_legal_submit_note() -> None:
     """Show the legal text access note directly below legal consent checkboxes.
