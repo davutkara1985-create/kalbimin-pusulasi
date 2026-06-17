@@ -1250,6 +1250,28 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
             font-size: 0.66rem;
             line-height: 1.45;
         }}
+        .kp-footer-legal-links {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 6px;
+    max-width: 560px;
+    margin: 0 auto;
+    color: rgba(242, 226, 202, 0.62);
+    font-size: 0.66rem;
+    line-height: 1.45;
+}
+.kp-footer-legal-links a,
+.kp-footer-legal-links a:visited {
+    color: rgba(255, 241, 184, 0.78) !important;
+    text-decoration: none !important;
+    border-bottom: 1px solid rgba(255, 241, 184, 0.24);
+}
+.kp-footer-legal-links a:hover {
+    color: #fff1b8 !important;
+    border-bottom-color: rgba(255, 241, 184, 0.58);
+}
         .kp-auth-heading {{
             max-width: 520px;
             margin: 4px auto 22px;
@@ -1460,18 +1482,26 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
         }}
 
         /* Polished form system: embedded light glass fields + readable gold labels */
-        [data-testid="stWidgetLabel"],
-        [data-testid="stWidgetLabel"] p,
-        [data-testid="stWidgetLabel"] label,
-        [data-testid="stWidgetLabel"] span,
-        .stTextInput label, .stTextArea label, .stNumberInput label, .stDateInput label, .stTimeInput label,
-        .stSelectbox label, .stFileUploader label, .stSlider label, .stCheckbox label, .stRadio label {{
-            color: var(--kp-gold-2) !important;
-            font-weight: 850 !important;
-            letter-spacing: 0.035em !important;
-            font-size: var(--kp-form-label-size) !important;
-            text-shadow: 0 0 16px rgba(217,183,110,0.20) !important;
-        }}
+        .stCheckbox label,
+.stCheckbox label[data-baseweb="checkbox"],
+.stCheckbox [data-baseweb="checkbox"] {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 0.42rem !important;
+    min-height: 22px !important;
+    line-height: 1.18 !important;
+}
+.stCheckbox label p,
+.stCheckbox label span,
+.stCheckbox [data-testid="stMarkdownContainer"] p {
+    margin: 0 !important;
+    padding: 0 !important;
+    line-height: 1.18 !important;
+    transform: translateY(1px) !important;
+}
+.stCheckbox input[type="checkbox"] {
+    margin-top: 0 !important;
+}}
 
         .stTextInput > div,
         .stTextArea > div,
@@ -2504,6 +2534,17 @@ def render_footer() -> None:
             <div class="kp-footer-disclaimer">
                 Bu uygulama eğlence, kişisel farkındalık ve duygusal paylaşım amacı taşır. Terapi, psikolojik danışmanlık,
                 tıbbi teşhis veya kesin gelecek tahmini sunmaz.
+            </div>
+            <div class="kp-footer-legal-links">
+                <a href="KVKK Aydınlatma Metni.docx" target="_blank" rel="noopener noreferrer">KVKK Metni</a>
+                <span>·</span>
+                <a href="Gizlilik Politikası.docx" target="_blank" rel="noopener noreferrer">Gizlilik Politikası</a>
+                <span>·</span>
+                <a href="Açık Rıza Metni.docx" target="_blank" rel="noopener noreferrer">Açık Rıza Metni</a>
+                <span>·</span>
+                <a href="Çerez Politikası.docx" target="_blank" rel="noopener noreferrer">Çerez Politikası</a>
+                <span>·</span>
+                <a href="kullanım Koşulları.docx" target="_blank" rel="noopener noreferrer">Kullanım Koşulları</a>
             </div>
         </div>
         """,
