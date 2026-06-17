@@ -3251,7 +3251,7 @@ def show_manual_request_sent_notice(request_id: str) -> None:
 def _manual_cards_ready(deck_key: str, info: Dict[str, Any]) -> bool:
     ready_key = f"{deck_key}_ready_for_cards"
     if not bool(st.session_state.get(ready_key, False)):
-        if st.button("Bilgileri onayla ve kart seçimine geç", key=f"{deck_key}_start_cards", use_container_width=True):
+        if st.button("Bilgilerimi onaylıyorum. Kart seçimine geç", key=f"{deck_key}_start_cards", use_container_width=True):
             if not validate_personal_info(info):
                 return False
             st.session_state[ready_key] = True
