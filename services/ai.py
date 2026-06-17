@@ -101,4 +101,4 @@ def generate_with_image(prompt: str, uploaded_file, plan: str = "premium") -> st
         ),
     )
     return _response_text(response)
-
+    
