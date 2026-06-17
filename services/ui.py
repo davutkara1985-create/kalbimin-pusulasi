@@ -1193,6 +1193,31 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
         .kp-notice, .kp-safe {{ padding: 14px 15px; border-radius: 18px; background: rgba(255,241,184,0.075); border: 1px solid rgba(255,241,184,0.16); color: rgba(255,248,232,0.82); margin: 14px 0 20px; line-height: 1.55; font-size: 0.86rem; backdrop-filter: blur(18px); }}
         .kp-safe {{ background: rgba(36,109,181,0.10); border-color: rgba(140,182,255,0.18); }}
         .kp-footer {{ color: var(--kp-muted-2); text-align: center; font-size: 0.70rem; padding: 26px 0 10px; }}
+        .kp-footer-links {{
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 6px 10px;
+            margin-top: 12px;
+            font-size: 0.66rem;
+        }}
+        .kp-footer-links a {{
+            color: rgba(255, 241, 184, 0.78) !important;
+            text-decoration: none !important;
+            border-bottom: 1px solid rgba(255, 241, 184, 0.20);
+        }}
+        .kp-footer-links a:hover {{
+            color: #fff1b8 !important;
+            border-bottom-color: rgba(255, 241, 184, 0.46);
+        }}
+        .kp-legal-card h3, .kp-legal-card h4 {{
+            color: var(--kp-gold-2) !important;
+            margin-top: 0.85rem !important;
+        }}
+        .kp-legal-card p, .kp-legal-card li {{
+            color: rgba(255, 248, 232, 0.82) !important;
+            line-height: 1.55 !important;
+        }}
         .kp-footer-disclaimer {{
             max-width: 520px;
             margin: 0 auto 8px;
@@ -2458,6 +2483,15 @@ def render_footer() -> None:
             <div class="kp-footer-disclaimer">
                 Bu uygulama eğlence, kişisel farkındalık ve duygusal paylaşım amacı taşır. Terapi, psikolojik danışmanlık,
                 tıbbi teşhis veya kesin gelecek tahmini sunmaz.
+            </div>
+            <div class="kp-footer-links">
+                <a href="?kp_page=legal_kvkk">KVKK Aydınlatma Metni</a>
+                <a href="?kp_page=legal_explicit_consent">Açık Rıza Metni</a>
+                <a href="?kp_page=legal_privacy">Gizlilik Politikası</a>
+                <a href="?kp_page=legal_cookies">Çerez Politikası</a>
+                <a href="?kp_page=legal_terms">Kullanım Koşulları</a>
+                <a href="?kp_page=legal_sales">Ödeme/İade</a>
+                <a href="?kp_page=legal_age">Yaş Sınırı</a>
             </div>
         </div>
         """,
