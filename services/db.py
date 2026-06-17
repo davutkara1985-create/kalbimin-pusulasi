@@ -1125,4 +1125,3 @@ def _cached_page_ratings(limit: int = 1000) -> List[Dict[str, Any]]:
 
 def list_page_ratings(limit: int = 1000) -> List[Dict[str, Any]]:
     return _cached_page_ratings(int(limit))
-    
