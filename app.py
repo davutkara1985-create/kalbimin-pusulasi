@@ -157,12 +157,8 @@ st.markdown(
         background: transparent !important;
     }
     html.kp-page-changing::before {
-        content: "";
-        position: fixed;
-        inset: 0;
-        background: #030613;
-        z-index: 2147483647;
-        pointer-events: none;
+        display: none !important;
+        content: none !important;
     }
     </style>
     """,
@@ -178,6 +174,18 @@ def prevent_browser_translate() -> None:
             const parentWin = window.parent || window;
             const doc = parentWin.document || document;
             const KP_AUTH_STORAGE_KEY = 'kp_auth_token_v1';
+
+            function removeStuckTransitionCover() {
+                try {
+                    if (doc && doc.documentElement) doc.documentElement.classList.remove('kp-page-changing');
+                    if (parentWin.sessionStorage) parentWin.sessionStorage.removeItem('kp_page_changing');
+                    const cover = doc ? doc.getElementById('kp-page-transition-cover') : null;
+                    if (cover && cover.parentNode) cover.parentNode.removeChild(cover);
+                } catch (e) {}
+            }
+            removeStuckTransitionCover();
+            setTimeout(removeStuckTransitionCover, 80);
+            setTimeout(removeStuckTransitionCover, 350);
 
             function syncRememberedAuth() {
                 try {
@@ -224,12 +232,8 @@ if (storedToken) {
                                 background-color: #030613 !important;
                             }
                             html.kp-page-changing::before {
-                                content: "";
-                                position: fixed;
-                                inset: 0;
-                                background: #030613;
-                                z-index: 2147483647;
-                                pointer-events: none;
+                                display: none !important;
+                                content: none !important;
                             }
                         `;
                         doc.head.appendChild(style);
@@ -245,21 +249,9 @@ if (storedToken) {
                         setTimeout(clearGuard, 550);
                     }
                     function showPageTransitionCover() {
-                        try {
-                            parentWin.sessionStorage.setItem('kp_page_changing', '1');
-                            doc.documentElement.classList.add('kp-page-changing');
-                            doc.documentElement.style.backgroundColor = '#030613';
-                            if (doc.body) doc.body.style.backgroundColor = '#030613';
-
-                            let cover = doc.getElementById('kp-page-transition-cover');
-                            if (!cover && doc.body) {
-                                cover = doc.createElement('div');
-                                cover.id = 'kp-page-transition-cover';
-                                cover.setAttribute('aria-hidden', 'true');
-                                cover.style.cssText = 'position:fixed;inset:0;background:#030613;z-index:2147483647;pointer-events:none;opacity:1;';
-                                doc.body.appendChild(cover);
-                            }
-                        } catch (e) {}
+                        // Kullanıcı isteği: siyah ekranda kalmayı ve giriş gecikmesini önlemek için
+                        // tam ekran geçiş örtüsü artık oluşturulmaz.
+                        removeStuckTransitionCover();
                     }
                     function hidePageTransitionCover() {
                         try {
@@ -388,7 +380,7 @@ if (storedToken) {
             }
 
             syncRememberedAuth();
-            syncMobileViewportFlag();
+            // Mobil/desktop algısı için URL yeniden yazma yapılmaz; giriş ve açılış hızlanır.
             installNoWhiteFlashGuard();
             applyNoTranslate();
             setTimeout(applyNoTranslate, 700);
@@ -771,11 +763,67 @@ def render_legal_submit_note() -> None:
     return
 
 def render_landing_auth() -> None:
+    auth_mode = st.session_state.get("landing_auth_mode", "login")
+
     st.markdown(
         """
+        <style id="kp-landing-auth-modern-css">
+        .st-key-kp_landing_auth_buttons,
+        [class*="st-key-kp_landing_auth_buttons"] {
+            max-width: 360px !important;
+            margin: 0.18rem auto 0.10rem auto !important;
+        }
+        .st-key-kp_landing_auth_buttons [data-testid="stHorizontalBlock"],
+        [class*="st-key-kp_landing_auth_buttons"] [data-testid="stHorizontalBlock"] {
+            gap: 0.32rem !important;
+            column-gap: 0.32rem !important;
+        }
+        .st-key-kp_landing_auth_buttons [data-testid="column"],
+        [class*="st-key-kp_landing_auth_buttons"] [data-testid="column"] {
+            padding-left: 0 !important;
+            padding-right: 0 !important;
+        }
+        .st-key-kp_landing_auth_buttons div.stButton > button,
+        [class*="st-key-kp_landing_auth_buttons"] div.stButton > button {
+            min-height: 34px !important;
+            height: 34px !important;
+            padding: 0 12px !important;
+            border-radius: 999px !important;
+            font-size: 0.76rem !important;
+            font-weight: 850 !important;
+            letter-spacing: 0.01em !important;
+            box-shadow: 0 8px 18px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.10) !important;
+        }
+        .kp-register-help {
+            max-width: 430px;
+            margin: 0.18rem auto 0.42rem auto;
+            text-align: center;
+            color: rgba(242, 226, 202, 0.72);
+            font-size: 0.72rem;
+            line-height: 1.36;
+        }
+        .st-key-kp_register_back_button,
+        [class*="st-key-kp_register_back_button"] {
+            max-width: 220px !important;
+            margin: 0.08rem auto 0.42rem auto !important;
+        }
+        .st-key-kp_register_back_button div.stButton > button,
+        [class*="st-key-kp_register_back_button"] div.stButton > button {
+            min-height: 30px !important;
+            height: 30px !important;
+            border-radius: 999px !important;
+            font-size: 0.72rem !important;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    st.markdown(
+        f"""
         <div class="kp-auth-head">
             <div class="kp-auth-moon">☽</div>
-            <div class="kp-auth-title">Giriş</div>
+            <div class="kp-auth-title">{'Yeni Hesap Oluştur' if auth_mode == 'register' else 'Giriş'}</div>
             <div class="kp-auth-subtitle">Kalbin Seni Çağırıyor</div>
             <div class="kp-auth-note">Kalbinizdeki işaretleri görmek için üye girişi yapınız</div>
         </div>
@@ -783,36 +831,28 @@ def render_landing_auth() -> None:
         unsafe_allow_html=True,
     )
 
-    login_email = normalize_email(st.text_input("E-posta", key="login_email", placeholder="ornek@mail.com"))
-    login_password = st.text_input("Şifre", type="password", key="login_password")
-    remember_me = st.checkbox("Beni hatırla", value=False, key="login_remember_me")
-
-    if st.button("Giriş yap", key="login_btn", use_container_width=True):
-        try:
-            ok, msg, auth_user = authenticate_user(login_email, login_password)
-            if ok and auth_user:
-                st.session_state["auth_user"] = auth_user
-                st.session_state["current_page"] = "home"
-                st.session_state["remember_me"] = bool(remember_me)
-                persist_auth_query(auth_user, "home")
-                st.success(msg)
+    if auth_mode == "register":
+        with st.container(key="kp_register_back_button"):
+            if st.button("Giriş yap", key="show_login_btn", use_container_width=True):
+                st.session_state["landing_auth_mode"] = "login"
                 st.rerun()
-            else:
-                st.error(msg)
-        except Exception as exc:
-            stop_with_setup_error(exc)
 
-    with st.expander("Yeni hesap oluştur"):
         display_name = st.text_input("Ad Soyad", key="register_name")
         reg_email = normalize_email(st.text_input("E-posta", key="register_email", placeholder="ornek@mail.com"))
-        st.caption("Geçici, test veya doğrulanamayan alan adına sahip e-postalar kabul edilmez.")
+        st.markdown(
+            '<div class="kp-register-help">Geçici, test veya doğrulanamayan alan adına sahip e-postalar kabul edilmez.</div>',
+            unsafe_allow_html=True,
+        )
         reg_password = st.text_input(
             "Şifre",
             type="password",
             key="register_password",
             help="En az 6 karakter; en az 1 büyük harf, 1 küçük harf ve 1 rakam içermelidir.",
         )
-        st.caption("Şifre en az 6 karakter olmalı; 1 büyük harf, 1 küçük harf ve 1 rakam içermelidir.")
+        st.markdown(
+            '<div class="kp-register-help">Şifre en az 6 karakter olmalı; 1 büyük harf, 1 küçük harf ve 1 rakam içermelidir.</div>',
+            unsafe_allow_html=True,
+        )
         register_clicked = st.button("Hesap oluştur", key="register_btn", use_container_width=True)
         register_consents = legal_consent_form("register")
         if register_clicked:
@@ -824,14 +864,44 @@ def render_landing_auth() -> None:
                     st.session_state["auth_user"] = auth_user
                     st.session_state["current_page"] = "home"
                     st.session_state["remember_me"] = False
-                    persist_auth_query(auth_user, "home")
-                    st.success(msg)
+                    st.session_state["landing_auth_mode"] = "login"
+                    _query_delete(LOGOUT_QUERY_KEY)
                     st.rerun()
                 else:
                     st.error(msg)
             except Exception as exc:
                 stop_with_setup_error(exc)
+        return
 
+    login_email = normalize_email(st.text_input("E-posta", key="login_email", placeholder="ornek@mail.com"))
+    login_password = st.text_input("Şifre", type="password", key="login_password")
+    remember_me = st.checkbox("Beni hatırla", value=False, key="login_remember_me")
+
+    with st.container(key="kp_landing_auth_buttons"):
+        login_col, register_col = st.columns([1, 1], gap="small")
+        with login_col:
+            login_clicked = st.button("Giriş yap", key="login_btn", use_container_width=True)
+        with register_col:
+            if st.button("Yeni hesap oluştur", key="show_register_btn", use_container_width=True):
+                st.session_state["landing_auth_mode"] = "register"
+                st.rerun()
+
+    if login_clicked:
+        try:
+            ok, msg, auth_user = authenticate_user(login_email, login_password)
+            if ok and auth_user:
+                st.session_state["auth_user"] = auth_user
+                st.session_state["current_page"] = "home"
+                st.session_state["remember_me"] = bool(remember_me)
+                if bool(remember_me):
+                    persist_auth_query(auth_user, "home")
+                else:
+                    _query_delete(LOGOUT_QUERY_KEY)
+                st.rerun()
+            else:
+                st.error(msg)
+        except Exception as exc:
+            stop_with_setup_error(exc)
 
 def render_top_account(user: Dict[str, Any]) -> None:
     if not user or user.get("is_guest"):
@@ -1303,8 +1373,13 @@ def inject_native_navigation_css() -> None:
             overflow-y: auto !important;
             overflow-x: hidden !important;
             scrollbar-width: thin !important;
-            padding-top: 0.05rem !important;
+            padding-top: 0 !important;
             padding-bottom: 0.70rem !important;
+        }
+        .kp-sidebar-brand {
+            margin-top: -8px !important;
+            margin-bottom: 6px !important;
+            transform: translateY(-2px) !important;
         }
         .kp-sidebar-coin-balance {
             display: flex !important;
@@ -1797,6 +1872,11 @@ PROMPT_FIELD_ALIASES: Dict[str, Dict[str, Any]] = {
     },
     "mini_katina": {
         "konu": "soru",
+        "dogum_tarihi": "doğum_tarihi",
+        "burc": "burç",
+        "dogum_yeri": "doğum_yeri",
+        "dogum_saati": "doğum_saati",
+        "niyet": "soru",
     },
     "coffee_text": {
         "dogum_tarihi": "doğum_tarihi",
@@ -1951,7 +2031,7 @@ def _home_background_image_uri() -> str:
     Video background is intentionally replaced with a lightweight image to reduce
     page transition load without changing menus, text, layout or visual structure.
     """
-    return asset_data_uri("kp_home_background.jpg", max_side=1920, quality=82)
+    return asset_data_uri("kp_home_background.jpg", max_side=1280, quality=58)
 
 
 def render_home_video_background() -> None:
@@ -2094,6 +2174,26 @@ def render_home_story_text() -> None:
             <img class="kp-home-story-image" src="{safe_uri}" alt="Kalbimin Pusulası giriş mektubu" loading="lazy" />
         </div>
         ''',
+        unsafe_allow_html=True,
+    )
+
+
+def hide_module_footer_disclaimer() -> None:
+    # Modül sayfalarında footer açıklama metni gizlenir; ana sayfada görünmeye devam eder.
+    st.markdown(
+        """
+        <style id="kp-hide-module-footer-disclaimer-css">
+        .kp-footer .kp-footer-disclaimer {
+            display: none !important;
+            visibility: hidden !important;
+            height: 0 !important;
+            min-height: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: hidden !important;
+        }
+        </style>
+        """,
         unsafe_allow_html=True,
     )
 
@@ -2677,6 +2777,7 @@ def page_mini_katina(user: Dict[str, Any], prompts: Dict[str, str], module_setti
     if not require_account(user):
         return
     render_module_access_notice(user, "mini_katina")
+    birth_details = birth_details_form("mini_katina", include_birth_date=True, include_zodiac=True)
     question = st.text_area("Katina'ya sormak istediğin konu", height=130)
     mini_katina_clicked = st.button("Benim adıma kart çek ve yorumla")
     mini_katina_consents = legal_consent_form("mini_katina")
@@ -2685,7 +2786,7 @@ def page_mini_katina(user: Dict[str, Any], prompts: Dict[str, str], module_setti
             return
         cards = select_katina_cards(mini=True)
         render_drawn_cards(cards, "earth")
-        run_ai_free(user, "mini_katina", {"soru": question, "çekilen_sembol": cards[0]}, prompts)
+        run_ai_free(user, "mini_katina", {"soru": question, "çekilen_sembol": cards[0], **birth_details}, prompts)
 
 
 def page_coffee_text(user: Dict[str, Any], prompts: Dict[str, str], module_settings: Dict[str, Dict[str, Any]]) -> None:
@@ -4456,8 +4557,6 @@ def apply_daily_login_reward(user: Dict[str, Any]) -> None:
         awarded, msg, meta = grant_daily_login_reward(user)
         if awarded:
             st.toast(msg, icon="🪙")
-            fresh = get_or_create_user(user["email"])
-            st.session_state["auth_user"] = fresh
     except Exception:
         # Ödül sistemi hata verse bile uygulama açılışı engellenmez.
         return
@@ -4498,6 +4597,8 @@ def main() -> None:
 
     render_user_message_notification(user, page)
     render_page(page, user, prompts, module_settings)
+    if page in MODULES:
+        hide_module_footer_disclaimer()
     render_footer()
 
 
