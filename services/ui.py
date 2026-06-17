@@ -228,64 +228,95 @@ def icon_asset_data_uri(filename: str, max_side: int = 58) -> str:
 
 
 PROFESSIONAL_MODULE_ICONS: Dict[str, str] = {
-    "relationship": """
-        <path d="M12 20.3s-6.9-4.05-8.7-8.2C2.2 9.55 3.05 6.7 5.62 5.86c1.62-.52 3.24.08 4.28 1.32C10.94 5.94 12.56 5.34 14.18 5.86c2.57.84 3.42 3.69 2.32 6.24C14.69 16.25 12 20.3 12 20.3Z"/>
-        <path d="M7.5 10.2c1.25 1.15 2.7 1.72 4.5 1.72s3.25-.57 4.5-1.72" opacity=".52"/>
-    """,
     "love_fortune": """
-        <path d="M12 20.2s-5.9-3.56-7.45-7.08C3.55 10.84 4.34 8.34 6.55 7.63c1.39-.45 2.78.07 3.67 1.13.89-1.06 2.28-1.58 3.67-1.13 2.21.71 3 3.21 2 5.49C14.35 16.64 12 20.2 12 20.2Z"/>
-        <path d="M15.5 3.8a4.8 4.8 0 0 0 3.2 7.8 5.2 5.2 0 0 1-5.9-6.15 4.85 4.85 0 0 1 2.7-1.65Z" opacity=".58"/>
+        <path d="M12 21s-6-4-9-8C-1 7 2 3 6 5c2 1 3 3 6 6 3-3 4-5 6-6 4-2 7 2 3 7-3 4-9 9-9 9z"
+              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
     """,
+
+    "relationship": """
+        <circle cx="8" cy="10" r="3"
+                stroke="currentColor" stroke-width="2"/>
+        <circle cx="16" cy="10" r="3"
+                stroke="currentColor" stroke-width="2"/>
+        <path d="M5 20c2-3 4-4 7-4s5 1 7 4"
+              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    """,
+
     "birth_chart": """
-        <circle cx="12" cy="12" r="7.2"/>
-        <path d="M12 4.8v14.4M4.8 12h14.4M7.1 7.1l9.8 9.8M16.9 7.1l-9.8 9.8" opacity=".46"/>
-        <circle cx="12" cy="12" r="2.2"/>
+        <circle cx="12" cy="12" r="9"
+                stroke="currentColor" stroke-width="2"/>
+        <path d="M12 3v18M3 12h18"
+              stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
     """,
+
     "yildizname": """
-        <circle cx="12" cy="12" r="7.2"/>
-        <path d="M12 5.2l1.35 4.05 4.25.02-3.42 2.5 1.28 4.08L12 13.42l-3.46 2.43 1.28-4.08-3.42-2.5 4.25-.02L12 5.2Z"/>
-        <path d="M12 3.8v1.05M12 19.15v1.05M3.8 12h1.05M19.15 12h1.05" opacity=".52"/>
+        <path d="M12 2l3 6 6 1-4 4 1 6-6-3-6 3 1-6-4-4 6-1z"
+              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
     """,
+
     "mini_tarot": """
-        <rect x="7.2" y="4.3" width="9.6" height="15.4" rx="2.1"/>
-        <path d="M12 7.6l1.25 2.65L16 11.5l-2.75 1.22L12 15.4l-1.25-2.68L8 11.5l2.75-1.25L12 7.6Z"/>
+        <rect x="6" y="4" width="12" height="16" rx="2"
+              stroke="currentColor" stroke-width="2"/>
+        <path d="M12 8l1.15 2.45L16 11.6l-2.85 1.08L12 15.2l-1.15-2.52L8 11.6l2.85-1.15L12 8z"
+              stroke="currentColor" stroke-width="1.45" stroke-linecap="round" stroke-linejoin="round"/>
     """,
+
     "tarot": """
-        <rect x="6.7" y="3.8" width="10.6" height="16.4" rx="2.2"/>
-        <path d="M12 6.7l1.45 3.05 3.05 1.45-3.05 1.45L12 15.7l-1.45-3.05-3.05-1.45 3.05-1.45L12 6.7Z"/>
-        <path d="M9.2 18h5.6" opacity=".55"/>
+        <rect x="6" y="4" width="12" height="16" rx="2"
+              stroke="currentColor" stroke-width="2"/>
+        <path d="M9 8h6M9 16h6"
+              stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
     """,
+
     "mini_katina": """
-        <circle cx="8.7" cy="8.7" r="3.2"/>
-        <path d="M11.1 11.1l6.4 6.4M14 14.1l1.55-1.55M16.1 16.2l1.45-1.45"/>
+        <circle cx="12" cy="8" r="3"
+                stroke="currentColor" stroke-width="2"/>
+        <path d="M12 11v6M9.5 17h5"
+              stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
     """,
+
     "katina": """
-        <circle cx="8.4" cy="8.4" r="3.25"/>
-        <path d="M10.8 10.8l7 7M14.2 14.2l1.65-1.65M16.45 16.45l1.5-1.5"/>
-        <path d="M8.4 6.9v.05" opacity=".7"/>
+        <circle cx="12" cy="8" r="3"
+                stroke="currentColor" stroke-width="2"/>
+        <path d="M12 11v7M9.2 18h5.6M14.2 14.2l2-2M15.8 15.8l2-2"
+              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
     """,
+
     "coffee_text": """
-        <path d="M5.2 9.1h9.1v3.8a4.55 4.55 0 0 1-9.1 0V9.1Z"/>
-        <path d="M14.3 10.2h1.3a2 2 0 0 1 0 4h-1.3M6.3 18.6h8.8"/>
-        <path d="M8.1 5.4c-.55.7-.55 1.32 0 1.92M11.1 5.1c-.55.74-.55 1.38 0 2" opacity=".58"/>
+        <path d="M4 10h12v6a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4z"
+              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M16 11h1.4a2.2 2.2 0 0 1 0 4.4H16M7 7c-.55-.7-.55-1.35 0-2M11 7c-.55-.7-.55-1.35 0-2"
+              stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
     """,
+
     "coffee_image": """
-        <path d="M5.2 9.1h9.1v3.8a4.55 4.55 0 0 1-9.1 0V9.1Z"/>
-        <path d="M14.3 10.2h1.3a2 2 0 0 1 0 4h-1.3M6.3 18.6h8.8"/>
-        <path d="M8.1 5.4c-.55.7-.55 1.32 0 1.92M11.1 5.1c-.55.74-.55 1.38 0 2" opacity=".58"/>
+        <path d="M4 10h12v6a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4z"
+              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M16 11h1.4a2.2 2.2 0 0 1 0 4.4H16M7 7c-.55-.7-.55-1.35 0-2M11 7c-.55-.7-.55-1.35 0-2"
+              stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
     """,
+
     "dream": """
-        <path d="M15.8 4.4a7.7 7.7 0 1 0 3.35 10.35 6.15 6.15 0 1 1-3.35-10.35Z"/>
-        <path d="M8 7.6l.55 1.16 1.2.55-1.2.55L8 11l-.55-1.18-1.2-.55 1.2-.55L8 7.6ZM17.4 14.2l.45.92.95.45-.95.45-.45.92-.45-.92-.95-.45.95-.45.45-.92Z" opacity=".62"/>
+        <path d="M21 12a9 9 0 0 1-9 9 7 7 0 0 1 0-14"
+              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M8 7.5l.5 1.1 1.1.5-1.1.5L8 10.7l-.5-1.1-1.1-.5 1.1-.5L8 7.5z"
+              stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
     """,
+
     "soulmate": """
-        <circle cx="8.7" cy="10" r="3.35"/>
-        <circle cx="15.3" cy="10" r="3.35"/>
-        <path d="M9.9 13.2c.9 1.4 1.95 2.55 2.1 2.7.15-.15 1.2-1.3 2.1-2.7"/>
+        <circle cx="8" cy="12" r="3"
+                stroke="currentColor" stroke-width="2"/>
+        <circle cx="16" cy="12" r="3"
+                stroke="currentColor" stroke-width="2"/>
+        <path d="M11 12h2"
+              stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
     """,
+
     "admin": """
-        <circle cx="12" cy="12" r="3.1"/>
-        <path d="M12 3.8v2.05M12 18.15v2.05M5.95 5.95l1.45 1.45M16.6 16.6l1.45 1.45M3.8 12h2.05M18.15 12h2.05M5.95 18.05l1.45-1.45M16.6 7.4l1.45-1.45"/>
+        <circle cx="12" cy="12" r="3.1"
+                stroke="currentColor" stroke-width="2"/>
+        <path d="M12 3.8v2.05M12 18.15v2.05M5.95 5.95l1.45 1.45M16.6 16.6l1.45 1.45M3.8 12h2.05M18.15 12h2.05M5.95 18.05l1.45-1.45M16.6 7.4l1.45-1.45"
+              stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
     """,
 }
 
@@ -434,6 +465,7 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
             --kp-font-sans: {content_font};
             --kp-font-scale: {font_scale};
             --kp-sidebar-width: {sidebar_width}px;
+            --kp-form-label-size: 0.70rem;
         }}
 
         html, body, [class*="css"] {{ font-family: var(--kp-font-sans); font-size: calc(16px * var(--kp-font-scale)); }}
@@ -793,7 +825,7 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
                 color: #fff1b8 !important;
                 -webkit-text-fill-color: #fff1b8 !important;
                 font-weight: 900 !important;
-                font-size: 0.82rem !important;
+                font-size: var(--kp-form-label-size) !important;
                 line-height: 1 !important;
                 letter-spacing: 0.02em !important;
             }}
@@ -804,7 +836,7 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
                 color: #fff1b8 !important;
                 -webkit-text-fill-color: #fff1b8 !important;
                 font-weight: 900 !important;
-                font-size: 0.82rem !important;
+                font-size: var(--kp-form-label-size) !important;
                 line-height: 1 !important;
                 visibility: visible !important;
                 opacity: 1 !important;
@@ -1142,6 +1174,20 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
             box-shadow: 0 18px 46px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.13);
             overflow: hidden; backdrop-filter: blur(22px); transition: transform 220ms ease, border-color 220ms ease, box-shadow 220ms ease;
         }}
+
+        .element-container:has(.kp-module-card) {{
+            margin-top: -1.10rem !important;
+            padding-top: 0 !important;
+        }}
+        .kp-module-card {{
+            margin-top: 0 !important;
+            margin-bottom: 0.55rem !important;
+        }}
+        @media (max-width: 760px) {{
+            .element-container:has(.kp-module-card) {{
+                margin-top: -0.72rem !important;
+            }}
+        }}
         .kp-card:hover {{ transform: translateY(-3px) scale(1.02); border-color: rgba(255,241,184,0.58); box-shadow: 0 26px 58px rgba(0,0,0,0.38), 0 0 28px rgba(217,183,110,0.14); }}
         .kp-card::before {{ content: ""; position: absolute; inset: 0; background: radial-gradient(circle at 18% 16%, var(--kp-element-glow, rgba(217,183,110,0.18)), transparent 38%); opacity: 0.76; z-index: -1; }}
         .kp-card.water {{ --kp-element-glow: rgba(38,112,183,0.38); }}
@@ -1365,7 +1411,7 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
             color: var(--kp-gold-2) !important;
             font-weight: 850 !important;
             letter-spacing: 0.035em !important;
-            font-size: 0.86rem !important;
+            font-size: var(--kp-form-label-size) !important;
         }}
 
         .stTextInput input, .stTextArea textarea, .stNumberInput input, .stDateInput input, .stTimeInput input,
@@ -1423,7 +1469,7 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
             color: var(--kp-gold-2) !important;
             font-weight: 850 !important;
             letter-spacing: 0.035em !important;
-            font-size: 0.86rem !important;
+            font-size: var(--kp-form-label-size) !important;
             text-shadow: 0 0 16px rgba(217,183,110,0.20) !important;
         }}
 
@@ -1596,7 +1642,7 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
             color: rgba(255,241,184,0.88) !important;
             font-weight: 800 !important;
             letter-spacing: 0.025em !important;
-            font-size: 0.82rem !important;
+            font-size: var(--kp-form-label-size) !important;
             text-shadow: none !important;
         }}
         .stTextInput > div,
@@ -2229,7 +2275,7 @@ def render_module_card(module_key: str, module: Dict[str, Any], locked: bool = F
     icon_class = "kp-icon kp-icon-asset" if MODULE_ICON_ASSETS.get(module_key) else "kp-icon"
     st.markdown(
         f"""
-        <div class="kp-card {element}">
+        <div class="kp-card kp-module-card {element}">
           <div class="kp-card-top">
             <div class="{icon_class}">{icon_html}</div>
             {lock_html}
