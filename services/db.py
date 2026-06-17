@@ -268,7 +268,7 @@ def get_or_create_user(email: str) -> Dict[str, Any]:
     return {**data, "created_at": now_utc(), "updated_at": now_utc()}
 
 
-def create_user_account(email: str, password: str, display_name: str = "") -> Tuple[bool, str, Optional[Dict[str, Any]]]:
+def create_user_account(email: str, password: str, display_name: str = "", legal_consents: Optional[Dict[str, Any]] = None) -> Tuple[bool, str, Optional[Dict[str, Any]]]:
     normalized = normalize_email(email)
     email_ok, email_msg = validate_registration_email(normalized)
     if not email_ok:
@@ -300,6 +300,7 @@ def create_user_account(email: str, password: str, display_name: str = "") -> Tu
         "created_at": existing.get("created_at", firestore.SERVER_TIMESTAMP),
         "updated_at": firestore.SERVER_TIMESTAMP,
         "source": existing.get("source", "streamlit_auth"),
+        "legal_consents": legal_consents or existing.get("legal_consents", {}),
     }
     ref.set(data, merge=True)
     _clear_user_profile_cache()
@@ -425,7 +426,7 @@ def save_reading(email: str, module_key: str, user_input: Dict[str, Any], result
     )
 
 
-def submit_upgrade_request(email: str, target_plan: str, note: str = "") -> None:
+def submit_upgrade_request(email: str, target_plan: str, note: str = "", legal_consents: Optional[Dict[str, Any]] = None) -> None:
     if target_plan not in PLAN_CONFIG:
         raise ValueError(f"Geçersiz plan: {target_plan}")
 
@@ -438,6 +439,7 @@ def submit_upgrade_request(email: str, target_plan: str, note: str = "") -> None
             "target_plan": target_plan,
             "note": note.strip(),
             "status": "new",
+            "legal_consents": legal_consents or {},
             "created_at": firestore.SERVER_TIMESTAMP,
         }
     )
@@ -974,7 +976,7 @@ def mark_inbox_read(user: Dict[str, Any], message_id: str) -> None:
     _clear_inbox_cache()
 
 
-def submit_user_feedback(user: Dict[str, Any], category: str, subject: str, message: str) -> str:
+def submit_user_feedback(user: Dict[str, Any], category: str, subject: str, message: str, legal_consents: Optional[Dict[str, Any]] = None) -> str:
     if not user or user.get("is_guest"):
         raise PermissionError("Bu işlem için hesapla giriş yapılmalıdır.")
     clean_category = str(category or "Geri Bildirim").strip()[:40] or "Geri Bildirim"
@@ -994,6 +996,7 @@ def submit_user_feedback(user: Dict[str, Any], category: str, subject: str, mess
             "user_id": user["id"],
             "user_email": normalize_email(user.get("email", "")),
             "display_name": user.get("display_name", ""),
+            "legal_consents": legal_consents or {},
             "created_at": firestore.SERVER_TIMESTAMP,
             "updated_at": firestore.SERVER_TIMESTAMP,
         }
@@ -1125,4 +1128,3 @@ def _cached_page_ratings(limit: int = 1000) -> List[Dict[str, Any]]:
 
 def list_page_ratings(limit: int = 1000) -> List[Dict[str, Any]]:
     return _cached_page_ratings(int(limit))
-    
