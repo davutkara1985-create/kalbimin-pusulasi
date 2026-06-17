@@ -1303,7 +1303,32 @@ def inject_native_navigation_css() -> None:
             overflow-y: auto !important;
             overflow-x: hidden !important;
             scrollbar-width: thin !important;
+            padding-top: 0.05rem !important;
             padding-bottom: 0.70rem !important;
+        }
+        .kp-sidebar-coin-balance {
+            display: flex !important;
+            align-items: center !important;
+            justify-content: space-between !important;
+            min-height: 24px !important;
+            margin: 3px 0 6px 0 !important;
+            padding: 3px 7px !important;
+            border-radius: 9px !important;
+            background: rgba(217,183,110,0.10) !important;
+            border: 1px solid rgba(255,241,184,0.14) !important;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.035) !important;
+        }
+        .kp-sidebar-coin-label {
+            color: rgba(255,248,232,0.84) !important;
+            font-size: 0.64rem !important;
+            font-weight: 620 !important;
+            line-height: 1 !important;
+        }
+        .kp-sidebar-coin-value {
+            color: #fff1b8 !important;
+            font-size: 0.68rem !important;
+            font-weight: 850 !important;
+            line-height: 1 !important;
         }
         [data-testid="stSidebar"] .element-container:has(div.stButton) {
             margin: 0 !important;
@@ -1671,6 +1696,20 @@ def navigation(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]])
             st.rerun()
 
     render_sidebar_native_button("home", "Ana Sayfa", KP_COMPACT_ICONS["home"])
+    if user and not user.get("is_guest"):
+        try:
+            coin_balance = int(get_coin_balance(user))
+        except Exception:
+            coin_balance = 0
+        st.sidebar.markdown(
+            f"""
+            <div class="kp-sidebar-coin-balance">
+                <span class="kp-sidebar-coin-label">Kalan Jeton</span>
+                <span class="kp-sidebar-coin-value">{coin_balance}</span>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
     st.sidebar.markdown("<div class='kp-sidebar-menu-title'>Menü</div>", unsafe_allow_html=True)
     for _group_title, _group_icon, items in build_menu_groups(user, module_settings):
@@ -1852,18 +1891,9 @@ def _module_access_status(user: Dict[str, Any], module_key: str) -> Dict[str, An
 
 
 def render_module_access_notice(user: Dict[str, Any], module_key: str) -> None:
-    if not user or user.get("is_guest"):
-        return
-    status = _module_access_status(user, module_key)
-    if status.get("bypass"):
-        st.caption("Sınırsız kullanım aktif. Bu modül jeton veya günlük hak düşmeden çalışır.")
-        return
-    if status.get("type") == "coin":
-        st.caption(f"Bu modül {int(status.get('cost', 0))} jeton. Mevcut bakiyen: {int(status.get('balance', 0))} jeton.")
-        return
-    if status.get("type") == "daily_free":
-        bonus = " İlk 3 gün yeni üye hakkı aktiftir." if status.get("new_user_bonus") else ""
-        st.caption(f"Bugünkü ücretsiz hakkın: {int(status.get('remaining', 0))}/{int(status.get('limit', 1))}.{bonus}")
+    # Kullanıcı isteğiyle modül sayfalarındaki sürekli bilgi/caption metinleri gösterilmez.
+    # Jeton/günlük hak engelleri _check_access_or_warn() ve _consume_access_or_warn() içinde devam eder.
+    return
 
 
 def _consume_access_or_warn(user: Dict[str, Any], module_key: str) -> bool:
