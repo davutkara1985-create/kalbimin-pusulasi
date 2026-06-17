@@ -3271,15 +3271,15 @@ def page_manual_tarot(user: Dict[str, Any], module_settings: Dict[str, Dict[str,
     render_module_intro("tarot", "free", module_meta("tarot", module_settings))
     if not require_account(user):
         return
-   info = personal_info_form("tarot", include_zodiac=True)
-question = st.text_area("Tarot için niyetin veya sorun", height=120, key="tarot_question")
-tarot_consents = legal_consent_form("tarot")
+    info = personal_info_form("tarot", include_zodiac=True)
+    question = st.text_area("Tarot için niyetin veya sorun", height=120, key="tarot_question")
+    tarot_consents = legal_consent_form("tarot")
 
-if not _manual_cards_ready("tarot", info):
-    return
+    if not _manual_cards_ready("tarot", info):
+        return
 
-cards = closed_card_deck_selector("tarot", TAROT_CARDS, 7, "fire")
-tarot_clicked = st.button("Talebimi admin paneline gönder", key="submit_tarot")
+    cards = closed_card_deck_selector("tarot", TAROT_CARDS, 7, "fire")
+    tarot_clicked = st.button("Talebimi admin paneline gönder", key="submit_tarot")
     if tarot_clicked:
         if not validate_legal_consents(tarot_consents):
             return
@@ -3301,14 +3301,14 @@ def page_manual_katina(user: Dict[str, Any], module_settings: Dict[str, Dict[str
     if not require_account(user):
         return
     info = personal_info_form("katina", include_zodiac=True)
-question = st.text_area("Katina için niyetin veya sorun", height=120, key="katina_question")
-katina_consents = legal_consent_form("katina")
+    question = st.text_area("Katina için niyetin veya sorun", height=120, key="katina_question")
+    katina_consents = legal_consent_form("katina")
 
-if not _manual_cards_ready("katina", info):
-    return
+    if not _manual_cards_ready("katina", info):
+        return
 
-cards = closed_card_deck_selector("katina", KATINA_CARDS, 7, "earth")
-katina_clicked = st.button("Talebimi admin paneline gönder", key="submit_katina")
+    cards = closed_card_deck_selector("katina", KATINA_CARDS, 7, "earth")
+    katina_clicked = st.button("Talebimi admin paneline gönder", key="submit_katina")
     if katina_clicked:
         if not validate_legal_consents(katina_consents):
             return
