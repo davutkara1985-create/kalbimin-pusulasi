@@ -173,6 +173,7 @@ MODULE_VISUALS: Dict[str, Tuple[str, str, str]] = {
     "relationship": ("Aşk & İlişki", "♡", "fire"),
     "love_fortune": ("Aşk & İlişki", "☽", "fire"),
     "birth_chart": ("Astroloji", "♈", "air"),
+    "yildizname": ("Astroloji", "✶", "air"),
     "mini_tarot": ("Fal & Kehanet", "◇", "fire"),
     "tarot": ("Fal & Kehanet", "✧", "fire"),
     "mini_katina": ("Fal & Kehanet", "⚿", "earth"),
@@ -181,8 +182,6 @@ MODULE_VISUALS: Dict[str, Tuple[str, str, str]] = {
     "coffee_image": ("Fal & Kehanet", "☕", "earth"),
     "dream": ("Fal & Kehanet", "☾", "water"),
     "soulmate": ("Fal & Kehanet", "♁", "air"),
-    "meditation": ("Ruhsal & Zihinsel", "☽", "air"),
-    "rituals": ("Ruhsal & Zihinsel", "✺", "fire"),
     "inbox": ("Hesabım", "✉", "water"),
     "admin": ("Yönetim", "⚙", "earth"),
 }
@@ -204,8 +203,6 @@ MODULE_ICON_ASSETS: Dict[str, str] = {
     "coffee_image": "coffee_fortune.png",
     "dream": "dream.png",
     "soulmate": "soulmate.png",
-    "meditation": "meditation.png",
-    "rituals": "rituals.png",
 }
 
 
@@ -244,6 +241,11 @@ PROFESSIONAL_MODULE_ICONS: Dict[str, str] = {
         <path d="M12 4.8v14.4M4.8 12h14.4M7.1 7.1l9.8 9.8M16.9 7.1l-9.8 9.8" opacity=".46"/>
         <circle cx="12" cy="12" r="2.2"/>
     """,
+    "yildizname": """
+        <circle cx="12" cy="12" r="7.2"/>
+        <path d="M12 5.2l1.35 4.05 4.25.02-3.42 2.5 1.28 4.08L12 13.42l-3.46 2.43 1.28-4.08-3.42-2.5 4.25-.02L12 5.2Z"/>
+        <path d="M12 3.8v1.05M12 19.15v1.05M3.8 12h1.05M19.15 12h1.05" opacity=".52"/>
+    """,
     "mini_tarot": """
         <rect x="7.2" y="4.3" width="9.6" height="15.4" rx="2.1"/>
         <path d="M12 7.6l1.25 2.65L16 11.5l-2.75 1.22L12 15.4l-1.25-2.68L8 11.5l2.75-1.25L12 7.6Z"/>
@@ -280,14 +282,6 @@ PROFESSIONAL_MODULE_ICONS: Dict[str, str] = {
         <circle cx="8.7" cy="10" r="3.35"/>
         <circle cx="15.3" cy="10" r="3.35"/>
         <path d="M9.9 13.2c.9 1.4 1.95 2.55 2.1 2.7.15-.15 1.2-1.3 2.1-2.7"/>
-    """,
-    "meditation": """
-        <path d="M12 18.5c-3.55-1.35-5.15-3.55-5.2-6.08 2.2.22 3.95 1.12 5.2 3.22 1.25-2.1 3-3 5.2-3.22-.05 2.53-1.65 4.73-5.2 6.08Z"/>
-        <path d="M12 15.64c-1.08-2.08-1.08-4.46 0-7.14 1.08 2.68 1.08 5.06 0 7.14ZM7.4 18.5h9.2" opacity=".58"/>
-    """,
-    "rituals": """
-        <path d="M12 21c3.1-1.05 5-3.25 5-6 0-2.18-1.22-3.5-2.7-4.85-.98-.9-1.68-1.8-1.68-3.15-2.62 1.78-4.62 4.38-4.62 7.7 0 2.82 1.8 5.15 4 6.3Z"/>
-        <path d="M12.3 18.2c1.25-.62 2.02-1.6 2.02-2.85 0-1.1-.62-1.75-1.25-2.38-.42-.42-.72-.84-.72-1.48-1.25.93-2.18 2.22-2.18 3.82 0 1.35.82 2.42 2.13 2.89Z" opacity=".58"/>
     """,
     "admin": """
         <circle cx="12" cy="12" r="3.1"/>
