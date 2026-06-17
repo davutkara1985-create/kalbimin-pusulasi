@@ -352,7 +352,9 @@ def _professional_module_icon_svg(module_key: str, fallback_icon: str) -> str:
 
 
 def module_icon_html(module_key: str, fallback_icon: str) -> str:
-    """Return module icons with the same emoji/icon logic used by the menu."""
+    """Return modern module icons for module cards and page intro boxes."""
+    if module_key in PROFESSIONAL_MODULE_ICONS:
+        return _professional_module_icon_svg(module_key, fallback_icon)
     icon = KP_MODULE_MENU_ICONS.get(module_key, fallback_icon)
     return f'<span class="kp-icon-fallback kp-menu-style-module-icon">{escape(str(icon))}</span>'
 
@@ -1212,12 +1214,24 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
         .kp-card.earth {{ --kp-element-glow: rgba(128,98,58,0.32); }}
         .kp-card-top {{ display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 14px; }}
         .kp-icon {{
-            width: 54px; height: 54px; border-radius: 18px; display: grid; place-items: center; color: var(--kp-gold-2);
-            font-family: var(--kp-font-serif); font-size: 1.55rem;
-            background: linear-gradient(145deg, rgba(217,183,110,0.24), rgba(123,75,214,0.16));
-            border: 1px solid rgba(255,241,184,0.24); box-shadow: 0 0 20px rgba(217,183,110,0.16);
+            position: relative;
+            width: 72px; height: 72px; border-radius: 24px; display: grid; place-items: center; color: var(--kp-gold-2);
+            font-family: var(--kp-font-serif); font-size: 2.08rem;
+            background:
+                radial-gradient(circle at 28% 18%, rgba(255,241,184,0.46), transparent 29%),
+                linear-gradient(145deg, rgba(217,183,110,0.34), rgba(123,75,214,0.24) 58%, rgba(6,8,23,0.42));
+            border: 1px solid rgba(255,241,184,0.42);
+            box-shadow: 0 18px 38px rgba(0,0,0,0.34), 0 0 28px rgba(217,183,110,0.20), inset 0 1px 0 rgba(255,255,255,0.055);
             overflow: hidden;
             flex: 0 0 auto;
+        }}
+        .kp-icon::before {{
+            content: "";
+            position: absolute;
+            inset: 8px;
+            border-radius: 19px;
+            border: 1px solid rgba(255,241,184,0.16);
+            pointer-events: none;
         }}
         .kp-menu-style-module-icon {{
     display: inline-flex !important;
@@ -1226,7 +1240,7 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
     width: 100% !important;
     height: 100% !important;
     font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", var(--kp-font-sans) !important;
-    font-size: 1.55rem !important;
+    font-size: 2.18rem !important;
     line-height: 1 !important;
     transform: translateY(1px) !important;
     filter: drop-shadow(0 0 3px rgba(217, 183, 110, 0.34)) !important;
@@ -1652,16 +1666,16 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
 
         /* Performance-focused professional icons and embedded form fields */
         .kp-icon-svg {{
-            width: 72% !important;
-            height: 72% !important;
+            width: 62% !important;
+            height: 62% !important;
             display: block !important;
             color: var(--kp-gold-2) !important;
             stroke: currentColor !important;
-            stroke-width: 1.72 !important;
+            stroke-width: 2.08 !important;
             stroke-linecap: round !important;
             stroke-linejoin: round !important;
             fill: none !important;
-            filter: none !important;
+            filter: drop-shadow(0 0 8px rgba(217,183,110,0.44)) !important;
         }}
         .kp-side-nav-icon .kp-icon-svg,
         .kp-mobile-menu-icon .kp-icon-svg {{
@@ -1686,8 +1700,9 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
         .kp-icon-fallback {{
             color: var(--kp-gold-2) !important;
             font-family: var(--kp-font-serif) !important;
-            font-size: 0.92rem !important;
+            font-size: 1.78rem !important;
             line-height: 1 !important;
+            filter: drop-shadow(0 0 8px rgba(217,183,110,0.42)) !important;
         }}
 
         [data-testid="stWidgetLabel"],
@@ -2329,7 +2344,7 @@ def render_module_card(module_key: str, module: Dict[str, Any], locked: bool = F
     title = escape(str(module.get("title", "")))
     description = escape(str(module.get("description", "")))
     icon_html = module_icon_html(module_key, icon)
-    icon_class = "kp-icon kp-icon-asset" if MODULE_ICON_ASSETS.get(module_key) else "kp-icon"
+    icon_class = "kp-icon"
     st.markdown(
         f"""
         <div class="kp-card kp-module-card {element}">
