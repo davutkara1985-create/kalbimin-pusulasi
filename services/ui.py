@@ -1143,6 +1143,20 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
             box-shadow: 0 18px 46px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.13);
             overflow: hidden; backdrop-filter: blur(22px); transition: transform 220ms ease, border-color 220ms ease, box-shadow 220ms ease;
         }}
+        .element-container:has(.kp-module-card) {
+    margin-top: -1.20rem !important;
+}
+
+.kp-module-card {
+    margin-top: 0 !important;
+    margin-bottom: 0.65rem !important;
+}
+
+@media (max-width: 760px) {
+    .element-container:has(.kp-module-card) {
+        margin-top: -0.55rem !important;
+    }
+}
         .kp-card:hover {{ transform: translateY(-3px) scale(1.02); border-color: rgba(255,241,184,0.58); box-shadow: 0 26px 58px rgba(0,0,0,0.38), 0 0 28px rgba(217,183,110,0.14); }}
         .kp-card::before {{ content: ""; position: absolute; inset: 0; background: radial-gradient(circle at 18% 16%, var(--kp-element-glow, rgba(217,183,110,0.18)), transparent 38%); opacity: 0.76; z-index: -1; }}
         .kp-card.water {{ --kp-element-glow: rgba(38,112,183,0.38); }}
@@ -2258,7 +2272,7 @@ def render_module_card(module_key: str, module: Dict[str, Any], locked: bool = F
     icon_class = "kp-icon kp-icon-asset" if MODULE_ICON_ASSETS.get(module_key) else "kp-icon"
     st.markdown(
         f"""
-        <div class="kp-card {element}">
+        <div class="kp-card kp-module-card {element}">
           <div class="kp-card-top">
             <div class="{icon_class}">{icon_html}</div>
             {lock_html}
