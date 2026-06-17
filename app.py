@@ -772,97 +772,135 @@ def render_top_account(user: Dict[str, Any]) -> None:
     current_page = st.session_state.get("current_page", _query_get(PAGE_QUERY_KEY, "home"))
     message_label = "Mesajlar" + (f" {message_count}" if message_count > 0 else "")
 
-    # Kullanıcı adı bilerek gösterilmez. Sağ üstte sadece: Hesabım - Mesajlar - Çıkış.
+    # Kullanıcı adı gösterilmez. Sağ üst menü kutu/pill içinde değil,
+    # tasarıma gömülü, arka plansız ve tek satır hizalı görünür.
     st.markdown(
         """
-        <style id="kp-top-account-actions-only-css">
-        div[data-testid="stHorizontalBlock"]:has(.kp-top-account-actions-marker) {
+        <style id="kp-top-inline-actions-css">
+        div[data-testid="stHorizontalBlock"]:has(.kp-top-inline-actions-marker) {
             position: fixed !important;
-            top: 12px !important;
-            right: 18px !important;
+            top: 14px !important;
+            right: 22px !important;
             left: auto !important;
             bottom: auto !important;
             z-index: 999999 !important;
             display: inline-flex !important;
             align-items: center !important;
             justify-content: flex-end !important;
-            gap: 7px !important;
+            gap: 14px !important;
             width: auto !important;
-            max-width: min(330px, calc(100vw - var(--kp-sidebar-width) - 24px)) !important;
+            max-width: min(310px, calc(100vw - var(--kp-sidebar-width) - 28px)) !important;
             margin: 0 !important;
-            padding: 6px 8px !important;
-            border-radius: 999px !important;
-            background: rgba(6, 8, 23, 0.62) !important;
-            border: 1px solid rgba(255, 241, 184, 0.18) !important;
-            box-shadow: 0 12px 28px rgba(0,0,0,0.22), inset 0 1px 0 rgba(255,255,255,0.08) !important;
+            padding: 0 !important;
+            background: transparent !important;
+            border: 0 !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
             overflow: visible !important;
         }
-        div[data-testid="stHorizontalBlock"]:has(.kp-top-account-actions-marker) > div[data-testid="column"] {
+        div[data-testid="stHorizontalBlock"]:has(.kp-top-inline-actions-marker) > div[data-testid="column"] {
             flex: 0 0 auto !important;
             width: auto !important;
             min-width: 0 !important;
             max-width: none !important;
             padding: 0 !important;
+            margin: 0 !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
         }
-        .kp-top-account-actions-marker {
+        .kp-top-inline-actions-marker {
             display: none !important;
             visibility: hidden !important;
             width: 0 !important;
             height: 0 !important;
             overflow: hidden !important;
         }
-        div[data-testid="stHorizontalBlock"]:has(.kp-top-account-actions-marker) div.stButton {
+        div[data-testid="stHorizontalBlock"]:has(.kp-top-inline-actions-marker) [data-testid="stVerticalBlock"],
+        div[data-testid="stHorizontalBlock"]:has(.kp-top-inline-actions-marker) .element-container,
+        div[data-testid="stHorizontalBlock"]:has(.kp-top-inline-actions-marker) div.stButton {
             width: auto !important;
             min-width: 0 !important;
             margin: 0 !important;
             padding: 0 !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            line-height: 1 !important;
         }
-        div[data-testid="stHorizontalBlock"]:has(.kp-top-account-actions-marker) div.stButton > button {
-            min-height: 26px !important;
-            height: 26px !important;
+        div[data-testid="stHorizontalBlock"]:has(.kp-top-inline-actions-marker) div.stButton > button {
+            min-height: 22px !important;
+            height: 22px !important;
             width: auto !important;
             min-width: 0 !important;
             margin: 0 !important;
-            padding: 0 10px !important;
-            border-radius: 999px !important;
-            background: linear-gradient(135deg, rgba(217,183,110,0.96), rgba(154,112,52,0.96)) !important;
-            color: #120d23 !important;
-            border: 1px solid rgba(255,241,184,0.32) !important;
+            padding: 0 1px !important;
+            border-radius: 0 !important;
+            background: transparent !important;
+            background-image: none !important;
+            color: rgba(255, 241, 184, 0.92) !important;
+            border: none !important;
+            outline: none !important;
+            box-shadow: none !important;
+            font-family: var(--kp-font-sans) !important;
             font-size: 0.72rem !important;
-            font-weight: 800 !important;
-            line-height: 1 !important;
-            box-shadow: inset 0 1px 0 rgba(255,255,255,0.28) !important;
+            font-weight: 760 !important;
+            line-height: 22px !important;
+            letter-spacing: 0.01em !important;
             white-space: nowrap !important;
             visibility: visible !important;
             opacity: 1 !important;
+            text-shadow: 0 0 14px rgba(217, 183, 110, 0.16) !important;
         }
-        div[data-testid="stHorizontalBlock"]:has(.kp-top-account-actions-marker) div.stButton > button:hover {
-            filter: brightness(1.06) !important;
-            border-color: rgba(255,241,184,0.42) !important;
+        div[data-testid="stHorizontalBlock"]:has(.kp-top-inline-actions-marker) div.stButton > button:hover {
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            color: #fff8e8 !important;
+            text-decoration: underline !important;
+            text-underline-offset: 4px !important;
+            filter: none !important;
+            transform: none !important;
         }
-        div[data-testid="stHorizontalBlock"]:has(.kp-top-account-actions-marker) div.stButton > button p {
-            color: #120d23 !important;
+        div[data-testid="stHorizontalBlock"]:has(.kp-top-inline-actions-marker) div.stButton > button:focus,
+        div[data-testid="stHorizontalBlock"]:has(.kp-top-inline-actions-marker) div.stButton > button:active {
+            background: transparent !important;
+            border: none !important;
+            outline: none !important;
+            box-shadow: none !important;
+        }
+        div[data-testid="stHorizontalBlock"]:has(.kp-top-inline-actions-marker) div.stButton > button p,
+        div[data-testid="stHorizontalBlock"]:has(.kp-top-inline-actions-marker) div.stButton > button span,
+        div[data-testid="stHorizontalBlock"]:has(.kp-top-inline-actions-marker) div.stButton > button div {
+            color: inherit !important;
             font-size: 0.72rem !important;
-            font-weight: 800 !important;
-            line-height: 1 !important;
+            font-weight: 760 !important;
+            line-height: 22px !important;
             white-space: nowrap !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
         }
         @media (max-width: 760px) {
-            div[data-testid="stHorizontalBlock"]:has(.kp-top-account-actions-marker) {
-                top: 8px !important;
-                right: 10px !important;
-                max-width: calc(100vw - 20px) !important;
-                gap: 4px !important;
-                padding: 5px 6px !important;
+            div[data-testid="stHorizontalBlock"]:has(.kp-top-inline-actions-marker) {
+                top: 9px !important;
+                right: 11px !important;
+                max-width: calc(100vw - 22px) !important;
+                gap: 9px !important;
             }
-            div[data-testid="stHorizontalBlock"]:has(.kp-top-account-actions-marker) div.stButton > button {
-                min-height: 24px !important;
-                height: 24px !important;
-                padding: 0 7px !important;
-                font-size: 0.65rem !important;
-            }
-            div[data-testid="stHorizontalBlock"]:has(.kp-top-account-actions-marker) div.stButton > button p {
-                font-size: 0.65rem !important;
+            div[data-testid="stHorizontalBlock"]:has(.kp-top-inline-actions-marker) div.stButton > button,
+            div[data-testid="stHorizontalBlock"]:has(.kp-top-inline-actions-marker) div.stButton > button p,
+            div[data-testid="stHorizontalBlock"]:has(.kp-top-inline-actions-marker) div.stButton > button span,
+            div[data-testid="stHorizontalBlock"]:has(.kp-top-inline-actions-marker) div.stButton > button div {
+                min-height: 21px !important;
+                height: 21px !important;
+                font-size: 0.66rem !important;
+                line-height: 21px !important;
+                padding: 0 !important;
             }
         }
         </style>
@@ -870,9 +908,9 @@ def render_top_account(user: Dict[str, Any]) -> None:
         unsafe_allow_html=True,
     )
 
-    account_col, inbox_col, logout_col = st.columns([0.92, 1.0, 0.72], gap="small", vertical_alignment="center")
+    account_col, inbox_col, logout_col = st.columns([0.86, 0.96, 0.66], gap="small", vertical_alignment="center")
     with account_col:
-        st.markdown('<span class="kp-top-account-actions-marker"></span>', unsafe_allow_html=True)
+        st.markdown('<span class="kp-top-inline-actions-marker"></span>', unsafe_allow_html=True)
         if st.button("Hesabım", key="kp_top_native_account", use_container_width=False):
             if current_page != "account":
                 go_to_page("account", user)
@@ -1793,16 +1831,9 @@ def run_ai_free(user: Dict[str, Any], module_key: str, payload: Dict[str, Any], 
 
 
 def render_back_home_button(page: str) -> None:
-    if not page or page == "home":
-        return
-
-    st.markdown('<div class="kp-bottom-back-home">', unsafe_allow_html=True)
-    left_col, _ = st.columns([1.35, 4.65])
-    with left_col:
-        if st.button("← Ana sayfa", key=f"back_home_{page}", use_container_width=True):
-            reset_navigation_to_home()
-            st.rerun()
-    st.markdown('</div>', unsafe_allow_html=True)
+    # Modül sayfalarının altındaki "← Ana sayfa" butonu kullanıcı isteğiyle kaldırıldı.
+    # Fonksiyon çağrıları korunur; böylece mevcut sayfa akışı ve diğer kodlar bozulmaz.
+    return
 
 
 HOME_STORY_TEXT = """
