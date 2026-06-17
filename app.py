@@ -79,7 +79,7 @@ from services.ui import (
     render_hero,
     render_metric_card,
     render_module_card,
-    render_module_intro,
+    render_module_intro as _ui_render_module_intro,
     render_plan_cards,
     render_result_panel,
     render_safety_notice,
@@ -89,6 +89,101 @@ from services.ui import (
     render_content_visual,
     module_icon_html,
 )
+
+
+def render_modern_module_symbol_style() -> None:
+    """Modernize the module-page symbol box without touching services/ui.py."""
+    st.markdown(
+        """
+        <style id="kp-modern-module-symbol-css">
+        .kp-card-top .kp-icon,
+        .kp-module-card .kp-icon,
+        .kp-module-intro .kp-icon,
+        .kp-lead-card .kp-icon {
+            width: 72px !important;
+            height: 72px !important;
+            min-width: 72px !important;
+            border-radius: 24px !important;
+            display: grid !important;
+            place-items: center !important;
+            background:
+                radial-gradient(circle at 28% 18%, rgba(255,241,184,0.46), transparent 28%),
+                linear-gradient(145deg, rgba(217,183,110,0.34), rgba(123,75,214,0.24) 58%, rgba(6,8,23,0.42)) !important;
+            border: 1px solid rgba(255,241,184,0.42) !important;
+            box-shadow:
+                0 0 0 1px rgba(255,255,255,0.055) inset,
+                0 18px 38px rgba(0,0,0,0.34),
+                0 0 28px rgba(217,183,110,0.20) !important;
+            overflow: hidden !important;
+        }
+        .kp-card-top .kp-icon::before,
+        .kp-module-card .kp-icon::before,
+        .kp-module-intro .kp-icon::before,
+        .kp-lead-card .kp-icon::before {
+            content: "";
+            position: absolute;
+            inset: 8px;
+            border-radius: 19px;
+            border: 1px solid rgba(255,241,184,0.16);
+            pointer-events: none;
+        }
+        .kp-card-top .kp-icon svg,
+        .kp-card-top .kp-icon-svg,
+        .kp-module-card .kp-icon svg,
+        .kp-module-card .kp-icon-svg,
+        .kp-module-intro .kp-icon svg,
+        .kp-module-intro .kp-icon-svg,
+        .kp-lead-card .kp-icon svg,
+        .kp-lead-card .kp-icon-svg {
+            width: 43px !important;
+            height: 43px !important;
+            color: #fff1b8 !important;
+            filter: drop-shadow(0 0 8px rgba(217,183,110,0.46)) !important;
+            stroke-width: 2.15 !important;
+        }
+        .kp-card-top .kp-icon-fallback,
+        .kp-card-top .kp-menu-style-module-icon,
+        .kp-module-card .kp-icon-fallback,
+        .kp-module-card .kp-menu-style-module-icon,
+        .kp-module-intro .kp-icon-fallback,
+        .kp-module-intro .kp-menu-style-module-icon,
+        .kp-lead-card .kp-icon-fallback,
+        .kp-lead-card .kp-menu-style-module-icon {
+            font-size: 2.24rem !important;
+            line-height: 1 !important;
+            transform: translateY(1px) scale(1.04) !important;
+            filter: drop-shadow(0 0 9px rgba(217,183,110,0.48)) !important;
+        }
+        @media (max-width: 760px) {
+            .kp-card-top .kp-icon,
+            .kp-module-card .kp-icon,
+            .kp-module-intro .kp-icon,
+            .kp-lead-card .kp-icon {
+                width: 64px !important;
+                height: 64px !important;
+                min-width: 64px !important;
+                border-radius: 21px !important;
+            }
+            .kp-card-top .kp-icon-fallback,
+            .kp-card-top .kp-menu-style-module-icon,
+            .kp-module-card .kp-icon-fallback,
+            .kp-module-card .kp-menu-style-module-icon,
+            .kp-module-intro .kp-icon-fallback,
+            .kp-module-intro .kp-menu-style-module-icon,
+            .kp-lead-card .kp-icon-fallback,
+            .kp-lead-card .kp-menu-style-module-icon {
+                font-size: 2.02rem !important;
+            }
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_module_intro(*args, **kwargs) -> None:
+    _ui_render_module_intro(*args, **kwargs)
+    render_modern_module_symbol_style()
 
 
 # Yeni geri bildirim / mesaj kutusu fonksiyonları eski db.py ile de ImportError üretmesin diye
@@ -771,11 +866,13 @@ def render_legal_submit_note() -> None:
     return
 
 def render_landing_auth() -> None:
+    auth_mode = st.session_state.get("landing_auth_mode", "login")
+
     st.markdown(
-        """
+        f"""
         <div class="kp-auth-head">
             <div class="kp-auth-moon">☽</div>
-            <div class="kp-auth-title">Giriş</div>
+            <div class="kp-auth-title">{'Yeni Hesap Oluştur' if auth_mode == 'register' else 'Giriş'}</div>
             <div class="kp-auth-subtitle">Kalbin Seni Çağırıyor</div>
             <div class="kp-auth-note">Kalbinizdeki işaretleri görmek için üye girişi yapınız</div>
         </div>
@@ -783,26 +880,11 @@ def render_landing_auth() -> None:
         unsafe_allow_html=True,
     )
 
-    login_email = normalize_email(st.text_input("E-posta", key="login_email", placeholder="ornek@mail.com"))
-    login_password = st.text_input("Şifre", type="password", key="login_password")
-    remember_me = st.checkbox("Beni hatırla", value=False, key="login_remember_me")
+    if auth_mode == "register":
+        if st.button("Giriş yap", key="show_login_btn", use_container_width=True):
+            st.session_state["landing_auth_mode"] = "login"
+            st.rerun()
 
-    if st.button("Giriş yap", key="login_btn", use_container_width=True):
-        try:
-            ok, msg, auth_user = authenticate_user(login_email, login_password)
-            if ok and auth_user:
-                st.session_state["auth_user"] = auth_user
-                st.session_state["current_page"] = "home"
-                st.session_state["remember_me"] = bool(remember_me)
-                persist_auth_query(auth_user, "home")
-                st.success(msg)
-                st.rerun()
-            else:
-                st.error(msg)
-        except Exception as exc:
-            stop_with_setup_error(exc)
-
-    with st.expander("Yeni hesap oluştur"):
         display_name = st.text_input("Ad Soyad", key="register_name")
         reg_email = normalize_email(st.text_input("E-posta", key="register_email", placeholder="ornek@mail.com"))
         st.caption("Geçici, test veya doğrulanamayan alan adına sahip e-postalar kabul edilmez.")
@@ -824,6 +906,7 @@ def render_landing_auth() -> None:
                     st.session_state["auth_user"] = auth_user
                     st.session_state["current_page"] = "home"
                     st.session_state["remember_me"] = False
+                    st.session_state["landing_auth_mode"] = "login"
                     persist_auth_query(auth_user, "home")
                     st.success(msg)
                     st.rerun()
@@ -831,6 +914,34 @@ def render_landing_auth() -> None:
                     st.error(msg)
             except Exception as exc:
                 stop_with_setup_error(exc)
+        return
+
+    login_email = normalize_email(st.text_input("E-posta", key="login_email", placeholder="ornek@mail.com"))
+    login_password = st.text_input("Şifre", type="password", key="login_password")
+    remember_me = st.checkbox("Beni hatırla", value=False, key="login_remember_me")
+
+    login_col, register_col = st.columns(2)
+    with login_col:
+        login_clicked = st.button("Giriş yap", key="login_btn", use_container_width=True)
+    with register_col:
+        if st.button("Yeni hesap oluştur", key="show_register_btn", use_container_width=True):
+            st.session_state["landing_auth_mode"] = "register"
+            st.rerun()
+
+    if login_clicked:
+        try:
+            ok, msg, auth_user = authenticate_user(login_email, login_password)
+            if ok and auth_user:
+                st.session_state["auth_user"] = auth_user
+                st.session_state["current_page"] = "home"
+                st.session_state["remember_me"] = bool(remember_me)
+                persist_auth_query(auth_user, "home")
+                st.success(msg)
+                st.rerun()
+            else:
+                st.error(msg)
+        except Exception as exc:
+            stop_with_setup_error(exc)
 
 
 def render_top_account(user: Dict[str, Any]) -> None:
@@ -1303,8 +1414,12 @@ def inject_native_navigation_css() -> None:
             overflow-y: auto !important;
             overflow-x: hidden !important;
             scrollbar-width: thin !important;
-            padding-top: 0.05rem !important;
+            padding-top: 0 !important;
             padding-bottom: 0.70rem !important;
+        }
+        .kp-sidebar-brand {
+            margin-top: 0 !important;
+            transform: translateY(-5px) !important;
         }
         .kp-sidebar-coin-balance {
             display: flex !important;
@@ -1797,6 +1912,11 @@ PROMPT_FIELD_ALIASES: Dict[str, Dict[str, Any]] = {
     },
     "mini_katina": {
         "konu": "soru",
+        "dogum_tarihi": "doğum_tarihi",
+        "burc": "burç",
+        "dogum_yeri": "doğum_yeri",
+        "dogum_saati": "doğum_saati",
+        "niyet": "soru",
     },
     "coffee_text": {
         "dogum_tarihi": "doğum_tarihi",
@@ -2098,10 +2218,43 @@ def render_home_story_text() -> None:
     )
 
 
+def hide_logged_in_home_safety_text() -> None:
+    components.html(
+        """
+        <script>
+        try {
+            const parentDoc = (window.parent && window.parent.document) ? window.parent.document : document;
+            const target = "Bu uygulama eğlence, kişisel farkındalık ve duygusal paylaşım amacı taşır. Terapi, psikolojik danışmanlık, tıbbi teşhis veya kesin gelecek tahmini sunmaz.";
+            function hideSafetyText() {
+                const nodes = Array.from(parentDoc.querySelectorAll('p, div, span, section'));
+                for (const node of nodes) {
+                    const text = (node.innerText || '').replace(/\\s+/g, ' ').trim();
+                    if (!text || !text.includes(target)) continue;
+                    const wrapper = node.closest('.kp-safe, .kp-notice, .kp-card, [data-testid="stMarkdownContainer"]') || node;
+                    wrapper.style.setProperty('display', 'none', 'important');
+                    wrapper.style.setProperty('visibility', 'hidden', 'important');
+                    wrapper.style.setProperty('height', '0', 'important');
+                    wrapper.style.setProperty('min-height', '0', 'important');
+                    wrapper.style.setProperty('margin', '0', 'important');
+                    wrapper.style.setProperty('padding', '0', 'important');
+                }
+            }
+            hideSafetyText();
+            setTimeout(hideSafetyText, 250);
+            setTimeout(hideSafetyText, 900);
+        } catch (e) {}
+        </script>
+        """,
+        height=0,
+        width=0,
+    )
+
+
 def page_home(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]]) -> None:
     # Video arka plan artık tüm uygulamada global olarak main() içinde uygulanır.
     # Ana sayfada yalnızca marka kutusu ve giriş mektubu görseli gösterilir.
     render_hero(user)
+    hide_logged_in_home_safety_text()
     render_home_story_text()
 
 def page_subscription(user: Dict[str, Any]) -> None:
@@ -2677,6 +2830,7 @@ def page_mini_katina(user: Dict[str, Any], prompts: Dict[str, str], module_setti
     if not require_account(user):
         return
     render_module_access_notice(user, "mini_katina")
+    birth_details = birth_details_form("mini_katina", include_birth_date=True, include_zodiac=True)
     question = st.text_area("Katina'ya sormak istediğin konu", height=130)
     mini_katina_clicked = st.button("Benim adıma kart çek ve yorumla")
     mini_katina_consents = legal_consent_form("mini_katina")
@@ -2685,7 +2839,7 @@ def page_mini_katina(user: Dict[str, Any], prompts: Dict[str, str], module_setti
             return
         cards = select_katina_cards(mini=True)
         render_drawn_cards(cards, "earth")
-        run_ai_free(user, "mini_katina", {"soru": question, "çekilen_sembol": cards[0]}, prompts)
+        run_ai_free(user, "mini_katina", {"soru": question, "çekilen_sembol": cards[0], **birth_details}, prompts)
 
 
 def page_coffee_text(user: Dict[str, Any], prompts: Dict[str, str], module_settings: Dict[str, Dict[str, Any]]) -> None:
