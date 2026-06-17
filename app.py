@@ -252,12 +252,8 @@ st.markdown(
         background: transparent !important;
     }
     html.kp-page-changing::before {
-        content: "";
-        position: fixed;
-        inset: 0;
-        background: #030613;
-        z-index: 2147483647;
-        pointer-events: none;
+        content: none !important;
+        display: none !important;
     }
     </style>
     """,
@@ -319,12 +315,8 @@ if (storedToken) {
                                 background-color: #030613 !important;
                             }
                             html.kp-page-changing::before {
-                                content: "";
-                                position: fixed;
-                                inset: 0;
-                                background: #030613;
-                                z-index: 2147483647;
-                                pointer-events: none;
+                                content: none !important;
+                                display: none !important;
                             }
                         `;
                         doc.head.appendChild(style);
@@ -341,19 +333,11 @@ if (storedToken) {
                     }
                     function showPageTransitionCover() {
                         try {
-                            parentWin.sessionStorage.setItem('kp_page_changing', '1');
-                            doc.documentElement.classList.add('kp-page-changing');
-                            doc.documentElement.style.backgroundColor = '#030613';
-                            if (doc.body) doc.body.style.backgroundColor = '#030613';
-
-                            let cover = doc.getElementById('kp-page-transition-cover');
-                            if (!cover && doc.body) {
-                                cover = doc.createElement('div');
-                                cover.id = 'kp-page-transition-cover';
-                                cover.setAttribute('aria-hidden', 'true');
-                                cover.style.cssText = 'position:fixed;inset:0;background:#030613;z-index:2147483647;pointer-events:none;opacity:1;';
-                                doc.body.appendChild(cover);
-                            }
+                            // Siyah ekranda takılma riskini kaldırmak için artık tam ekran örtü oluşturulmaz.
+                            if (parentWin.sessionStorage) parentWin.sessionStorage.removeItem('kp_page_changing');
+                            if (doc && doc.documentElement) doc.documentElement.classList.remove('kp-page-changing');
+                            const cover = doc ? doc.getElementById('kp-page-transition-cover') : null;
+                            if (cover && cover.parentNode) cover.parentNode.removeChild(cover);
                         } catch (e) {}
                     }
                     function hidePageTransitionCover() {
@@ -363,6 +347,11 @@ if (storedToken) {
                         } catch (e) {}
                         clearGuard();
                     }
+                    hidePageTransitionCover();
+                    setTimeout(hidePageTransitionCover, 40);
+                    setTimeout(hidePageTransitionCover, 250);
+                    setTimeout(hidePageTransitionCover, 900);
+
                     if (!parentWin.__kpNoWhiteFlashGuardV2) {
                         parentWin.__kpNoWhiteFlashGuardV2 = true;
                         doc.addEventListener('click', function(event) {
@@ -483,7 +472,8 @@ if (storedToken) {
             }
 
             syncRememberedAuth();
-            syncMobileViewportFlag();
+            // Mobil menü artık native panelle çalıştığı için açılışta URL değiştirilmez.
+            // Bu, giriş sonrası gereksiz reload ve siyah ekranda kalma riskini azaltır.
             installNoWhiteFlashGuard();
             applyNoTranslate();
             setTimeout(applyNoTranslate, 700);
@@ -884,6 +874,17 @@ def render_landing_auth() -> None:
         .st-key-kp_landing_auth_buttons .element-container,
         [class*="st-key-kp_landing_auth_buttons"] .element-container {
             margin-bottom: 0 !important;
+        }
+        [data-testid="stCaptionContainer"],
+        .stCaptionContainer {
+            text-align: center !important;
+        }
+        [data-testid="stCaptionContainer"] p,
+        .stCaptionContainer p {
+            text-align: center !important;
+            width: 100% !important;
+            margin-left: auto !important;
+            margin-right: auto !important;
         }
         </style>
         """,
@@ -2097,7 +2098,7 @@ def _home_background_image_uri() -> str:
     Video background is intentionally replaced with a lightweight image to reduce
     page transition load without changing menus, text, layout or visual structure.
     """
-    return asset_data_uri("kp_home_background.jpg", max_side=1920, quality=82)
+    return asset_data_uri("kp_home_background.jpg", max_side=1280, quality=58)
 
 
 def render_home_video_background() -> None:
@@ -4682,8 +4683,8 @@ def apply_daily_login_reward(user: Dict[str, Any]) -> None:
         awarded, msg, meta = grant_daily_login_reward(user)
         if awarded:
             st.toast(msg, icon="🪙")
-            fresh = get_or_create_user(user["email"])
-            st.session_state["auth_user"] = fresh
+            # Açılışı hızlandırmak için ödülden sonra ikinci kullanıcı okuması yapılmaz.
+            # Jeton bakiyesi sol menüde zaten get_coin_balance(user) ile ayrıca okunur.
     except Exception:
         # Ödül sistemi hata verse bile uygulama açılışı engellenmez.
         return
