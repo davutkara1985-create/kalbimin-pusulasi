@@ -230,6 +230,37 @@ MANUAL_REQUEST_TYPES = {
     "yildizname": "Yıldızname",
 }
 
+# Jeton ve günlük ücretsiz kullanım kuralları tek merkezden yönetilir.
+# type="daily_free": günlük ücretsiz hakla çalışır.
+# type="coin": kullanımdan önce belirtilen jeton düşülür.
+MODULE_ACCESS_RULES: Dict[str, Dict[str, Any]] = {
+    "relationship": {"type": "daily_free", "daily_limit": 1, "new_user_daily_limit": 3, "new_user_days": 3},
+    "love_fortune": {"type": "daily_free", "daily_limit": 1, "new_user_daily_limit": 3, "new_user_days": 3},
+    "mini_tarot": {"type": "daily_free", "daily_limit": 1, "new_user_daily_limit": 3, "new_user_days": 3},
+    "mini_katina": {"type": "daily_free", "daily_limit": 1, "new_user_daily_limit": 3, "new_user_days": 3},
+    "coffee_text": {"type": "daily_free", "daily_limit": 1, "new_user_daily_limit": 3, "new_user_days": 3},
+
+    "birth_chart": {"type": "coin", "cost": 300},
+    "tarot": {"type": "coin", "cost": 150},
+    "katina": {"type": "coin", "cost": 150},
+    "coffee_image": {"type": "coin", "cost": 80},
+    "dream": {"type": "coin", "cost": 300},
+    "soulmate": {"type": "coin", "cost": 300},
+    "yildizname": {"type": "coin", "cost": 250},
+}
+
+DAILY_LOGIN_REWARD_AMOUNTS: Dict[int, int] = {
+    1: 5,
+    2: 10,
+    3: 10,
+    4: 10,
+    5: 10,
+    6: 10,
+    7: 20,
+}
+
+AD_REWARD_COINS = 10
+
 DEFAULT_PROMPTS: Dict[str, str] = {
     "relationship": """Sen ilişkilerdeki bağları, duygusal enerjileri ve görünmeyen dinamikleri sezgisel olarak okuyabilen deneyimli bir falcı/astrologsun.
 Kullanıcının anlattıklarını sadece kelime olarak değil, arkasındaki duygusal yük ve bağ enerjisiyle birlikte hissediyorsun.
