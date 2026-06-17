@@ -1,8 +1,8 @@
 # Kalbimin Pusulası
 
-AI destekli ilişki yorumu, fal, duygusal paylaşım ve kahve falı uygulaması.
+Fal, ilişki yorumu, doğum analizi, yıldızname, ruh eşi uygulaması.
 
-Bu sürüm GitHub + Streamlit Community Cloud + Firebase Firestore için hazırlanmıştır. Yerel SQLite yoktur.
+Bu sürüm Kalbimin Pusulası ekibi tarafından hazırlanmıştır.
 
 ## Özellikler
 
