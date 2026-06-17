@@ -731,13 +731,10 @@ LEGAL_CONSENT_VERSION = "2026-06-17"
 
 
 def legal_consent_state(prefix: str) -> Dict[str, bool]:
-    state = {
+    return {
         "kvkk": bool(st.session_state.get(f"{prefix}_legal_kvkk", False)),
         "explicit": bool(st.session_state.get(f"{prefix}_legal_explicit", False)),
     }
-    if prefix == "register":
-        state["privacy"] = bool(st.session_state.get(f"{prefix}_legal_privacy", False))
-    return state
 
 
 def legal_consent_form(prefix: str) -> Dict[str, bool]:
@@ -751,21 +748,12 @@ def legal_consent_form(prefix: str) -> Dict[str, bool]:
         value=bool(st.session_state.get(f"{prefix}_legal_explicit", False)),
         key=f"{prefix}_legal_explicit",
     )
-    if prefix == "register":
-        st.checkbox(
-            "Gizlilik Politikasını okudum, onaylıyorum.",
-            value=bool(st.session_state.get(f"{prefix}_legal_privacy", False)),
-            key=f"{prefix}_legal_privacy",
-        )
     return legal_consent_state(prefix)
 
 
 def validate_legal_consents(consents: Dict[str, bool]) -> bool:
     if not consents.get("kvkk") or not consents.get("explicit"):
         st.warning("Devam etmek için KVKK Aydınlatma Metni ve Açık Rıza Metni onaylarını işaretlemelisin.")
-        return False
-    if "privacy" in consents and not consents.get("privacy"):
-        st.warning("Devam etmek için Gizlilik Politikası onayını işaretlemelisin.")
         return False
     return True
 
@@ -1388,18 +1376,10 @@ def inject_native_navigation_css() -> None:
             padding-top: 0 !important;
             padding-bottom: 0.70rem !important;
         }
-        [data-testid="stSidebar"] [data-testid="stVerticalBlock"] {
-            gap: 0 !important;
-            padding-top: 0 !important;
-        }
-        [data-testid="stSidebar"] .element-container:has(.kp-sidebar-brand) {
-            margin-top: -18px !important;
-            padding-top: 0 !important;
-        }
         .kp-sidebar-brand {
-            margin-top: 0 !important;
+            margin-top: -8px !important;
             margin-bottom: 6px !important;
-            transform: none !important;
+            transform: translateY(-2px) !important;
         }
         .kp-sidebar-coin-balance {
             display: flex !important;
@@ -2312,7 +2292,10 @@ def page_relationship(user: Dict[str, Any], prompts: Dict[str, str], module_sett
         ],
     )
     relationship_clicked = st.button("İlişkimi yorumla")
+    relationship_consents = legal_consent_form("relationship")
     if relationship_clicked:
+        if not validate_legal_consents(relationship_consents):
+            return
         if not situation.strip():
             st.warning("Durumu birkaç cümleyle anlatmalısın.")
             return
@@ -2344,7 +2327,10 @@ def page_love_fortune(user: Dict[str, Any], prompts: Dict[str, str], module_sett
     birth_details = birth_details_form("love_fortune", include_birth_date=False, include_zodiac=False)
     intention = st.text_area("Aşk hayatınla ilgili niyetin veya sorun nedir?", height=130)
     love_fortune_clicked = st.button("Aşk falımı yorumla")
+    love_fortune_consents = legal_consent_form("love_fortune")
     if love_fortune_clicked:
+        if not validate_legal_consents(love_fortune_consents):
+            return
         payload = {"ad": first_name, "soyad": last_name, "burç": sign, **birth_details, "niyet": intention}
         run_ai_free(user, "love_fortune", payload, prompts)
 
@@ -2675,7 +2661,10 @@ def page_birth_chart(user: Dict[str, Any], prompts: Dict[str, str], module_setti
     )
 
     birth_chart_clicked = st.button("Doğum haritası talebimi gönder", key="submit_birth_chart", use_container_width=True)
+    birth_chart_consents = legal_consent_form("birth_chart")
     if birth_chart_clicked:
+        if not validate_legal_consents(birth_chart_consents):
+            return
         if not validate_personal_info(info):
             return
         questions = [q.strip() for q in [question_1, question_2, question_3] if q.strip()]
@@ -2738,7 +2727,10 @@ def page_yildizname(user: Dict[str, Any], module_settings: Dict[str, Dict[str, A
     )
 
     yildizname_clicked = st.button("Yıldızname talebimi gönder", key="submit_yildizname", use_container_width=True)
+    yildizname_consents = legal_consent_form("yildizname")
     if yildizname_clicked:
+        if not validate_legal_consents(yildizname_consents):
+            return
         if not validate_personal_info(info, require_mother_name=True):
             return
         questions = [q.strip() for q in [question_1, question_2, question_3] if q.strip()]
@@ -2771,7 +2763,10 @@ def page_mini_tarot(user: Dict[str, Any], prompts: Dict[str, str], module_settin
     birth_details = birth_details_form("mini_tarot", include_birth_date=True, include_zodiac=True)
     question = st.text_area("Tarota sormak istediğin niyet veya soru", height=130)
     mini_tarot_clicked = st.button("Benim adıma kart çek ve yorumla")
+    mini_tarot_consents = legal_consent_form("mini_tarot")
     if mini_tarot_clicked:
+        if not validate_legal_consents(mini_tarot_consents):
+            return
         cards = select_tarot_cards(mini=True)
         render_drawn_cards(cards, "fire")
         run_ai_free(user, "mini_tarot", {"soru": question, "çekilen_kart": cards[0], **birth_details}, prompts)
@@ -2785,7 +2780,10 @@ def page_mini_katina(user: Dict[str, Any], prompts: Dict[str, str], module_setti
     birth_details = birth_details_form("mini_katina", include_birth_date=True, include_zodiac=True)
     question = st.text_area("Katina'ya sormak istediğin konu", height=130)
     mini_katina_clicked = st.button("Benim adıma kart çek ve yorumla")
+    mini_katina_consents = legal_consent_form("mini_katina")
     if mini_katina_clicked:
+        if not validate_legal_consents(mini_katina_consents):
+            return
         cards = select_katina_cards(mini=True)
         render_drawn_cards(cards, "earth")
         run_ai_free(user, "mini_katina", {"soru": question, "çekilen_sembol": cards[0], **birth_details}, prompts)
@@ -2800,7 +2798,10 @@ def page_coffee_text(user: Dict[str, Any], prompts: Dict[str, str], module_setti
     symbols = st.text_area("Fincanda gördüğün şekilleri yaz.", height=170, placeholder="Kalbe benzeyen bir şekil, uzun bir yol, kuş gibi bir iz...")
     intention = st.text_input("Niyetin", placeholder="Aşk hayatım, barışma, yeni başlangıç...")
     coffee_text_clicked = st.button("Kahve falımı yorumla")
+    coffee_text_consents = legal_consent_form("coffee_text")
     if coffee_text_clicked:
+        if not validate_legal_consents(coffee_text_consents):
+            return
         if not symbols.strip():
             st.warning("En az birkaç sembol yazmalısın.")
             return
@@ -3476,6 +3477,7 @@ def page_manual_tarot(user: Dict[str, Any], module_settings: Dict[str, Dict[str,
     render_module_access_notice(user, "tarot")
     info = personal_info_form("tarot", include_zodiac=True)
     question = st.text_area("Tarot için niyetin veya sorun", height=120, key="tarot_question")
+    tarot_consents = legal_consent_form("tarot")
 
     if not _manual_cards_ready("tarot", info):
         return
@@ -3483,6 +3485,8 @@ def page_manual_tarot(user: Dict[str, Any], module_settings: Dict[str, Dict[str,
     cards = closed_card_deck_selector("tarot", TAROT_CARDS, 7, "fire")
     tarot_clicked = st.button("Talebimi admin paneline gönder", key="submit_tarot")
     if tarot_clicked:
+        if not validate_legal_consents(tarot_consents):
+            return
         if not validate_personal_info(info):
             return
         if len(cards) != 7:
@@ -3504,6 +3508,7 @@ def page_manual_katina(user: Dict[str, Any], module_settings: Dict[str, Dict[str
     render_module_access_notice(user, "katina")
     info = personal_info_form("katina", include_zodiac=True)
     question = st.text_area("Katina için niyetin veya sorun", height=120, key="katina_question")
+    katina_consents = legal_consent_form("katina")
 
     if not _manual_cards_ready("katina", info):
         return
@@ -3511,6 +3516,8 @@ def page_manual_katina(user: Dict[str, Any], module_settings: Dict[str, Dict[str
     cards = closed_card_deck_selector("katina", KATINA_CARDS, 7, "earth")
     katina_clicked = st.button("Talebimi admin paneline gönder", key="submit_katina")
     if katina_clicked:
+        if not validate_legal_consents(katina_consents):
+            return
         if not validate_personal_info(info):
             return
         if len(cards) != 7:
@@ -3601,7 +3608,10 @@ def page_coffee_image(user: Dict[str, Any], module_settings: Dict[str, Dict[str,
                 st.image(file, caption=f"Kare {i}", use_container_width=True)
 
     coffee_image_clicked = st.button("Kahve falı talebimi gönder", key="submit_coffee_image")
+    coffee_image_consents = legal_consent_form("coffee_image")
     if coffee_image_clicked:
+        if not validate_legal_consents(coffee_image_consents):
+            return
         if not validate_personal_info(info):
             return
         if not uploaded_files:
@@ -3625,7 +3635,10 @@ def page_dream(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any]])
     info = personal_info_form("dream")
     dream_text = st.text_area("Gördüğün rüyayı anlat", height=210)
     dream_clicked = st.button("Rüya tabiri talebimi gönder", key="submit_dream")
+    dream_consents = legal_consent_form("dream")
     if dream_clicked:
+        if not validate_legal_consents(dream_consents):
+            return
         if not validate_personal_info(info):
             return
         if not dream_text.strip():
@@ -3648,7 +3661,10 @@ def page_soulmate(user: Dict[str, Any], module_settings: Dict[str, Dict[str, Any
     info = personal_info_form("soulmate")
     note = st.text_area("Varsa özel notun", height=100)
     soulmate_clicked = st.button("Ruh eşi çizimi talebimi gönder", key="submit_soulmate")
+    soulmate_consents = legal_consent_form("soulmate")
     if soulmate_clicked:
+        if not validate_legal_consents(soulmate_consents):
+            return
         if not validate_personal_info(info):
             return
         payload = {"title": "Ruh Eşi Çizimi", "kişisel_bilgiler": info, "not": note}
