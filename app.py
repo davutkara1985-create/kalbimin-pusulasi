@@ -1417,21 +1417,22 @@ def render_mobile_navigation(user: Dict[str, Any], module_settings: Dict[str, Di
         return
 
     compact_icons = {
-        "home": "⌂",
-        "tarot": "✦",
-        "katina": "◆",
-        "coffee_image": "◒",
-        "mini_tarot": "✧",
-        "mini_katina": "◇",
-        "coffee_text": "◒",
-        "love_fortune": "♡",
-        "birth_chart": "♈",
-        "yildizname": "✶",
-        "dream": "☾",
-        "soulmate": "∞",
-        "relationship": "♡",
-        "feedback": "✎",
-        "admin": "⚙",
+    "home": "🏠",          
+    "tarot": "🃏",           
+    "katina": "🔗",          
+    "coffee_image": "☕️",
+    "mini_tarot": "✧",
+    "mini_katina": "◇",
+    "coffee_text": "☕️",
+    "love_fortune": "💖",
+    "birth_chart": "🪐",
+    "yildizname": "✨",
+    "dream": "🌙",
+    "soulmate": "♾️",
+    "relationship": "💞",
+    "feedback": "📝",
+    "admin": "⚙️",
+
     }
     mobile_options = [("home", "Ana Sayfa", "⌂")]
     for page_key, label, icon in items:
