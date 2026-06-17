@@ -168,22 +168,40 @@ div[data-testid="stHorizontalBlock"]:has(.kp-card-slot-wrap) > div[data-testid="
 }
 </style>
 """
-
+KP_MODULE_MENU_ICONS: Dict[str, str] = {
+    "home": "🏠",
+    "tarot": "🃏",
+    "katina": "🔗",
+    "coffee_image": "☕️",
+    "mini_tarot": "✧",
+    "mini_katina": "◇",
+    "coffee_text": "☕️",
+    "love_fortune": "💖",
+    "birth_chart": "🪐",
+    "yildizname": "✨",
+    "dream": "🌙",
+    "soulmate": "♾️",
+    "relationship": "💞",
+    "feedback": "📝",
+    "admin": "⚙️",
+    "inbox": "📩",
+    "account": "👤",
+}
 MODULE_VISUALS: Dict[str, Tuple[str, str, str]] = {
-    "relationship": ("Aşk & İlişki", "♡", "fire"),
-    "love_fortune": ("Aşk & İlişki", "☽", "fire"),
-    "birth_chart": ("Astroloji", "♈", "air"),
-    "yildizname": ("Astroloji", "✶", "air"),
-    "mini_tarot": ("Fal & Kehanet", "◇", "fire"),
-    "tarot": ("Fal & Kehanet", "✧", "fire"),
-    "mini_katina": ("Fal & Kehanet", "⚿", "earth"),
-    "katina": ("Fal & Kehanet", "🗝", "earth"),
-    "coffee_text": ("Fal & Kehanet", "☕", "earth"),
-    "coffee_image": ("Fal & Kehanet", "☕", "earth"),
-    "dream": ("Fal & Kehanet", "☾", "water"),
-    "soulmate": ("Fal & Kehanet", "♁", "air"),
-    "inbox": ("Hesabım", "✉", "water"),
-    "admin": ("Yönetim", "⚙", "earth"),
+    "relationship": ("Aşk & İlişki", KP_MODULE_MENU_ICONS["relationship"], "fire"),
+    "love_fortune": ("Aşk & İlişki", KP_MODULE_MENU_ICONS["love_fortune"], "fire"),
+    "birth_chart": ("Astroloji", KP_MODULE_MENU_ICONS["birth_chart"], "air"),
+    "yildizname": ("Astroloji", KP_MODULE_MENU_ICONS["yildizname"], "air"),
+    "mini_tarot": ("Fal & Kehanet", KP_MODULE_MENU_ICONS["mini_tarot"], "fire"),
+    "tarot": ("Fal & Kehanet", KP_MODULE_MENU_ICONS["tarot"], "fire"),
+    "mini_katina": ("Fal & Kehanet", KP_MODULE_MENU_ICONS["mini_katina"], "earth"),
+    "katina": ("Fal & Kehanet", KP_MODULE_MENU_ICONS["katina"], "earth"),
+    "coffee_text": ("Fal & Kehanet", KP_MODULE_MENU_ICONS["coffee_text"], "earth"),
+    "coffee_image": ("Fal & Kehanet", KP_MODULE_MENU_ICONS["coffee_image"], "earth"),
+    "dream": ("Fal & Kehanet", KP_MODULE_MENU_ICONS["dream"], "water"),
+    "soulmate": ("Fal & Kehanet", KP_MODULE_MENU_ICONS["soulmate"], "air"),
+    "inbox": ("Hesabım", KP_MODULE_MENU_ICONS["inbox"], "water"),
+    "admin": ("Yönetim", KP_MODULE_MENU_ICONS["admin"], "earth"),
 }
 
 
@@ -334,11 +352,9 @@ def _professional_module_icon_svg(module_key: str, fallback_icon: str) -> str:
 
 
 def module_icon_html(module_key: str, fallback_icon: str) -> str:
-    """Return lightweight professional inline SVG icons instead of PNG data images.
-
-    This keeps the menu/card structure intact while reducing repeated image payloads.
-    """
-    return _professional_module_icon_svg(module_key, fallback_icon)
+    """Return module icons with the same emoji/icon logic used by the menu."""
+    icon = KP_MODULE_MENU_ICONS.get(module_key, fallback_icon)
+    return f'<span class="kp-icon-fallback kp-menu-style-module-icon">{escape(str(icon))}</span>'
 
 
 BACKGROUND_EXTENSIONS = (".png", ".jpg", ".jpeg", ".webp")
@@ -1203,6 +1219,18 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
             overflow: hidden;
             flex: 0 0 auto;
         }}
+        .kp-menu-style-module-icon {{
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 100% !important;
+    height: 100% !important;
+    font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", var(--kp-font-sans) !important;
+    font-size: 1.55rem !important;
+    line-height: 1 !important;
+    transform: translateY(1px) !important;
+    filter: drop-shadow(0 0 3px rgba(217, 183, 110, 0.34)) !important;
+}}
         .kp-icon.kp-icon-asset {{
             padding: 0;
             background: rgba(8, 8, 24, 0.52);
