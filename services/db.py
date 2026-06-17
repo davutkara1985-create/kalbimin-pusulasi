@@ -13,10 +13,13 @@ import streamlit as st
 from firebase_admin import credentials, firestore
 
 from services.catalog import (
+    AD_REWARD_COINS,
+    DAILY_LOGIN_REWARD_AMOUNTS,
     DEFAULT_MEDITATIONS,
     DEFAULT_PROMPTS,
     DEFAULT_RITUALS,
     MODULES,
+    MODULE_ACCESS_RULES,
     PLAN_CONFIG,
     PROMPT_VERSION,
     module_defaults,
@@ -408,8 +411,334 @@ def can_generate(email: str) -> Tuple[bool, str, Dict[str, Any]]:
 
 
 def record_usage(email: str, module_key: str) -> None:
-    # Sinirsiz kullanim modunda kota sayaci artirilmaz.
+    # Eski çağrılarla uyumluluk için korunur. Yeni sistem consume_module_access()
+    # üzerinden günlük ücretsiz hak veya jeton düşümü yapar.
     return None
+
+
+COIN_TRANSACTION_PREVIEW_LIMIT = 500
+
+
+def _to_int(value: Any, default: int = 0) -> int:
+    try:
+        return int(value)
+    except Exception:
+        return default
+
+
+def _user_ref_from_email(email: str):
+    db = get_firestore_client()
+    return db.collection("users").document(user_id_from_email(email))
+
+
+def _public_user_with_id(user: Dict[str, Any]) -> Dict[str, Any]:
+    data = dict(user or {})
+    if data.get("email") and not data.get("id"):
+        data["id"] = user_id_from_email(str(data.get("email", "")))
+    return data
+
+
+def _user_is_admin_or_unlimited(user: Dict[str, Any]) -> bool:
+    data = _public_user_with_id(user)
+    if str(data.get("role", "")).lower() == "admin":
+        return True
+    if is_admin_email(str(data.get("email", ""))):
+        return True
+    return bool(data.get("unlimited_usage", False))
+
+
+def _date_to_local_date(value: Any) -> Optional[dt.date]:
+    if value is None:
+        return None
+    if isinstance(value, dt.datetime):
+        return value.date()
+    if isinstance(value, dt.date):
+        return value
+    if isinstance(value, str):
+        try:
+            return dt.date.fromisoformat(value[:10])
+        except Exception:
+            return None
+    return None
+
+
+def _created_within_new_user_window(user_data: Dict[str, Any], rule: Dict[str, Any]) -> bool:
+    days = _to_int(rule.get("new_user_days"), 0)
+    if days <= 0:
+        return False
+    created_date = _date_to_local_date(user_data.get("created_at"))
+    if not created_date:
+        return False
+    delta_days = (dt.datetime.now().date() - created_date).days
+    return 0 <= delta_days < days
+
+
+def _daily_limit_for_user(user_data: Dict[str, Any], rule: Dict[str, Any]) -> int:
+    if _created_within_new_user_window(user_data, rule):
+        return _to_int(rule.get("new_user_daily_limit"), _to_int(rule.get("daily_limit"), 1))
+    return _to_int(rule.get("daily_limit"), 1)
+
+
+def _module_usage_ref(user_id: str, module_key: str, date_key: Optional[str] = None):
+    db = get_firestore_client()
+    safe_module = re.sub(r"[^A-Za-z0-9_-]", "_", str(module_key))[:80]
+    doc_id = f"{date_key or today_key()}_{safe_module}"
+    return db.collection("users").document(user_id).collection("module_usage").document(doc_id)
+
+
+def _coin_transaction_ref(user_id: str):
+    db = get_firestore_client()
+    return db.collection("users").document(user_id).collection("coin_transactions")
+
+
+def _write_coin_transaction(user_id: str, amount: int, reason: str, module_key: str = "", meta: Optional[Dict[str, Any]] = None) -> None:
+    meta = dict(meta or {})
+    _coin_transaction_ref(user_id).add(
+        {
+            "amount": int(amount),
+            "reason": str(reason),
+            "module_key": str(module_key or ""),
+            "meta": meta,
+            "created_at": firestore.SERVER_TIMESTAMP,
+        }
+    )
+
+
+def get_coin_balance(user: Dict[str, Any]) -> int:
+    if not user or user.get("is_guest"):
+        return 0
+    email = normalize_email(str(user.get("email", "")))
+    if not email:
+        return 0
+    snapshot = _user_ref_from_email(email).get()
+    if not snapshot.exists:
+        return 0
+    return _to_int((snapshot.to_dict() or {}).get("coin_balance"), 0)
+
+
+def get_module_access_status(user: Dict[str, Any], module_key: str) -> Dict[str, Any]:
+    if not user or user.get("is_guest"):
+        return {
+            "allowed": False,
+            "message": "Bu modülü kullanmak için hesapla giriş yapmalısın.",
+            "type": "login_required",
+            "module_key": module_key,
+        }
+
+    email = normalize_email(str(user.get("email", "")))
+    if not email:
+        return {"allowed": False, "message": "Kullanıcı e-postası bulunamadı.", "type": "error", "module_key": module_key}
+
+    user_data = get_user(email)
+    user_id = str(user_data.get("id") or user_id_from_email(email))
+    rule = MODULE_ACCESS_RULES.get(module_key, {"type": "daily_free", "daily_limit": 1})
+    rule_type = str(rule.get("type", "daily_free"))
+    module_title = str(MODULES.get(module_key, {}).get("title", module_key))
+
+    if _user_is_admin_or_unlimited(user_data):
+        return {
+            "allowed": True,
+            "message": f"{module_title} için sınırsız kullanım aktif.",
+            "type": rule_type,
+            "module_key": module_key,
+            "module_title": module_title,
+            "bypass": True,
+            "balance": _to_int(user_data.get("coin_balance"), 0),
+        }
+
+    if rule_type == "coin":
+        cost = _to_int(rule.get("cost"), 0)
+        balance = _to_int(user_data.get("coin_balance"), 0)
+        allowed = balance >= cost
+        return {
+            "allowed": allowed,
+            "message": (
+                f"{module_title} için {cost} jeton gerekir. Mevcut bakiyen: {balance} jeton."
+                if allowed else
+                f"{module_title} için {cost} jeton gerekir. Mevcut bakiyen {balance} jeton; jetonun yetersiz."
+            ),
+            "type": "coin",
+            "module_key": module_key,
+            "module_title": module_title,
+            "cost": cost,
+            "balance": balance,
+            "bypass": False,
+        }
+
+    limit = _daily_limit_for_user(user_data, rule)
+    usage_ref = _module_usage_ref(user_id, module_key)
+    usage_snapshot = usage_ref.get()
+    used = _to_int((usage_snapshot.to_dict() or {}).get("count"), 0) if usage_snapshot.exists else 0
+    remaining = max(limit - used, 0)
+    allowed = remaining > 0
+    is_new_user_bonus = _created_within_new_user_window(user_data, rule)
+    return {
+        "allowed": allowed,
+        "message": (
+            f"{module_title} için bugünkü ücretsiz hakkın: {remaining}/{limit}."
+            if allowed else
+            f"{module_title} için bugünkü ücretsiz hakkın doldu. Yarın tekrar kullanabilirsin."
+        ),
+        "type": "daily_free",
+        "module_key": module_key,
+        "module_title": module_title,
+        "used": used,
+        "limit": limit,
+        "remaining": remaining,
+        "new_user_bonus": is_new_user_bonus,
+        "bypass": False,
+    }
+
+
+def can_use_module(user: Dict[str, Any], module_key: str) -> Tuple[bool, str, Dict[str, Any]]:
+    status = get_module_access_status(user, module_key)
+    return bool(status.get("allowed")), str(status.get("message", "")), status
+
+
+def consume_module_access(user: Dict[str, Any], module_key: str) -> Tuple[bool, str, Dict[str, Any]]:
+    ok, message, status = can_use_module(user, module_key)
+    if not ok:
+        return False, message, status
+    if status.get("bypass"):
+        return True, message, status
+
+    email = normalize_email(str(user.get("email", "")))
+    user_data = get_user(email)
+    user_id = str(user_data.get("id") or user_id_from_email(email))
+    rule_type = str(status.get("type", "daily_free"))
+
+    if rule_type == "coin":
+        cost = _to_int(status.get("cost"), 0)
+        balance = get_coin_balance(user_data)
+        if balance < cost:
+            status["allowed"] = False
+            status["balance"] = balance
+            return False, f"Jeton bakiyen yetersiz. Gerekli: {cost}, mevcut: {balance}.", status
+        _user_ref_from_email(email).set(
+            {
+                "coin_balance": firestore.Increment(-cost),
+                "updated_at": firestore.SERVER_TIMESTAMP,
+            },
+            merge=True,
+        )
+        _write_coin_transaction(user_id, -cost, "module_usage", module_key, {"cost": cost})
+        _clear_user_profile_cache()
+        _clear_user_list_cache()
+        status["balance"] = max(balance - cost, 0)
+        return True, f"{status.get('module_title', module_key)} için {cost} jeton kullanıldı.", status
+
+    usage_ref = _module_usage_ref(user_id, module_key)
+    usage_ref.set(
+        {
+            "module_key": module_key,
+            "date": today_key(),
+            "count": firestore.Increment(1),
+            "updated_at": firestore.SERVER_TIMESTAMP,
+            "created_at": firestore.SERVER_TIMESTAMP,
+        },
+        merge=True,
+    )
+    status["used"] = _to_int(status.get("used"), 0) + 1
+    status["remaining"] = max(_to_int(status.get("limit"), 1) - _to_int(status.get("used"), 0), 0)
+    return True, f"Bugünkü ücretsiz kullanım hakkın kaydedildi. Kalan: {status.get('remaining', 0)}.", status
+
+
+def grant_daily_login_reward(user: Dict[str, Any]) -> Tuple[bool, str, Dict[str, Any]]:
+    if not user or user.get("is_guest"):
+        return False, "Günlük giriş ödülü için hesapla giriş yapılmalı.", {}
+    email = normalize_email(str(user.get("email", "")))
+    if not email:
+        return False, "Kullanıcı e-postası bulunamadı.", {}
+
+    ref = _user_ref_from_email(email)
+    snapshot = ref.get()
+    data = snapshot.to_dict() or {}
+    today = today_key()
+    if str(data.get("last_daily_reward_date", "")) == today:
+        return False, "Günlük giriş ödülü bugün zaten alındı.", {
+            "balance": _to_int(data.get("coin_balance"), 0),
+            "reward_day": _to_int(data.get("daily_reward_day"), 0),
+        }
+
+    previous_day = _to_int(data.get("daily_reward_day"), 0)
+    reward_day = previous_day + 1 if previous_day < 7 else 1
+    amount = _to_int(DAILY_LOGIN_REWARD_AMOUNTS.get(reward_day), 0)
+    ref.set(
+        {
+            "coin_balance": firestore.Increment(amount),
+            "daily_reward_day": reward_day,
+            "last_daily_reward_date": today,
+            "updated_at": firestore.SERVER_TIMESTAMP,
+        },
+        merge=True,
+    )
+    user_id = str(data.get("id") or user_id_from_email(email))
+    _write_coin_transaction(user_id, amount, "daily_login_reward", "", {"reward_day": reward_day})
+    _clear_user_profile_cache()
+    _clear_user_list_cache()
+    balance = _to_int(data.get("coin_balance"), 0) + amount
+    return True, f"Günlük giriş ödülü: {reward_day}. gün için {amount} jeton kazandın.", {
+        "amount": amount,
+        "balance": balance,
+        "reward_day": reward_day,
+    }
+
+
+def grant_ad_reward(user: Dict[str, Any], reward_id: str = "", placement: str = "mobile_rewarded_ad") -> Tuple[bool, str, Dict[str, Any]]:
+    if not user or user.get("is_guest"):
+        return False, "Reklam ödülü için hesapla giriş yapılmalı.", {}
+    email = normalize_email(str(user.get("email", "")))
+    if not email:
+        return False, "Kullanıcı e-postası bulunamadı.", {}
+
+    user_data = get_user(email)
+    old_balance = _to_int(user_data.get("coin_balance"), 0)
+    user_id = str(user_data.get("id") or user_id_from_email(email))
+    db = get_firestore_client()
+    safe_reward_id = re.sub(r"[^A-Za-z0-9_-]", "_", str(reward_id or ""))[:120]
+    if safe_reward_id:
+        reward_ref = db.collection("ad_rewards").document(f"{user_id}_{safe_reward_id}")
+        if reward_ref.get().exists:
+            return False, "Bu reklam ödülü daha önce işlendi.", {"balance": get_coin_balance(user_data)}
+        reward_ref.set(
+            {
+                "user_id": user_id,
+                "user_email": email,
+                "reward_id": safe_reward_id,
+                "placement": placement,
+                "coins": AD_REWARD_COINS,
+                "created_at": firestore.SERVER_TIMESTAMP,
+            }
+        )
+
+    _user_ref_from_email(email).set(
+        {
+            "coin_balance": firestore.Increment(AD_REWARD_COINS),
+            "updated_at": firestore.SERVER_TIMESTAMP,
+        },
+        merge=True,
+    )
+    _write_coin_transaction(user_id, AD_REWARD_COINS, "ad_reward", "", {"reward_id": safe_reward_id, "placement": placement})
+    _clear_user_profile_cache()
+    _clear_user_list_cache()
+    balance = old_balance + AD_REWARD_COINS
+    return True, f"Reklam ödülü olarak {AD_REWARD_COINS} jeton eklendi.", {"amount": AD_REWARD_COINS, "balance": balance}
+
+
+def set_user_unlimited_usage(email: str, enabled: bool, admin_user: Optional[Dict[str, Any]] = None) -> None:
+    normalized = normalize_email(email)
+    ref = _user_ref_from_email(normalized)
+    ref.set(
+        {
+            "unlimited_usage": bool(enabled),
+            "unlimited_usage_updated_at": firestore.SERVER_TIMESTAMP,
+            "unlimited_usage_updated_by": normalize_email(str((admin_user or {}).get("email", "admin"))),
+            "updated_at": firestore.SERVER_TIMESTAMP,
+        },
+        merge=True,
+    )
+    _clear_user_profile_cache()
+    _clear_user_list_cache()
 
 
 def save_reading(email: str, module_key: str, user_input: Dict[str, Any], result: str) -> None:
