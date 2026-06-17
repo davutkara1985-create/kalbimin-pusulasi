@@ -1250,7 +1250,7 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
             font-size: 0.66rem;
             line-height: 1.45;
         }}
-        .kp-footer-legal-links {
+        .kp-footer-legal-links {{
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
@@ -1261,17 +1261,17 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
     color: rgba(242, 226, 202, 0.62);
     font-size: 0.66rem;
     line-height: 1.45;
-}
+}}
 .kp-footer-legal-links a,
-.kp-footer-legal-links a:visited {
+.kp-footer-legal-links a:visited {{
     color: rgba(255, 241, 184, 0.78) !important;
     text-decoration: none !important;
     border-bottom: 1px solid rgba(255, 241, 184, 0.24);
-}
-.kp-footer-legal-links a:hover {
+}}
+.kp-footer-legal-links a:hover {{
     color: #fff1b8 !important;
     border-bottom-color: rgba(255, 241, 184, 0.58);
-}
+}}
         .kp-auth-heading {{
             max-width: 520px;
             margin: 4px auto 22px;
@@ -1484,25 +1484,24 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
         /* Polished form system: embedded light glass fields + readable gold labels */
         .stCheckbox label,
 .stCheckbox label[data-baseweb="checkbox"],
-.stCheckbox [data-baseweb="checkbox"] {
+.stCheckbox [data-baseweb="checkbox"] {{
     display: inline-flex !important;
     align-items: center !important;
     gap: 0.42rem !important;
     min-height: 22px !important;
     line-height: 1.18 !important;
-}
+}}
 .stCheckbox label p,
 .stCheckbox label span,
-.stCheckbox [data-testid="stMarkdownContainer"] p {
+.stCheckbox [data-testid="stMarkdownContainer"] p {{
     margin: 0 !important;
     padding: 0 !important;
     line-height: 1.18 !important;
     transform: translateY(1px) !important;
-}
-.stCheckbox input[type="checkbox"] {
+}}
+.stCheckbox input[type="checkbox"] {{
     margin-top: 0 !important;
 }}
-
         .stTextInput > div,
         .stTextArea > div,
         .stDateInput > div,
