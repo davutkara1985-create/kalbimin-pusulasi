@@ -196,11 +196,12 @@ def prevent_browser_translate() -> None:
                     }
 
                     const storedToken = parentWin.localStorage.getItem(KP_AUTH_STORAGE_KEY);
-                    if (storedToken) {
-                        params.set('kp_auth', storedToken);
-                        if (!params.get('kp_page')) params.set('kp_page', 'home');
-                        parentWin.location.replace(parentWin.location.pathname + '?' + params.toString() + parentWin.location.hash);
-                    }
+if (storedToken) {
+    params.set('kp_auth', storedToken);
+    params.set('kp_remember', '1');
+    if (!params.get('kp_page')) params.set('kp_page', 'home');
+    parentWin.location.replace(parentWin.location.pathname + '?' + params.toString() + parentWin.location.hash);
+}
                 } catch (e) {}
             }
 
@@ -633,7 +634,9 @@ def _auth_token_for_user(user: Optional[Dict[str, Any]]) -> str:
         return ""
     email = normalize_email(str(user.get("email", "")))
     current_token = _query_get(AUTH_QUERY_KEY)
-    if _token_email(current_token) == email:
+    remember_requested = bool(st.session_state.get("remember_me", False))
+    current_remember = _query_get(REMEMBER_QUERY_KEY) == "1"
+    if _token_email(current_token) == email and remember_requested == current_remember:
         return current_token
     return create_auth_token(email, days=_auth_token_days_for_session())
 
@@ -663,9 +666,12 @@ def restore_auth_from_query() -> Optional[Dict[str, Any]]:
     try:
         user = get_or_create_user(email)
         st.session_state["auth_user"] = user
-        # Token üzerinden geri dönüşte mevcut seçim korunur; yoksa güvenli şekilde aktif kabul edilir.
-        st.session_state.setdefault("remember_me", True)
-        _query_set(REMEMBER_QUERY_KEY, "1")
+        remembered = _query_get(REMEMBER_QUERY_KEY) == "1"
+        st.session_state["remember_me"] = remembered
+        if remembered:
+            _query_set(REMEMBER_QUERY_KEY, "1")
+        else:
+            _query_delete(REMEMBER_QUERY_KEY)
         _query_delete(LOGOUT_QUERY_KEY)
         return user
     except Exception:
@@ -3265,15 +3271,15 @@ def page_manual_tarot(user: Dict[str, Any], module_settings: Dict[str, Dict[str,
     render_module_intro("tarot", "free", module_meta("tarot", module_settings))
     if not require_account(user):
         return
-    info = personal_info_form("tarot", include_zodiac=True)
-    question = st.text_area("Tarot için niyetin veya sorun", height=120, key="tarot_question")
+   info = personal_info_form("tarot", include_zodiac=True)
+question = st.text_area("Tarot için niyetin veya sorun", height=120, key="tarot_question")
+tarot_consents = legal_consent_form("tarot")
 
-    if not _manual_cards_ready("tarot", info):
-        return
+if not _manual_cards_ready("tarot", info):
+    return
 
-    cards = closed_card_deck_selector("tarot", TAROT_CARDS, 7, "fire")
-    tarot_clicked = st.button("Talebimi admin paneline gönder", key="submit_tarot")
-    tarot_consents = legal_consent_form("tarot")
+cards = closed_card_deck_selector("tarot", TAROT_CARDS, 7, "fire")
+tarot_clicked = st.button("Talebimi admin paneline gönder", key="submit_tarot")
     if tarot_clicked:
         if not validate_legal_consents(tarot_consents):
             return
@@ -3295,14 +3301,14 @@ def page_manual_katina(user: Dict[str, Any], module_settings: Dict[str, Dict[str
     if not require_account(user):
         return
     info = personal_info_form("katina", include_zodiac=True)
-    question = st.text_area("Katina için niyetin veya sorun", height=120, key="katina_question")
+question = st.text_area("Katina için niyetin veya sorun", height=120, key="katina_question")
+katina_consents = legal_consent_form("katina")
 
-    if not _manual_cards_ready("katina", info):
-        return
+if not _manual_cards_ready("katina", info):
+    return
 
-    cards = closed_card_deck_selector("katina", KATINA_CARDS, 7, "earth")
-    katina_clicked = st.button("Talebimi admin paneline gönder", key="submit_katina")
-    katina_consents = legal_consent_form("katina")
+cards = closed_card_deck_selector("katina", KATINA_CARDS, 7, "earth")
+katina_clicked = st.button("Talebimi admin paneline gönder", key="submit_katina")
     if katina_clicked:
         if not validate_legal_consents(katina_consents):
             return
