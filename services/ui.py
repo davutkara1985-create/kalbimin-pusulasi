@@ -434,6 +434,7 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
             --kp-font-sans: {content_font};
             --kp-font-scale: {font_scale};
             --kp-sidebar-width: {sidebar_width}px;
+            --kp-form-label-size: 0.70rem;
         }}
 
         html, body, [class*="css"] {{ font-family: var(--kp-font-sans); font-size: calc(16px * var(--kp-font-scale)); }}
@@ -1423,7 +1424,7 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
             color: var(--kp-gold-2) !important;
             font-weight: 850 !important;
             letter-spacing: 0.035em !important;
-            font-size: 0.86rem !important;
+            font-size: var(--kp-form-label-size) !important;
             text-shadow: 0 0 16px rgba(217,183,110,0.20) !important;
         }}
 
@@ -1596,7 +1597,7 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
             color: rgba(255,241,184,0.88) !important;
             font-weight: 800 !important;
             letter-spacing: 0.025em !important;
-            font-size: 0.82rem !important;
+            font-size: var(--kp-form-label-size) !important;
             text-shadow: none !important;
         }}
         .stTextInput > div,
@@ -2149,6 +2150,34 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
             font-weight: 400 !important;
             letter-spacing: 0 !important;
         }}
+
+
+        /* Kesin form etiketi font kontrolü: Ad, Soyad, Doğum tarihi, Doğum saati vb. */
+        [data-testid="stWidgetLabel"],
+        [data-testid="stWidgetLabel"] p,
+        [data-testid="stWidgetLabel"] label,
+        [data-testid="stWidgetLabel"] span,
+        .stTextInput label,
+        .stTextInput label p,
+        .stTextArea label,
+        .stTextArea label p,
+        .stNumberInput label,
+        .stNumberInput label p,
+        .stDateInput label,
+        .stDateInput label p,
+        .stTimeInput label,
+        .stTimeInput label p,
+        .stSelectbox label,
+        .stSelectbox label p,
+        .stFileUploader label,
+        .stFileUploader label p,
+        .stCheckbox label,
+        .stCheckbox label p,
+        .stRadio label,
+        .stRadio label p {{
+            font-size: var(--kp-form-label-size) !important;
+            line-height: 1.12 !important;
+        }}
         </style>
         """,
         unsafe_allow_html=True,
@@ -2463,3 +2492,6 @@ def render_footer() -> None:
         """,
         unsafe_allow_html=True,
     )
+
+
+    
