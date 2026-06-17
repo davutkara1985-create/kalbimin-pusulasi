@@ -435,7 +435,7 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
             --kp-font-scale: {font_scale};
             --kp-sidebar-width: {sidebar_width}px;
 
-            --kp-form-label-size: 0.82rem;
+            --kp-form-label-size: 0.75rem;
         }}
 
         html, body, [class*="css"] {{ font-family: var(--kp-font-sans); font-size: calc(16px * var(--kp-font-scale)); }}
