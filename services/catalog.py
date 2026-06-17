@@ -125,6 +125,15 @@ MODULES: Dict[str, dict] = {
         "mode": "manual_request",
         "guest_allowed": True,
     },
+    "yildizname": {
+        "title": "Yıldızname",
+        "icon": "✶",
+        "description": "Yıldızların dili, kaderindeki izleri fısıldar",
+        "category": "Astroloji",
+        "min_plan": "free",
+        "mode": "manual_request",
+        "guest_allowed": True,
+    },
     "mini_tarot": {
         "title": "Mini Tarot Falı",
         "icon": "◇",
@@ -197,24 +206,6 @@ MODULES: Dict[str, dict] = {
         "mode": "manual_request",
         "guest_allowed": True,
     },
-    "meditation": {
-        "title": "Meditasyonlar",
-        "icon": "☽",
-        "description": "Ruhunu arındır, enerjini yeniden yaz",
-        "category": "Ruhsal & Zihinsel",
-        "min_plan": "free",
-        "mode": "content",
-        "guest_allowed": True,
-    },
-    "rituals": {
-        "title": "Ritüeller",
-        "icon": "✺",
-        "description": "Her ritüel, niyetin evrene attığı gizli bir imzadır",
-        "category": "Ruhsal & Zihinsel",
-        "min_plan": "free",
-        "mode": "content",
-        "guest_allowed": True,
-    },
 }
 
 PLAN_ORDER = {"free": 0, "premium": 1, "premium_plus": 2}
@@ -236,6 +227,7 @@ MANUAL_REQUEST_TYPES = {
     "dream": "Rüya Tabirleri",
     "soulmate": "Ruh Eşi Çizimi",
     "birth_chart": "Doğum Haritası Analizi",
+    "yildizname": "Yıldızname",
 }
 
 DEFAULT_PROMPTS: Dict[str, str] = {
