@@ -1194,7 +1194,7 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
         }}
 
         .element-container:has(.kp-module-card) {{
-            margin-top: -1.90rem !important;
+            margin-top: -2.20rem !important;
             padding-top: 0 !important;
         }}
         .kp-module-card {{
