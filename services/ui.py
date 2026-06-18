@@ -169,23 +169,43 @@ div[data-testid="stHorizontalBlock"]:has(.kp-card-slot-wrap) > div[data-testid="
 </style>
 """
 KP_MODULE_MENU_ICONS: Dict[str, str] = {
-    "home": "🏠",
-    "tarot": "🃏",
-    "katina": "🔗",
-    "coffee_image": "☕️",
+    "home": "☽",
+    "tarot": "✦",
+    "katina": "◇",
+    "coffee_image": "☉",
     "mini_tarot": "✧",
-    "mini_katina": "◇",
-    "coffee_text": "☕️",
-    "love_fortune": "💖",
-    "birth_chart": "🪐",
-    "yildizname": "✨",
-    "dream": "🌙",
-    "soulmate": "♾️",
-    "relationship": "💞",
-    "feedback": "📝",
-    "admin": "⚙️",
-    "inbox": "📩",
-    "account": "👤",
+    "mini_katina": "◈",
+    "coffee_text": "☉",
+    "love_fortune": "♡",
+    "birth_chart": "☽",
+    "yildizname": "✶",
+    "dream": "☾",
+    "soulmate": "∞",
+    "relationship": "♡",
+    "feedback": "✎",
+    "admin": "✺",
+    "inbox": "✉",
+    "account": "☽",
+}
+
+BRAND_MODULE_SYMBOLS: Dict[str, str] = {
+    "home": "☽",
+    "tarot": "✦",
+    "katina": "◇",
+    "coffee_image": "☉",
+    "mini_tarot": "✧",
+    "mini_katina": "◈",
+    "coffee_text": "☉",
+    "love_fortune": "♡",
+    "birth_chart": "☽",
+    "yildizname": "✶",
+    "dream": "☾",
+    "soulmate": "∞",
+    "relationship": "♡",
+    "feedback": "✎",
+    "admin": "✺",
+    "inbox": "✉",
+    "account": "☽",
 }
 MODULE_VISUALS: Dict[str, Tuple[str, str, str]] = {
     "relationship": ("Aşk & İlişki", KP_MODULE_MENU_ICONS["relationship"], "fire"),
@@ -352,11 +372,9 @@ def _professional_module_icon_svg(module_key: str, fallback_icon: str) -> str:
 
 
 def module_icon_html(module_key: str, fallback_icon: str) -> str:
-    """Return modern module icons for module cards and page intro boxes."""
-    if module_key in PROFESSIONAL_MODULE_ICONS:
-        return _professional_module_icon_svg(module_key, fallback_icon)
-    icon = KP_MODULE_MENU_ICONS.get(module_key, fallback_icon)
-    return f'<span class="kp-icon-fallback kp-menu-style-module-icon">{escape(str(icon))}</span>'
+    """Return brand-style symbols matching the sidebar logo orb."""
+    icon = BRAND_MODULE_SYMBOLS.get(module_key, KP_MODULE_MENU_ICONS.get(module_key, fallback_icon))
+    return f'<span class="kp-icon-fallback kp-brand-symbol-icon">{escape(str(icon))}</span>'
 
 
 BACKGROUND_EXTENSIONS = (".png", ".jpg", ".jpeg", ".webp")
@@ -1114,19 +1132,14 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
         .kp-hero {{
     max-width: 440px !important;
     width: min(440px, calc(100vw - 32px)) !important;
-    min-height: 190px !important;
-    padding: 16px 17px 15px !important;
-    border-radius: 24px !important;
-    background:
-        linear-gradient(145deg, rgba(255,255,255,0.045), rgba(255,255,255,0.012)),
-        radial-gradient(circle at 22% 15%, rgba(38, 112, 183, 0.14), transparent 34%),
-        radial-gradient(circle at 88% 10%, rgba(217, 183, 110, 0.08), transparent 28%),
-        radial-gradient(circle at 62% 76%, rgba(123, 75, 214, 0.14), transparent 45%),
-        rgba(10, 12, 36, 0.15) !important;
-    border: 1px solid rgba(217, 183, 110, 0.18) !important;
-    box-shadow: 0 14px 34px rgba(0,0,0,0.26), inset 0 1px 0 rgba(255,255,255,0.08) !important;
+    min-height: 0 !important;
+    padding: 4px 8px 7px !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
     position: relative;
-    overflow: hidden;
+    overflow: visible;
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
     margin: -1.55rem auto 1.05rem auto !important;
@@ -1157,8 +1170,8 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
             color: var(--kp-gold-2); font-family: var(--kp-font-serif); font-size: 1.35rem;
         }}
         .kp-eyebrow {{
-            display: inline-flex; gap: 6px; padding: 5px 8px; border-radius: 999px;
-            background: rgba(255,241,184,0.08); border: 1px solid rgba(255,241,184,0.18);
+            display: inline-flex; gap: 6px; padding: 0; border-radius: 0;
+            background: transparent; border: none;
             color: var(--kp-gold-2); font-size: 0.58rem; font-weight: 800; letter-spacing: 0.075em; text-transform: uppercase;
         }}
         .kp-username {{ margin-top: 5px; color: var(--kp-muted); font-size: 0.78rem; }}
@@ -1193,17 +1206,68 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
             overflow: hidden; backdrop-filter: blur(22px); transition: transform 220ms ease, border-color 220ms ease, box-shadow 220ms ease;
         }}
 
-        .element-container:has(.kp-module-card) {{
+        .element-container:has(.kp-module-card),
+        .element-container:has(.kp-module-intro-embedded) {{
             margin-top: -2.60rem !important;
             padding-top: 0 !important;
         }}
-        .kp-module-card {{
+        .kp-module-card,
+        .kp-module-intro-embedded {{
             margin-top: 0 !important;
-            margin-bottom: 0.55rem !important;
+            margin-bottom: 0.65rem !important;
         }}
+        .kp-module-intro-embedded {{
+            position: relative;
+            display: grid;
+            grid-template-columns: auto minmax(0, 1fr);
+            align-items: center;
+            gap: 13px;
+            max-width: 540px;
+            margin-left: auto !important;
+            margin-right: auto !important;
+            padding: 0 8px 8px !important;
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            border-radius: 0 !important;
+            overflow: visible !important;
+        }}
+        .kp-module-intro-embedded h3 {{
+            margin: 0 0 3px !important;
+            color: var(--kp-text) !important;
+            font-size: clamp(1.55rem, 5vw, 2.08rem) !important;
+            line-height: 1.05 !important;
+            text-shadow: 0 12px 28px rgba(0,0,0,0.32), 0 0 22px rgba(217,183,110,0.12) !important;
+        }}
+        .kp-module-intro-embedded p {{
+            margin: 0 !important;
+            color: var(--kp-muted) !important;
+            font-size: 0.80rem !important;
+            line-height: 1.42 !important;
+        }}
+        .kp-module-intro-embedded .kp-card-category {{
+            display: inline-flex !important;
+            width: fit-content !important;
+            margin-top: 7px !important;
+            padding: 0 !important;
+            border: none !important;
+            background: transparent !important;
+            color: rgba(255,241,184,0.78) !important;
+            font-size: 0.62rem !important;
+            font-weight: 850 !important;
+            letter-spacing: 0.12em !important;
+            text-transform: uppercase !important;
+        }}
+        .kp-module-intro-copy {{ min-width: 0 !important; }}
         @media (max-width: 760px) {{
-            .element-container:has(.kp-module-card) {{
+            .element-container:has(.kp-module-card),
+            .element-container:has(.kp-module-intro-embedded) {{
                 margin-top: -1.65rem !important;
+            }}
+            .kp-module-intro-embedded {{
+                grid-template-columns: auto minmax(0, 1fr);
+                gap: 10px;
+                padding: 0 4px 6px !important;
             }}
         }}
         .kp-card:hover {{ transform: translateY(-3px) scale(1.02); border-color: rgba(255,241,184,0.58); box-shadow: 0 26px 58px rgba(0,0,0,0.38), 0 0 28px rgba(217,183,110,0.14); }}
@@ -1215,23 +1279,28 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
         .kp-card-top {{ display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 14px; }}
         .kp-icon {{
             position: relative;
-            width: 72px; height: 72px; border-radius: 24px; display: grid; place-items: center; color: var(--kp-gold-2);
-            font-family: var(--kp-font-serif); font-size: 2.08rem;
-            background:
-                radial-gradient(circle at 28% 18%, rgba(255,241,184,0.46), transparent 29%),
-                linear-gradient(145deg, rgba(217,183,110,0.34), rgba(123,75,214,0.24) 58%, rgba(6,8,23,0.42));
-            border: 1px solid rgba(255,241,184,0.42);
-            box-shadow: 0 18px 38px rgba(0,0,0,0.34), 0 0 28px rgba(217,183,110,0.20), inset 0 1px 0 rgba(255,255,255,0.055);
+            width: 58px; height: 58px; border-radius: 50%; display: grid; place-items: center; color: var(--kp-gold-2);
+            font-family: var(--kp-font-serif); font-size: 1.78rem;
+            background: conic-gradient(from 0deg, #fff1b8, #d9b76e, #7b4bd6, #fff1b8);
+            border: none;
+            box-shadow: 0 0 22px rgba(217,183,110,0.24), 0 12px 26px rgba(0,0,0,0.30);
             overflow: hidden;
             flex: 0 0 auto;
+            isolation: isolate;
         }}
         .kp-icon::before {{
             content: "";
             position: absolute;
-            inset: 8px;
-            border-radius: 19px;
-            border: 1px solid rgba(255,241,184,0.16);
+            inset: 4px;
+            border-radius: 50%;
+            background: linear-gradient(145deg, #10194a, #3a166a 60%, #090f2f);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
             pointer-events: none;
+            z-index: 0;
+        }}
+        .kp-icon > * {{
+            position: relative;
+            z-index: 1;
         }}
         .kp-menu-style-module-icon {{
     display: inline-flex !important;
@@ -1666,8 +1735,8 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
 
         /* Performance-focused professional icons and embedded form fields */
         .kp-icon-svg {{
-            width: 62% !important;
-            height: 62% !important;
+            width: 54% !important;
+            height: 54% !important;
             display: block !important;
             color: var(--kp-gold-2) !important;
             stroke: currentColor !important;
@@ -1697,10 +1766,11 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
             border-color: rgba(255,241,184,0.13) !important;
             box-shadow: none !important;
         }}
-        .kp-icon-fallback {{
+        .kp-icon-fallback,
+        .kp-brand-symbol-icon {{
             color: var(--kp-gold-2) !important;
             font-family: var(--kp-font-serif) !important;
-            font-size: 1.78rem !important;
+            font-size: 1.72rem !important;
             line-height: 1 !important;
             filter: drop-shadow(0 0 8px rgba(217,183,110,0.42)) !important;
         }}
@@ -2340,21 +2410,18 @@ def render_metric_card(label: str, value: str, detail: str = "") -> None:
 
 def render_module_card(module_key: str, module: Dict[str, Any], locked: bool = False) -> None:
     category, icon, element = module_visual(module_key)
-    lock_html = '<span class="kp-lock">Hesap gerekli</span>' if locked else '<span class="kp-lock">Açık</span>'
     title = escape(str(module.get("title", "")))
     description = escape(str(module.get("description", "")))
     icon_html = module_icon_html(module_key, icon)
-    icon_class = "kp-icon"
     st.markdown(
         f"""
-        <div class="kp-card kp-module-card {element}">
-          <div class="kp-card-top">
-            <div class="{icon_class}">{icon_html}</div>
-            {lock_html}
+        <div class="kp-module-intro-embedded {element}">
+          <div class="kp-icon">{icon_html}</div>
+          <div class="kp-module-intro-copy">
+            <h3>{title}</h3>
+            <p>{description}</p>
+            <div class="kp-card-category">{escape(category)}</div>
           </div>
-          <h3>{title}</h3>
-          <p>{description}</p>
-          <div class="kp-card-category">{escape(category)}</div>
         </div>
         """,
         unsafe_allow_html=True,
