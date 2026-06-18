@@ -2420,8 +2420,7 @@ def render_module_card(module_key: str, module: Dict[str, Any], locked: bool = F
           <div class="kp-module-intro-copy">
             <h3>{title}</h3>
             <p>{description}</p>
-            <div class="kp-card-category">{escape(category)}</div>
-          </div>
+            </div>
         </div>
         """,
         unsafe_allow_html=True,
