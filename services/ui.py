@@ -1129,7 +1129,7 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
     overflow: hidden;
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
-    margin: -0.55rem auto 1.05rem auto !important;
+    margin: -1.55rem auto 1.05rem auto !important;
 }}
         .kp-hero::after {{
             content: "☉     ☽     ✧     ◇     ♀     ♃";
