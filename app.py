@@ -137,7 +137,7 @@ def send_feedback_response(feedback_id: str, response_text: str, admin_user: Dic
 
 st.set_page_config(
     page_title=APP_NAME,
-    page_icon="🔮",
+    page_icon="☽",
     layout="centered",
     initial_sidebar_state="auto",
     menu_items={"Get help": None, "Report a bug": None, "About": None},
@@ -416,23 +416,23 @@ inject_css(PUBLIC_SETTINGS.get("style", {}))
 
 
 KP_COMPACT_ICONS: Dict[str, str] = {
-    "home": "🏠",
-    "tarot": "🃏",
-    "katina": "🔗",
-    "coffee_image": "☕️",
+    "home": "☽",
+    "tarot": "✦",
+    "katina": "◇",
+    "coffee_image": "☉",
     "mini_tarot": "✧",
-    "mini_katina": "◇",
-    "coffee_text": "☕️",
-    "love_fortune": "💖",
-    "birth_chart": "🪐",
-    "yildizname": "✨",
-    "dream": "🌙",
-    "soulmate": "♾️",
-    "relationship": "💞",
-    "feedback": "📝",
-    "admin": "⚙️",
-    "inbox": "📩",
-    "account": "👤",
+    "mini_katina": "◈",
+    "coffee_text": "☉",
+    "love_fortune": "♡",
+    "birth_chart": "☽",
+    "yildizname": "✶",
+    "dream": "☾",
+    "soulmate": "∞",
+    "relationship": "♡",
+    "feedback": "✎",
+    "admin": "✺",
+    "inbox": "✉",
+    "account": "☽",
 }
 
 BASE_MENU_GROUPS = [
