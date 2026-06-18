@@ -1246,7 +1246,7 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
             line-height: 1.42 !important;
         }}
         .kp-module-intro-embedded .kp-card-category {{
-            display: inline-flex !important;
+            display: none !important;
             width: fit-content !important;
             margin-top: 7px !important;
             padding: 0 !important;
