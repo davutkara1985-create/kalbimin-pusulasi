@@ -1194,7 +1194,7 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
         }}
 
         .element-container:has(.kp-module-card) {{
-            margin-top: -2.20rem !important;
+            margin-top: -2.60rem !important;
             padding-top: 0 !important;
         }}
         .kp-module-card {{
@@ -1203,7 +1203,7 @@ def inject_css(style_settings: Optional[Dict[str, Any]] = None) -> None:
         }}
         @media (max-width: 760px) {{
             .element-container:has(.kp-module-card) {{
-                margin-top: -1.10rem !important;
+                margin-top: -1.65rem !important;
             }}
         }}
         .kp-card:hover {{ transform: translateY(-3px) scale(1.02); border-color: rgba(255,241,184,0.58); box-shadow: 0 26px 58px rgba(0,0,0,0.38), 0 0 28px rgba(217,183,110,0.14); }}
